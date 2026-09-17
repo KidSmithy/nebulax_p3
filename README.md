@@ -1,5 +1,35 @@
 # NebulaX 2026 Hackathon Repository
 
+## Run the PS3 training notebooks
+
+Each existing subsystem folder has one self-contained notebook. Open it in VS Code or Jupyter, select a Python 3.11 environment, then **Run All**. The notebook explains setup, loads raw Train data, extracts features, trains the model, and prints cross-validation scores. Saved cell outputs show the completed run.
+
+| Subsystem | Notebook | Model |
+|---|---|---|
+| Door | [Door/train.ipynb](Door/train.ipynb) | ExtraTrees, 300 trees, minimum leaf 3 |
+| ACV | [ACV/train.ipynb](ACV/train.ipynb) | Balanced logistic regression, C=0.1 |
+| Rail Corrugation | [Rail_Corrugation/train.ipynb](Rail_Corrugation/train.ipynb) | Balanced logistic regression, C=1 |
+| SHM | [SHM/train.ipynb](SHM/train.ipynb) | Rainflow moments and positive scalar calibration |
+
+Keep the datasets local: copy the contents of the matching `PS3/02_Datasets/<subsystem>` Train dataset into `<subsystem>/data/`. The layout is:
+
+```text
+Door/
+  train.ipynb
+  data/Train.csv
+  data/Train_Segments_Answer.csv
+ACV/                         # same layout for Rail_Corrugation and SHM
+  train.ipynb
+  data/Train_Labels.csv
+  data/Train/                # original training workbooks or CSV files
+```
+
+The `data/` folders are ignored by Git. The notebooks need no extra Python scripts, settings files, saved models, JSON reports, or feature caches. Install the pinned CPU dependencies shown in the first notebook cell; SHM additionally requires PyTorch 2.5.1 with CUDA 12.4 and a compatible NVIDIA GPU. Rail reads approximately 4.4 GB and can take several minutes.
+
+Scores are exploratory cross-validation on labelled Train data using previously selected recipes. Official Test is never read. Each notebook prints fitting and held-out scores separately and leaves freshly trained models in memory for further use.
+
+---
+
  This repository contains curated datasets and resources for participants working on various problem statements related to Land Transport Authority (LTA) NebulaX 2026 hackathon
 
 ## 📋 Table of Contents
