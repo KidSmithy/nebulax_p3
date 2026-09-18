@@ -126,3 +126,4 @@ Thumbs.db
 
 # Logs and runtime artifacts
 *.log
+/.playwright-mcp

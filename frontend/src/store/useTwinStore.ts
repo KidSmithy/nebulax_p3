@@ -1,5 +1,21 @@
 import { create } from 'zustand';
-import { UnifiedTelemetryFrame, CameraPreset, SubsystemSelection } from '../types/telemetry';
+import {
+  AIAnswer,
+  AIInsight,
+  ActiveInterventions,
+  CameraPreset,
+  SubsystemSelection,
+  UiMode,
+  UnifiedTelemetryFrame,
+  WhatIfResult,
+} from '../types/telemetry';
+
+const EMPTY_INTERVENTIONS: ActiveInterventions = {
+  ACTION_GRIND_RAIL: false,
+  ACTION_LUBRICATE_DOOR: false,
+  ACTION_REPLACE_FILTER: false,
+  ACTION_INSPECT_BEARING: false,
+};
 
 interface TwinState {
   currentFrame: UnifiedTelemetryFrame | null;
@@ -10,20 +26,30 @@ interface TwinState {
   isPlaying: boolean;
   playbackSpeed: number;
   isConnected: boolean;
-  activeInterventions: {
-    ACTION_GRIND_RAIL: boolean;
-    ACTION_LUBRICATE_DOOR: boolean;
-    ACTION_REPLACE_FILTER: boolean;
-    ACTION_INSPECT_BEARING: boolean;
-  };
+  activeInterventions: ActiveInterventions;
   ws: WebSocket | null;
 
   // UI Decluttering & Layout Controls
   isHudVisible: boolean;
   isLeftDrawerOpen: boolean;
   isRightDrawerOpen: boolean;
-  rightDrawerTab: 'telemetry' | 'whatif';
+  rightDrawerTab: 'telemetry' | 'whatif' | 'ai';
   activeInspection: 'door' | 'acv' | 'shm' | 'rail' | null;
+
+  /** Beginner leads with plain language; Expert exposes raw engineering units. */
+  uiMode: UiMode;
+
+  /** Last measured impact echoed back by the backend after a toggle. */
+  lastWhatIfResult: WhatIfResult | null;
+
+  // AI assistant
+  aiInsight: AIInsight | null;
+  aiInsightLoading: boolean;
+  aiAutoRefresh: boolean;
+  aiEnabled: boolean | null;
+  aiModel: string | null;
+  aiAnswers: AIAnswer[];
+  aiAsking: boolean;
 
   // Actions
   setFrame: (frame: UnifiedTelemetryFrame) => void;
@@ -34,7 +60,9 @@ interface TwinState {
   toggleHud: () => void;
   toggleLeftDrawer: () => void;
   toggleRightDrawer: () => void;
-  setRightDrawerTab: (tab: 'telemetry' | 'whatif') => void;
+  setRightDrawerTab: (tab: 'telemetry' | 'whatif' | 'ai') => void;
+  setUiMode: (mode: UiMode) => void;
+  toggleUiMode: () => void;
   setPlaying: (playing: boolean) => void;
   setPlaybackSpeed: (speed: number) => void;
   setIntervention: (action: string, enabled: boolean) => void;
@@ -42,6 +70,12 @@ interface TwinState {
   initWebSocket: () => void;
   sendSeek: (kp: number) => void;
   triggerWhatIf: (action: string, enabled: boolean) => void;
+  resetWhatIf: () => void;
+  dismissWhatIfResult: () => void;
+  fetchAiStatus: () => Promise<void>;
+  fetchAiInsight: (force?: boolean) => Promise<void>;
+  setAiAutoRefresh: (on: boolean) => void;
+  askAi: (question: string) => Promise<void>;
 }
 
 export const useTwinStore = create<TwinState>((set, get) => ({
@@ -53,12 +87,7 @@ export const useTwinStore = create<TwinState>((set, get) => ({
   isPlaying: true,
   playbackSpeed: 1.0,
   isConnected: false,
-  activeInterventions: {
-    ACTION_GRIND_RAIL: false,
-    ACTION_LUBRICATE_DOOR: false,
-    ACTION_REPLACE_FILTER: false,
-    ACTION_INSPECT_BEARING: false,
-  },
+  activeInterventions: { ...EMPTY_INTERVENTIONS },
   ws: null,
 
   // UI state defaults (right drawer starts closed for clean spacious 3D view)
@@ -68,11 +97,29 @@ export const useTwinStore = create<TwinState>((set, get) => ({
   rightDrawerTab: 'telemetry',
   activeInspection: null,
 
+  // Default to beginner: the dashboard should be readable before it is dense.
+  uiMode: 'beginner',
+
+  lastWhatIfResult: null,
+
+  aiInsight: null,
+  aiInsightLoading: false,
+  aiAutoRefresh: false,
+  aiEnabled: null,
+  aiModel: null,
+  aiAnswers: [],
+  aiAsking: false,
 
   setFrame: (frame) =>
     set((state) => {
       const newHistory = [...state.history, frame].slice(-60); // keep last 60 frames (6s at 10Hz)
-      return { currentFrame: frame, history: newHistory };
+      return {
+        currentFrame: frame,
+        history: newHistory,
+        // Trust the backend as the source of truth for which actions are live,
+        // so the UI cannot drift out of sync with the simulation.
+        activeInterventions: frame.active_interventions ?? state.activeInterventions,
+      };
     }),
 
   setCameraMode: (mode) => set({ cameraMode: mode }),
@@ -95,6 +142,10 @@ export const useTwinStore = create<TwinState>((set, get) => ({
   toggleLeftDrawer: () => set((state) => ({ isLeftDrawerOpen: !state.isLeftDrawerOpen })),
   toggleRightDrawer: () => set((state) => ({ isRightDrawerOpen: !state.isRightDrawerOpen })),
   setRightDrawerTab: (tab) => set({ rightDrawerTab: tab }),
+
+  setUiMode: (mode) => set({ uiMode: mode }),
+  toggleUiMode: () =>
+    set((state) => ({ uiMode: state.uiMode === 'beginner' ? 'expert' : 'beginner' })),
 
   setPlaying: (playing) => {
     set({ isPlaying: playing });
@@ -137,6 +188,78 @@ export const useTwinStore = create<TwinState>((set, get) => ({
     }
   },
 
+  resetWhatIf: () => {
+    set({ activeInterventions: { ...EMPTY_INTERVENTIONS }, lastWhatIfResult: null });
+    const ws = get().ws;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'reset_whatif' }));
+    }
+  },
+
+  dismissWhatIfResult: () => set({ lastWhatIfResult: null }),
+
+  // ------------------------------------------------------------------ AI
+  fetchAiStatus: async () => {
+    try {
+      const res = await fetch('/api/ai/status');
+      const data = await res.json();
+      set({ aiEnabled: !!data.ai_enabled, aiModel: data.model ?? null });
+    } catch {
+      set({ aiEnabled: false });
+    }
+  },
+
+  fetchAiInsight: async (force = false) => {
+    if (get().aiInsightLoading) return;
+    set({ aiInsightLoading: true });
+    try {
+      const res = await fetch('/api/ai/insight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force }),
+      });
+      const data = await res.json();
+      set({ aiInsight: data.insight ?? null });
+    } catch (err) {
+      console.error('[AI] insight request failed:', err);
+    } finally {
+      set({ aiInsightLoading: false });
+    }
+  },
+
+  setAiAutoRefresh: (on) => set({ aiAutoRefresh: on }),
+
+  askAi: async (question) => {
+    const q = question.trim();
+    if (!q || get().aiAsking) return;
+    set({ aiAsking: true });
+    try {
+      const res = await fetch('/api/ai/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q }),
+      });
+      const data = await res.json();
+      set((state) => ({
+        aiAnswers: [...state.aiAnswers, { ...data, question: q }].slice(-8),
+      }));
+    } catch (err) {
+      console.error('[AI] ask request failed:', err);
+      set((state) => ({
+        aiAnswers: [
+          ...state.aiAnswers,
+          {
+            question: q,
+            answer: 'Could not reach the assistant. Check that the backend is running.',
+            source: 'error',
+          },
+        ].slice(-8),
+      }));
+    } finally {
+      set({ aiAsking: false });
+    }
+  },
+
   initWebSocket: () => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname || 'localhost';
@@ -152,10 +275,22 @@ export const useTwinStore = create<TwinState>((set, get) => ({
 
       socket.onmessage = (event) => {
         try {
-          const frame: UnifiedTelemetryFrame = JSON.parse(event.data);
-          get().setFrame(frame);
+          const msg = JSON.parse(event.data);
+
+          // The socket now carries two message kinds: continuous telemetry
+          // frames, and one-off confirmations of a maintenance intervention
+          // carrying its measured impact.
+          if (msg.type === 'whatif_result') {
+            set({
+              lastWhatIfResult: msg as WhatIfResult,
+              activeInterventions: msg.active_interventions ?? get().activeInterventions,
+            });
+            return;
+          }
+
+          get().setFrame(msg as UnifiedTelemetryFrame);
         } catch (err) {
-          console.error('[WebSocket] Error parsing frame:', err);
+          console.error('[WebSocket] Error parsing message:', err);
         }
       };
 

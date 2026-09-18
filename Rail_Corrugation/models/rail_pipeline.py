@@ -50,6 +50,8 @@ class RailPredictor:
             raise FileNotFoundError(f"Model bundle not found at {bundle_path}.")
             
         self.bundle = joblib.load(bundle_path)
+        self.final_lgb = self.bundle.get('final_lgb', None)
+        self.final_xt = self.bundle.get('final_xt', None)
         self.lgb_boosters = self.bundle.get('lgb_boosters', [])
         self.xt_boosters = self.bundle.get('xt_boosters', [])
         self.blend_weights = self.bundle.get('blend_weights', (0.6, 0.4))
@@ -58,7 +60,7 @@ class RailPredictor:
         self.inv_label_map = self.bundle.get('inv_label_map', {0: 'Normal', 1: 'Side I', 2: 'Side II'})
         self.label_map = self.bundle.get('label_map', {'Normal': 0, 'Side I': 1, 'Side II': 2})
         self.low_speed_th = self.bundle.get('speed_gate_kmh', 10.0)
-        self.performance_metrics = self.bundle.get('performance_metrics', {})
+        self.validation_metrics = self.bundle.get('validation_metrics', {})
         
     def _decode_speed(self, speed_series: np.ndarray) -> dict:
         diffs = np.abs(np.diff(speed_series))
@@ -216,6 +218,16 @@ class RailPredictor:
                 feats[f'{wname}_ratio'] = 1.0
                 feats[f'{wname}_diff'] = 0.0
 
+        # Physically Grounded Interaction & Speed-Normalized Features
+        v_norm_factor = max(speed_info['speed_kmh'] / 50.0, 0.2)**2
+        feats['v_rms_diff_speed_norm'] = feats['v_rms_diff'] / v_norm_factor
+        feats['s1_v_rms_speed_norm'] = feats['s1_v_rms'] / v_norm_factor
+        feats['tail_cars_v_ratio'] = (feats['car6_v_ratio'] + feats['car7_v_ratio'] + feats['car8_v_ratio']) / 3.0
+        feats['lead_cars_v_ratio'] = (feats['car1_v_ratio'] + feats['car2_v_ratio'] + feats['car3_v_ratio']) / 3.0
+        feats['tail_vs_lead_diff'] = feats['tail_cars_v_ratio'] - feats['lead_cars_v_ratio']
+        feats['wave_4_20cm_ratio'] = (feats['wave_4_7cm_ratio'] + feats['wave_7_12cm_ratio'] + feats['wave_12_20cm_ratio']) / 3.0
+        feats['asymmetry_x_corrugation'] = feats['v_rms_diff'] * feats['wave_7_12cm_ratio']
+
         return feats
         
     def predict(self, df_or_filepath) -> dict:
@@ -259,22 +271,20 @@ class RailPredictor:
         # 2. Ensemble Inference
         x_vec = np.array([[feats[col] for col in self.feature_cols]])
         
-        # LightGBM fold average
-        if self.lgb_boosters:
+        w_lgb, w_xt = self.blend_weights
+        
+        if self.final_lgb is not None and self.final_xt is not None:
+            p_lgb = self.final_lgb.predict_proba(x_vec)[0]
+            p_xt = self.final_xt.predict_proba(x_vec)[0]
+            raw_probs = w_lgb * p_lgb + w_xt * p_xt
+        elif self.lgb_boosters and self.xt_boosters:
             p_lgb_folds = [b.predict(x_vec)[0] for b in self.lgb_boosters]
             p_lgb = np.mean(p_lgb_folds, axis=0)
-        else:
-            p_lgb = np.zeros(3)
-            
-        # LightGBMXT fold average
-        if self.xt_boosters:
             p_xt_folds = [b.predict(x_vec)[0] for b in self.xt_boosters]
             p_xt = np.mean(p_xt_folds, axis=0)
+            raw_probs = w_lgb * p_lgb + w_xt * p_xt
         else:
-            p_xt = p_lgb
-            
-        w_lgb, w_xt = self.blend_weights
-        raw_probs = w_lgb * p_lgb + w_xt * p_xt
+            raise RuntimeError("No valid model found in loaded bundle.")
         
         # Calibrated decision threshold divisors
         adj_scores = raw_probs / self.threshold_divisors

@@ -13,8 +13,8 @@ export const DoorAssembly: React.FC<DoorAssemblyProps> = ({
   position = [1.26, 0.1, 1.2],
   rotation = [0, 0, 0],
 }) => {
-  const leftLeafRef = useRef<THREE.Mesh>(null);
-  const rightLeafRef = useRef<THREE.Mesh>(null);
+  const leftLeafRef = useRef<THREE.Group>(null);
+  const rightLeafRef = useRef<THREE.Group>(null);
 
   const currentFrame = useTwinStore((state) => state.currentFrame);
   const doorTelemetry = currentFrame?.subsystems?.door;
@@ -66,61 +66,129 @@ export const DoorAssembly: React.FC<DoorAssemblyProps> = ({
 
   return (
     <group position={position} rotation={rotation}>
-      {/* Door frame surround */}
-      <mesh position={[0, 0.95, 0]}>
-        <boxGeometry args={[1.25, 0.08, 0.08]} />
+      {/* Door frame surround / header box */}
+      <mesh position={[0, 0.96, 0]}>
+        <boxGeometry args={[1.28, 0.12, 0.09]} />
         <meshStandardMaterial color="#1e293b" metalness={0.8} roughness={0.3} />
       </mesh>
-      <mesh position={[-0.60, 0, 0]}>
-        <boxGeometry args={[0.08, 1.9, 0.08]} />
+      {/* SMRT Header Warning Indicator Strip */}
+      <mesh position={[0, 0.98, 0.05]}>
+        <boxGeometry args={[0.5, 0.03, 0.01]} />
+        <meshStandardMaterial
+          color={isAnomalous ? '#ED1C24' : '#009645'}
+          emissive={isAnomalous ? '#ED1C24' : '#009645'}
+          emissiveIntensity={1.2}
+        />
+      </mesh>
+
+      {/* Left Frame Post */}
+      <mesh position={[-0.62, 0, 0]}>
+        <boxGeometry args={[0.08, 1.95, 0.08]} />
         <meshStandardMaterial color="#1e293b" metalness={0.8} roughness={0.3} />
       </mesh>
-      <mesh position={[0.60, 0, 0]}>
-        <boxGeometry args={[0.08, 1.9, 0.08]} />
+      {/* Right Frame Post */}
+      <mesh position={[0.62, 0, 0]}>
+        <boxGeometry args={[0.08, 1.95, 0.08]} />
         <meshStandardMaterial color="#1e293b" metalness={0.8} roughness={0.3} />
       </mesh>
 
-      {/* Left Leaf */}
-      <mesh ref={leftLeafRef} position={[-0.28, 0, 0]}>
-        <boxGeometry args={[0.54, 1.82, 0.04]} />
-        <meshStandardMaterial
-          color={isAnomalous ? '#dc2626' : '#94a3b8'}
-          metalness={0.7}
-          roughness={0.3}
-        />
-        {/* Glass window */}
-        <mesh position={[0, 0.25, 0.01]}>
-          <boxGeometry args={[0.34, 0.70, 0.03]} />
-          <meshPhysicalMaterial
-            color="#0284c7"
-            transmission={0.7}
-            opacity={0.8}
-            transparent
-            roughness={0.1}
+      {/* --- Left Door Leaf --- */}
+      <group ref={leftLeafRef as any} position={[-0.28, 0, 0]}>
+        {/* Leaf Stile Frame Outer */}
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[0.54, 1.84, 0.04]} />
+          <meshStandardMaterial
+            color={isAnomalous ? '#dc2626' : '#1e293b'}
+            metalness={0.8}
+            roughness={0.25}
           />
         </mesh>
-      </mesh>
 
-      {/* Right Leaf */}
-      <mesh ref={rightLeafRef} position={[0.28, 0, 0]}>
-        <boxGeometry args={[0.54, 1.82, 0.04]} />
-        <meshStandardMaterial
-          color={isAnomalous ? '#dc2626' : '#94a3b8'}
-          metalness={0.7}
-          roughness={0.3}
-        />
-        {/* Glass window */}
-        <mesh position={[0, 0.25, 0.01]}>
-          <boxGeometry args={[0.34, 0.70, 0.03]} />
+        {/* Large Transparent Safety Glass Pane */}
+        <mesh position={[0, 0.22, 0.005]}>
+          <boxGeometry args={[0.44, 1.15, 0.035]} />
           <meshPhysicalMaterial
-            color="#0284c7"
-            transmission={0.7}
-            opacity={0.8}
+            color="#e2e8f0"
+            transmission={0.82}
+            opacity={0.85}
             transparent
-            roughness={0.1}
+            roughness={0.08}
+            ior={1.5}
           />
         </mesh>
-      </mesh>
+
+        {/* Lower Stainless Steel Kickplate */}
+        <mesh position={[0, -0.62, 0.01]}>
+          <boxGeometry args={[0.46, 0.52, 0.025]} />
+          <meshStandardMaterial color="#94a3b8" metalness={0.85} roughness={0.2} />
+        </mesh>
+
+        {/* Middle Eye-Level Chevron Warning Band (Singapore MRT Standard) */}
+        <mesh position={[0, 0.12, 0.02]}>
+          <boxGeometry args={[0.44, 0.18, 0.01]} />
+          <meshStandardMaterial
+            color="#ffffff"
+            transparent
+            opacity={0.45}
+            roughness={0.9}
+          />
+        </mesh>
+
+        {/* Vertical Rubber Safety Edge */}
+        <mesh position={[0.26, 0, 0]}>
+          <boxGeometry args={[0.02, 1.84, 0.045]} />
+          <meshStandardMaterial color="#090d16" roughness={0.95} />
+        </mesh>
+      </group>
+
+      {/* --- Right Door Leaf --- */}
+      <group ref={rightLeafRef as any} position={[0.28, 0, 0]}>
+        {/* Leaf Stile Frame Outer */}
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[0.54, 1.84, 0.04]} />
+          <meshStandardMaterial
+            color={isAnomalous ? '#dc2626' : '#1e293b'}
+            metalness={0.8}
+            roughness={0.25}
+          />
+        </mesh>
+
+        {/* Large Transparent Safety Glass Pane */}
+        <mesh position={[0, 0.22, 0.005]}>
+          <boxGeometry args={[0.44, 1.15, 0.035]} />
+          <meshPhysicalMaterial
+            color="#e2e8f0"
+            transmission={0.82}
+            opacity={0.85}
+            transparent
+            roughness={0.08}
+            ior={1.5}
+          />
+        </mesh>
+
+        {/* Lower Stainless Steel Kickplate */}
+        <mesh position={[0, -0.62, 0.01]}>
+          <boxGeometry args={[0.46, 0.52, 0.025]} />
+          <meshStandardMaterial color="#94a3b8" metalness={0.85} roughness={0.2} />
+        </mesh>
+
+        {/* Middle Eye-Level Chevron Warning Band (Singapore MRT Standard) */}
+        <mesh position={[0, 0.12, 0.02]}>
+          <boxGeometry args={[0.44, 0.18, 0.01]} />
+          <meshStandardMaterial
+            color="#ffffff"
+            transparent
+            opacity={0.45}
+            roughness={0.9}
+          />
+        </mesh>
+
+        {/* Vertical Rubber Safety Edge */}
+        <mesh position={[-0.26, 0, 0]}>
+          <boxGeometry args={[0.02, 1.84, 0.045]} />
+          <meshStandardMaterial color="#090d16" roughness={0.95} />
+        </mesh>
+      </group>
 
       {/* Kinematic Ghost Mesh Baseline */}
       <GhostMesh

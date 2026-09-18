@@ -4,13 +4,27 @@ backend/models/inference_broker.py
 Multi-Model Inference Broker:
 Coordinates concurrent subsystem model execution (Door, ACV, SHM, Rail Corrugation).
 Aggregates subsystem anomalies into a holistic Fleet Health Index.
+
+This is the single place where maintenance interventions are translated into
+physical effects. Every action in INTERVENTION_ACTIONS must have an observable
+consequence here, otherwise it is a dead toggle in the UI.
 ===============================================================================
 """
+
+import numpy as np
 
 from backend.models.door_model import DoorPredictor
 from backend.models.acv_model import ACVSubsystemModel
 from backend.models.shm_model import SHMSubsystemModel
 from backend.models.corrugation_model import RailCorrugationModel
+
+NO_INTERVENTIONS = {
+    "ACTION_GRIND_RAIL": False,
+    "ACTION_LUBRICATE_DOOR": False,
+    "ACTION_REPLACE_FILTER": False,
+    "ACTION_INSPECT_BEARING": False,
+}
+
 
 class InferenceBroker:
     def __init__(self):
@@ -19,46 +33,86 @@ class InferenceBroker:
         self.shm_model = SHMSubsystemModel()
         self.rail_model = RailCorrugationModel()
 
-    def process_subsystems(
-        self,
-        chainage_kp: float,
-        speed_kmh: float,
-        door_current: float = 8.2,
-        door_transit_sec: float = 3.1,
-        is_door_opening: bool = False,
-        supply_temp: float = 19.2,
-        return_temp: float = 26.5,
-        compressor_kw: float = 4.8,
-        acv_degraded: bool = False,
-        rail_ground_override: bool = False,
-        door_lubricated_override: bool = False
-    ) -> dict:
-        # 1. Rail Corrugation
-        rail_data = self.rail_model.evaluate_chainage(chainage_kp, grounded_override=rail_ground_override)
+    def process_subsystems(self, raw: dict, interventions: dict = None, seed: int = None) -> dict:
+        """
+        Runs all four subsystem models for one physical instant.
+
+        raw:            the untouched physical state from TelemetryGenerator.step()
+        interventions:  which maintenance actions are currently applied
+        seed:           fixes the sampling noise so that the same instant can be
+                        evaluated twice (with and without interventions) and the
+                        difference attributed purely to the maintenance action.
+        """
+        iv = {**NO_INTERVENTIONS, **(interventions or {})}
+        rng = np.random.default_rng(seed)
+
+        # ------------------------------------------------------------------
+        # 1. Rail Corrugation -- grinding removes the surface roughness.
+        # ------------------------------------------------------------------
+        rail_data = self.rail_model.evaluate_chainage(
+            raw["track_chainage_km"],
+            grounded_override=iv["ACTION_GRIND_RAIL"],
+            rng=rng,
+        )
         rail_severity = rail_data["severity_score"]
 
-        # 2. Structural Health Monitoring (coupled with rail roughness)
+        # ------------------------------------------------------------------
+        # 2. SHM -- coupled to rail roughness AND to the bearing's own state.
+        #    Re-greasing/servicing the bearing collapses its wear term, which
+        #    is why ACTION_INSPECT_BEARING now has a visible effect even on
+        #    perfectly smooth track.
+        # ------------------------------------------------------------------
+        bearing_wear = 0.04 if iv["ACTION_INSPECT_BEARING"] else raw.get("bearing_wear", 0.0)
         shm_data = self.shm_model.evaluate_vibration(
-            speed_kmh=speed_kmh,
-            corrugation_severity=rail_severity
+            speed_kmh=raw["train_speed_kmh"],
+            corrugation_severity=rail_severity,
+            bearing_wear=bearing_wear,
+            rng=rng,
         )
 
-        # 3. Door Electromechanics
-        effective_door_current = 8.2 if door_lubricated_override else door_current
-        effective_transit_sec = 3.0 if door_lubricated_override else door_transit_sec
+        # ------------------------------------------------------------------
+        # 3. Door -- lubrication REMOVES the guide-rail friction multiplier.
+        #    It must not pin the current to a constant: the motor still draws
+        #    its normal bell-curve while moving and ~0 A while parked.
+        # ------------------------------------------------------------------
+        nominal_current = raw.get("door_nominal_current", 8.2)
+        nominal_transit = raw.get("door_nominal_transit", 3.05)
+        is_moving = raw.get("door_is_moving", True)
+
+        if iv["ACTION_LUBRICATE_DOOR"]:
+            # Lubricated: friction term removed, only a small residual remains.
+            residual = 1.0 + (raw.get("door_friction_factor", 1.0) - 1.0) * 0.08
+            effective_current = nominal_current * (residual if is_moving else 1.0)
+            effective_transit = round(nominal_transit * (1.0 + (residual - 1.0) * 0.30), 2)
+        else:
+            effective_current = raw["door_current"]
+            effective_transit = raw["door_transit_time"]
+
         door_data = self.door_model.evaluate_cycle(
-            motor_current_amps=effective_door_current,
-            nominal_current_amps=8.20,
-            transit_time=effective_transit_sec,
-            is_opening=is_door_opening
+            motor_current_amps=effective_current,
+            nominal_current_amps=nominal_current,
+            transit_time=effective_transit,
+            is_opening=raw.get("is_door_opening", False),
+            is_moving=is_moving,
+            nominal_transit_time=nominal_transit,
+            rng=rng,
         )
 
-        # 4. ACV Thermodynamics
+        # ------------------------------------------------------------------
+        # 4. ACV -- replacing the filter clears the clog. Note the polarity:
+        #    action APPLIED means the filter is FRESH (not degraded).
+        # ------------------------------------------------------------------
+        acv_degraded = raw.get("acv_filter_clogged", False) and not iv["ACTION_REPLACE_FILTER"]
+        # A fresh filter restores airflow, so heat exchange improves and the
+        # compressor no longer has to work against a restricted duct.
+        supply_temp = raw["supply_temp"] - (1.9 if not acv_degraded else 0.0)
+        compressor_kw = raw["compressor_kw"] - (0.62 if not acv_degraded else 0.0)
+
         acv_data = self.acv_model.evaluate_telemetry(
             supply_temp=supply_temp,
-            return_temp=return_temp,
+            return_temp=raw["return_temp"],
             compressor_kw=compressor_kw,
-            degraded=acv_degraded
+            degraded=acv_degraded,
         )
 
         # Composite Fleet Health Index (1.0 = optimal, lower = elevated risk)

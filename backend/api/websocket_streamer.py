@@ -59,7 +59,19 @@ class ConnectionManager:
             action = data.get("action")
             enabled = data.get("enabled", True)
             if action:
-                self.whatif_engine.simulate_action(action, enabled)
+                result = self.whatif_engine.simulate_action(action, enabled)
+                # The measured impact is the whole point of the sandbox, so it
+                # is broadcast back rather than discarded. Without this the
+                # operator toggles a switch and sees no confirmation at all.
+                await self.broadcast({"type": "whatif_result", **result})
+        elif msg_type == "reset_whatif":
+            self.harmonizer.reset_actions()
+            self.whatif_engine.active_interventions = dict(self.harmonizer.interventions)
+            await self.broadcast({
+                "type": "whatif_result",
+                "status": "RESET",
+                "active_interventions": dict(self.harmonizer.interventions),
+            })
 
     async def start_stream_loop(self):
         print("[WebSocket] Starting 10 Hz broadcast loop...")
@@ -70,6 +82,7 @@ class ConnectionManager:
                         dt=0.1,
                         speed_multiplier=self.speed_multiplier
                     )
+                    frame["type"] = "frame"
                     await self.broadcast(frame)
                 await asyncio.sleep(0.1)
             except asyncio.CancelledError:

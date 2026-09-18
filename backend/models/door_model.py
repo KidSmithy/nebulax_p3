@@ -133,17 +133,43 @@ class DoorPredictor:
         joblib.dump(self.bundle, BUNDLE_PATH)
         print(f"[DoorPredictor] Model trained on {len(X)} cycles and saved to {BUNDLE_PATH}")
 
-    def evaluate_cycle(self, motor_current_amps: float, nominal_current_amps: float, transit_time: float, is_opening: bool = False) -> dict:
+    def evaluate_cycle(self, motor_current_amps: float, nominal_current_amps: float,
+                       transit_time: float, is_opening: bool = False,
+                       is_moving: bool = True, nominal_transit_time: float = 3.05,
+                       rng: np.random.Generator = None) -> dict:
         """
         Evaluates real-time kinematic and electromechanical door cycle.
         Returns anomaly_score, fault_type, ghost_deviation_mm, and waveform_window.
+
+        Anomaly is judged on the RATIO of measured to expected current for the
+        phase the door is currently in. While the door is parked (dwell or
+        locked) the motor is unloaded, so no friction verdict can be made and
+        the score is held at zero rather than dividing by a near-zero nominal.
         """
-        # Feature estimation from current cycle telemetry
-        current_ratio = motor_current_amps / max(nominal_current_amps, 0.1)
-        time_excess = max(0.0, transit_time - 3.0)
+        if rng is None:
+            rng = np.random.default_rng()
+
+        peak_nominal = max(nominal_current_amps, 0.1)
+
+        if not is_moving:
+            # Door is parked. Nothing to diagnose from an unloaded motor.
+            return {
+                "active_door_id": "DOOR_3R",
+                "cycle_state": "OPENING" if is_opening else "CLOSING",
+                "transit_time_seconds": round(float(transit_time), 2),
+                "motor_current_amps": round(float(motor_current_amps), 2),
+                "nominal_current_amps": round(float(peak_nominal), 2),
+                "anomaly_score": 0.0,
+                "fault_type": "NONE",
+                "ghost_deviation_mm": 0.0,
+                "waveform_window": [round(float(motor_current_amps), 2)] * 10,
+            }
+
+        current_ratio = motor_current_amps / peak_nominal
+        time_excess = max(0.0, transit_time - nominal_transit_time)
 
         # Baseline anomaly score (0.0 - 1.0)
-        anomaly_score = float(np.clip((current_ratio - 1.0) * 0.8 + time_excess * 0.25, 0.0, 0.99))
+        anomaly_score = float(np.clip((current_ratio - 1.0) * 1.6 + time_excess * 0.45, 0.0, 0.99))
 
         fault_type = "NONE"
         ghost_deviation_mm = 0.0
@@ -155,12 +181,12 @@ class DoorPredictor:
             fault_type = "ROLLER_BEARING_WEAR"
             ghost_deviation_mm = round(float((current_ratio - 1.0) * 12.0), 1)
 
-        # Generate realistic 10-point waveform window
-        base_curve = np.array([1.8, 3.9, 7.2, 10.5, 9.8, 6.2, 4.0, 2.5, 1.2, 0.4])
-        waveform = base_curve * (motor_current_amps / 8.20)
-        # Add slight jitter if anomalous
+        # Generate realistic 10-point waveform window scaled to the measured peak
+        base_curve = np.array([0.22, 0.48, 0.88, 1.00, 0.94, 0.72, 0.48, 0.30, 0.15, 0.05])
+        waveform = base_curve * motor_current_amps
+        # Add slight jitter if anomalous (mechanical stutter / stick-slip)
         if anomaly_score > 0.5:
-            jitter = np.random.normal(0, 0.6 * anomaly_score, size=len(waveform))
+            jitter = rng.normal(0, 0.6 * anomaly_score, size=len(waveform))
             waveform = np.clip(waveform + jitter, 0.1, None)
 
         return {
@@ -168,7 +194,7 @@ class DoorPredictor:
             "cycle_state": "OPENING" if is_opening else "CLOSING",
             "transit_time_seconds": round(float(transit_time), 2),
             "motor_current_amps": round(float(motor_current_amps), 2),
-            "nominal_current_amps": round(float(nominal_current_amps), 2),
+            "nominal_current_amps": round(float(peak_nominal), 2),
             "anomaly_score": round(anomaly_score, 2),
             "fault_type": fault_type,
             "ghost_deviation_mm": ghost_deviation_mm,

@@ -111,17 +111,17 @@ export const TwinCanvas: React.FC = () => {
         <PerspectiveCamera makeDefault position={[8.5, 3.6, 7.5]} fov={45} />
         <CameraController />
 
-        {/* Underground Tunnel Lighting */}
-        <ambientLight intensity={0.85} />
-        {/* Primary tunnel inspection illumination facing train */}
-        <directionalLight position={[8, 7, 8]} intensity={1.1} color="#f8fafc" />
-        {/* Soft fill from tunnel ceiling */}
-        <directionalLight position={[-4, 6, -2]} intensity={0.5} color="#94a3b8" />
-        {/* Bogie & track inspection spotlight */}
-        <pointLight position={[0, -0.1, 3.8]} intensity={1.0} color="#38bdf8" distance={8} />
+        {/* Light Station/Depot Inspection Lighting */}
+        <ambientLight intensity={1.1} color="#ffffff" />
+        {/* Primary inspection illumination facing train */}
+        <directionalLight position={[8, 9, 8]} intensity={1.4} color="#ffffff" />
+        {/* Soft fill from ceiling/side */}
+        <directionalLight position={[-6, 8, -4]} intensity={0.7} color="#e2e8f0" />
+        {/* Bogie & track inspection soft fill */}
+        <pointLight position={[0, 0.4, 3.8]} intensity={1.2} color="#f87171" distance={9} />
 
-        {/* Underground Tunnel Atmospheric Fog */}
-        <fog attach="fog" args={['#070b14', 25, 75]} />
+        {/* Crisp Light Atmospheric Fog */}
+        <fog attach="fog" args={['#f1f5f9', 30, 85]} />
 
         {/* 3D Scene Objects */}
         <group position={[0, 0, 0]}>

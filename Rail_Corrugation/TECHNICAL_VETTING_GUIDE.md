@@ -1,6 +1,6 @@
 # Technical Audit & Vetting Guide: Rail Corrugation Condition Monitoring Pipeline
 
-> **Purpose**: This document provides an exhaustive, peer-review-ready breakdown of the machine learning pipeline developed for the Track Rail Corrugation Multi-Class Monitoring Problem. It covers physical principles, data pre-processing, domain feature extraction, cross-validation protocols, model search, threshold optimization, and inference artifacts. Another AI model or data scientist can use this specification to vet the methodology for data leakage, mathematical validity, and metric alignment.
+> **Purpose**: This document provides an exhaustive, peer-review-ready breakdown of the machine learning pipeline developed for the Track Rail Corrugation Multi-Class Monitoring Problem. It covers physical principles, data pre-processing, domain feature extraction, cross-validation protocols, model search, nested threshold optimization, and inference artifacts. Another AI model or data scientist can use this specification to vet the methodology for data leakage, mathematical validity, and metric alignment.
 
 ---
 
@@ -49,9 +49,9 @@ $$\tilde{x}_c(t) = x_c(t) - \frac{1}{T}\sum_{k=1}^T x_c(k)$$
 
 ---
 
-## 3. 92-Feature Engineering Taxonomy
+## 3. 99-Feature Engineering Taxonomy
 
-Rather than feeding raw $10,000 \times 129$ matrices, domain signal processing collapses each recording into a 92-dimensional feature vector across 5 functional categories:
+Rather than feeding raw $10,000 \times 129$ matrices, domain signal processing collapses each recording into a 99-dimensional feature vector across 6 functional categories:
 
 ### Category A: Speed & Kinematics (5 features)
 - `transitions`, `speed_ms`, `speed_kmh`, `is_low_speed` ($<15\text{ km/h}$), `is_zero_speed`.
@@ -95,77 +95,99 @@ Extracted across 5 canonical railway corrugation wavelength regimes:
 - $[2\text{--}4\text{ cm}]$, $[4\text{--}7\text{ cm}]$, $[7\text{--}12\text{ cm}]$, $[12\text{--}20\text{ cm}]$, $[20\text{--}30\text{ cm}]$.
 - For each band: power ratio ($P_1 / P_2$) and difference ($P_1 - P_2$).
 
----
-
-## 4. Cross-Validation & Modeling Methodology
-
-### 4.1 Strict Leak-Free Cross-Validation
-- Stratified 5-Fold Cross-Validation: Each fold preserves class balance (ensuring $\approx 2\text{--}3$ Side I examples per validation fold).
-- 5-Fold $\times$ 5-Seed Repeated Cross Validation (25 evaluations total) to confirm stability against high variance in rare-class metrics.
-- All signal transformations, Welch transforms, and normalizations operate strictly per-file (zero inter-file feature leakage).
-
-### 4.2 Model Exploration & Benchmarking
-Multiple model paradigms were tuned directly against the `f1_macro` metric:
-
-| Architecture | Strategy / Hyperparameters | Out-of-Fold Macro F1 | Side I F1 | Side II F1 |
-| :--- | :--- | :---: | :---: | :---: |
-| **Weighted XGBoost (Baseline)** | `max_depth=4`, `lr=0.08`, inverse sample weights | 0.6777 | 0.2857 | 0.7917 |
-| **FLAML AutoML** | Iterative search across RF, ExtraTrees, LGBM, XGB | 0.7310 | 0.5000 | 0.7391 |
-| **Optuna Tuned CatBoost** | Bayesian TPE search on class weights + speed gate | 0.7648 | 0.4348 | 0.8889 |
-| **AutoGluon (63 Feats, Default Argmax)** | 5-Fold Bagged ensemble (LGBM, XGB, CatBoost, ET) | 0.7842 | 0.4706 | 0.9140 |
-| **AutoGluon (92 Feats, Default Argmax)** | 5-Fold Bagged ensemble on spatial + wavelength features | 0.8028 | 0.5263 | 0.9130 |
-| **Winning Production Ensemble** | **Bagged LightGBM + LightGBMXT + Threshold Calibration** | **0.8298** | **0.5882** | **0.9333** |
+### Category F: Physically Grounded Interaction & Speed-Normalized Features (7 features)
+To overcome the speed-confounding effect (where fast normal trains have higher raw RMS than moderate-speed corrugated trains) and localized bogie contact:
+- `v_rms_diff_speed_norm`: $\frac{\text{RMS}_{v,1} - \text{RMS}_{v,2}}{(v / 50)^2}$.
+- `s1_v_rms_speed_norm`: $\frac{\text{RMS}_{v,1}}{(v / 50)^2}$.
+- `tail_cars_v_ratio`: Localized asymmetry over trailing cars (Cars 6, 7, 8): $\text{mean}(r_{\text{car6}}, r_{\text{car7}}, r_{\text{car8}})$.
+- `lead_cars_v_ratio`: Localized asymmetry over leading cars (Cars 1, 2, 3).
+- `tail_vs_lead_diff`: Difference between tail and lead car asymmetry (distinguishes localized corrugation patches from continuous rail cant/tilt).
+- `wave_4_20cm_ratio`: Aggregate energy ratio across primary corrugation spatial wavelength bands ($4\text{--}20\text{ cm}$).
+- `asymmetry_x_corrugation`: Interaction term coupling overall vibration asymmetry with primary corrugation wavelength excitation (`v_rms_diff` $\times$ `wave_7_12cm_ratio`).
 
 ---
 
-## 5. Out-of-Fold Decision Threshold Optimization
+## 4. Strict Leak-Free Nested Validation Protocol
 
-### 5.1 The Minority Class Under-Prediction Problem
-Standard multi-class decision rules select $\hat{y} = \arg\max_c P(y=c \mid X)$. Because `Side I` is only 5.1% of the training distribution, well-calibrated posterior probabilities rarely exceed 0.50, causing standard argmax to miss over 64% of real corrugations.
+To guarantee mathematical integrity and eliminate optimistic bias, all hyperparameters, class weights, and decision threshold divisors are calibrated via **Strict Nested Cross-Validation**:
 
-### 5.2 Calibrated Divisor Formulation
-To maximize Macro F1 without retraining the models, class-specific divisors $\mathbf{d} = [d_{\text{Normal}}, d_{\text{Side I}}, d_{\text{Side II}}]$ are fitted on the **out-of-fold probability distributions**:
-$$\hat{y}_i = \arg\max_{c \in \{0, 1, 2\}} \left( \frac{P_{i, c}}{d_c} \right)$$
-Subject to: $d_{\text{Normal}} = 1.0$, $d_{\text{Side I}} \in [0.10, 0.50]$, $d_{\text{Side II}} \in [0.60, 1.20]$.
-
-### 5.3 Optimal Solution
-$$\mathbf{d}^* = [1.00,\, 0.17,\, 0.75]$$
-- Effect on Side I: Lowers the effective positive threshold from $0.50$ to $\approx 0.15\text{--}0.20$.
-- Effect on Side II: Slight adjustment preserving 100% precision.
-
-### 5.4 Final Out-of-Fold Confusion Matrix (272 Files)
-```text
-                   Predicted Normal    Predicted Side I    Predicted Side II    Total
-Actual Normal            225                  9                   0              234
-Actual Side I              4                 10                   0               14
-Actual Side II             2                  1                  21               24
-Total                    231                 20                  21              272
+```mermaid
+flowchart TD
+    Dataset["Total Dataset (272 Recordings)"] --> OuterLoop["Outer Loop: Stratified 5-Fold (5 Random Seeds = 25 Outer Splits)"]
+    OuterLoop --> TrainOuter["Training Partition D_train (217 recordings)"]
+    OuterLoop --> TestOuter["Held-Out Outer Fold D_val (55 recordings, strictly unseen)"]
+    
+    subgraph InnerCV ["Inner CV (Executed purely inside D_train)"]
+        TrainOuter --> InnerSplit["Inner 4-Fold Stratified Split"]
+        InnerSplit --> InnerWeights["Class Weights: w_c = N_tr / (3 * N_c) derived strictly on inner partition"]
+        InnerSplit --> InnerModels["Fit LightGBM + LightGBMXT on Inner Folds"]
+        InnerModels --> InnerOOF["Generate Inner Out-of-Fold Probabilities"]
+        InnerOOF --> DivisorSearch["Optimize Divisors d* = [1.0, d_side1, d_side2] maximizing Macro F1"]
+    end
+    
+    DivisorSearch --> OuterFit["Fit Final Outer Ensemble on 100% of D_train using D_train Class Weights"]
+    OuterFit --> OuterInference["Infer Raw Probabilities on Held-Out D_val"]
+    OuterInference --> ApplyDivisors["Apply Inner Divisors: Score = Prob / d*"]
+    ApplyDivisors --> SpeedGate["Apply 10 km/h Physical Low-Speed Gate"]
+    SpeedGate --> FinalOuterMetrics["Unbiased Outer Evaluation Metrics"]
 ```
 
-### 5.5 Final Metric Breakdown
-- **Macro F1**: **0.8298**
-- **Overall Accuracy**: **94.12%**
-- **Side I**: Precision = 50.00%, **Recall = 71.43% (10/14 caught)**, F1 = 0.5882 (or 0.6250 in 3-model blend)
-- **Side II**: **Precision = 100.00%**, Recall = 87.50%, **F1 = 0.9333**
-- **Normal**: Precision = 97.40%, Recall = 96.15%, F1 = 0.9677
+### 4.1 Fold-Isolated Class Weights
+Class weights are computed exclusively from the active training partition (never globally across splits):
+$$w_c = \frac{N_{\text{partition}}}{3 \cdot N_{\text{partition}, c}}$$
+
+### 4.2 Divisor Search on Inner Folds
+Threshold divisors $\mathbf{d} = [1.0, d_{\text{Side I}}, d_{\text{Side II}}]$ are tuned exclusively on inner out-of-fold probability vectors to maximize Macro F1. The outer validation fold is completely blind to this optimization.
+
+---
+
+## 5. Quantitative Nested Validation Results
+
+Across **25 independent outer evaluations** (5 seeds $\times$ 5 folds = 1,360 validation evaluations):
+
+| Metric | Raw Argmax Ensemble | Nested Tuned Ensemble (Leak-Free) | Stability / Variance |
+| :--- | :---: | :---: | :--- |
+| **Macro F1** | 0.7324 | **0.7551** | $\pm \mathbf{0.0097}$ (Min: 0.7462, Max: 0.7673) |
+| **Overall Accuracy** | 91.95% | **92.43%** | $\pm 0.55\%$ |
+| **Side I F1** | 0.3650 | **0.4275** | $\pm 0.0169$ |
+| **Side I Recall** | 35.7% | **44.3%** | Consistent minority detection |
+| **Side I Precision** | 37.3% | **41.5%** | Controlled false positive rate |
+| **Side II F1** | 0.8650 | **0.8784** | $\pm 0.0088$ |
+| **Side II Precision** | 89.5% | **92.0%** | Exceptionally high defect purity |
+| **Side II Recall** | 83.7% | **84.2%** | Robust fault identification |
+| **Normal F1** | 0.9560 | **0.9595** | $\pm 0.0041$ |
+| **Normal Precision** | 96.5% | **97.1%** | Negligible false alarm rate |
+
+### 5.1 Aggregated Confusion Matrix (1,360 Total Outer Held-Out Predictions)
+```text
+                   Predicted Normal    Predicted Side I    Predicted Side II    Total
+Actual Normal           1125                  36                   9             1170
+Actual Side I             39                  31                   0               70
+Actual Side II            11                   8                 101              120
+Total                   1175                  75                 110             1360
+```
+
+### 5.2 Discovered Probability Divisors
+- Mean across 25 nested folds: $\mathbf{d} = [1.000,\, 0.159,\, 0.756]$
+- Production median: $\mathbf{d}^* = [1.000,\, 0.150,\, 0.600]$
 
 ---
 
 ## 6. Production Artifacts & File Structure
 
-All production artifacts have been consolidated inside `Rail_Corrugation/`:
+All production artifacts are consolidated inside `Rail_Corrugation/`:
 
 ```text
 Rail_Corrugation/
 ├── models/
-│   ├── rail_model_bundle.joblib    # ~3MB self-contained production bundle (no PyTorch/GPU needed)
+│   ├── rail_model_bundle.joblib    # ~2MB self-contained production bundle (no PyTorch/GPU needed)
 │   └── rail_pipeline.py            # Clean Python inference engine (RailPredictor class)
 ├── automl_rail_predictions.csv     # Official 68-test-file submission (file_id, prediction)
 ├── baseline_rail_predictions.csv   # Mirrored submission file
 ├── test_predictions_detailed.csv   # Detailed predictions with confidence and speed diagnostics
-├── automl_leaderboard_results.csv  # Model comparison leaderboard table
-├── rail_all_features.csv           # 272 x 92 cached training feature matrix
-└── train_enhanced_model.py         # End-to-end training, CV, and export script
+├── rail_all_features.csv           # 272 x 99 cached training feature matrix
+├── run_nested_validation.py        # Strict leak-free 25-fold nested CV benchmark script
+└── train_enhanced_model.py         # Standalone full-data training script
 ```
 
 ---
@@ -186,11 +208,11 @@ result = predictor.predict("Test1.csv")
 # 3. Verified output structure:
 # {
 #   "prediction": "Normal",
-#   "confidence": 0.9791,
+#   "confidence": 1.0,
 #   "speed_kmh": 35.57,
 #   "status": "Normal Healthy Track",
-#   "probabilities": {"Normal": 0.9791, "Side I": 0.0074, "Side II": 0.0134},
-#   "diagnostic_summary": "Model classified track recording as Normal at 35.57 km/h with 97.9% calibrated confidence.",
+#   "probabilities": {"Normal": 1.0, "Side I": 0.0, "Side II": 0.0},
+#   "diagnostic_summary": "Model classified track recording as Normal at 35.57 km/h with 100.0% calibrated confidence.",
 #   "asymmetry_ratio": 0.983,
 #   "top1_car_ratio": 1.898,
 #   "top2_car_ratio": 1.53,
@@ -198,7 +220,13 @@ result = predictor.predict("Test1.csv")
 # }
 ```
 
+### Verified Test Predictions (68 Files)
+- **Normal**: 60 files (88.2%)
+- **Side I**: 5 files (7.4%) — `Test5.csv` (74.7% conf), `Test10.csv`, `Test13.csv`, `Test28.csv`, `Test33.csv`
+- **Side II**: 3 files (4.4%) — `Test26.csv` (99.96% conf), `Test43.csv` (99.97% conf), `Test66.csv` (99.9% conf)
+- Total test files: 68 files.
+
 ### Computational Performance
 - Feature extraction per 10,000 $\times$ 129 recording: **$\approx 260\text{ ms}$**
-- Ensemble inference (10 bagged LightGBM trees): **$\approx 1\text{ ms}$**
+- Ensemble inference: **$\approx 1\text{ ms}$**
 - Total latency per file: **$< 300\text{ ms}$** on CPU.

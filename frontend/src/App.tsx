@@ -16,7 +16,7 @@ export const App: React.FC = () => {
   const isHudVisible = useTwinStore((state) => state.isHudVisible);
 
   return (
-    <div className="w-screen h-screen relative bg-dark-900 overflow-hidden font-sans select-none">
+    <div className="w-screen h-screen relative bg-slate-100 overflow-hidden font-sans select-none">
       {/* 3D Scene Viewport */}
       <div className="absolute inset-0 z-0">
         <TwinCanvas />

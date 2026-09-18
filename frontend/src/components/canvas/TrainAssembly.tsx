@@ -197,7 +197,7 @@ export const TrainAssembly: React.FC = () => {
 
       {/* --- PASSENGER DOOR 3R (Subsystem Kinematics & Clickable Tag) --- */}
       <group
-        position={[1.26, 0.35, 1.8]}
+        position={[1.272, 0.35, 1.8]}
         onClick={(e) => {
           e.stopPropagation();
           setActiveInspection('door');
@@ -210,12 +210,12 @@ export const TrainAssembly: React.FC = () => {
           document.body.style.cursor = 'auto';
         }}
       >
-        <DoorAssembly position={[0, 0, 0]} />
-        <InspectionTag type="door" position={[0.1, 0.6, 0]} beaconLabel="Door 3R System" />
+        <DoorAssembly position={[0, 0, 0]} rotation={[0, Math.PI / 2, 0]} />
+        <InspectionTag type="door" position={[0.25, 0.6, 0]} beaconLabel="Door 3R System" />
       </group>
 
       {/* Opposing Door 3L */}
-      <DoorAssembly position={[-1.26, 0.35, 1.8]} rotation={[0, Math.PI, 0]} />
+      <DoorAssembly position={[-1.272, 0.35, 1.8]} rotation={[0, -Math.PI / 2, 0]} />
 
       {/* --- ROOFTOP ACV CLIMATE PACK 1 (Clickable Tag) --- */}
       <group

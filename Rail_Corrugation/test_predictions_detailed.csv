@@ -1,69 +1,69 @@
 file_id,prediction,confidence,speed_kmh
-Test1.csv,Normal,0.9791,35.57
+Test1.csv,Normal,1.0,35.57
 Test2.csv,Normal,1.0,0.0
 Test3.csv,Normal,1.0,7.74
-Test4.csv,Normal,0.9756,40.8
-Test5.csv,Side I,0.394,49.35
-Test6.csv,Normal,0.9441,52.55
-Test7.csv,Normal,0.9765,50.84
-Test8.csv,Normal,0.9258,47.16
-Test9.csv,Normal,0.8784,39.63
-Test10.csv,Side I,0.2111,66.76
-Test11.csv,Normal,0.9607,44.38
-Test12.csv,Normal,0.9625,50.84
-Test13.csv,Side I,0.3631,46.25
-Test14.csv,Normal,0.6169,67.67
+Test4.csv,Normal,0.9999,40.8
+Test5.csv,Side I,0.747,49.35
+Test6.csv,Normal,0.9964,52.55
+Test7.csv,Normal,0.9999,50.84
+Test8.csv,Normal,0.9969,47.16
+Test9.csv,Normal,0.8782,39.63
+Test10.csv,Normal,0.9496,66.76
+Test11.csv,Normal,0.9994,44.38
+Test12.csv,Normal,0.9999,50.84
+Test13.csv,Side I,0.5851,46.25
+Test14.csv,Normal,0.7254,67.67
 Test15.csv,Normal,1.0,0.0
-Test16.csv,Normal,0.9377,33.97
-Test17.csv,Normal,0.9525,46.3
-Test18.csv,Normal,0.9623,42.62
-Test19.csv,Normal,0.972,42.62
+Test16.csv,Normal,0.9998,33.97
+Test17.csv,Normal,0.9864,46.3
+Test18.csv,Normal,0.9983,42.62
+Test19.csv,Normal,0.9999,42.62
 Test20.csv,Normal,1.0,0.0
-Test21.csv,Normal,0.9741,42.41
-Test22.csv,Side I,0.1708,41.71
-Test23.csv,Normal,0.9579,46.41
-Test24.csv,Normal,0.9486,46.3
-Test25.csv,Normal,0.9798,20.24
-Test26.csv,Side II,0.828,57.52
-Test27.csv,Normal,0.9181,40.54
-Test28.csv,Side I,0.3236,50.74
-Test29.csv,Normal,0.9365,36.1
-Test30.csv,Normal,0.9816,16.18
+Test21.csv,Normal,0.9999,42.41
+Test22.csv,Side I,0.4176,41.71
+Test23.csv,Normal,0.9987,46.41
+Test24.csv,Normal,0.9985,46.3
+Test25.csv,Normal,1.0,20.24
+Test26.csv,Side II,0.9996,57.52
+Test27.csv,Normal,0.999,40.54
+Test28.csv,Side I,0.2335,50.74
+Test29.csv,Normal,0.9882,36.1
+Test30.csv,Normal,1.0,16.18
 Test31.csv,Normal,1.0,0.0
-Test32.csv,Normal,0.9066,45.13
-Test33.csv,Side I,0.3112,46.14
-Test34.csv,Normal,0.9657,35.78
-Test35.csv,Normal,0.9575,35.52
-Test36.csv,Normal,0.9572,54.85
-Test37.csv,Normal,0.923,52.61
-Test38.csv,Normal,0.9783,48.92
+Test32.csv,Normal,0.9862,45.13
+Test33.csv,Side I,0.4915,46.14
+Test34.csv,Normal,0.9999,35.78
+Test35.csv,Normal,0.9999,35.52
+Test36.csv,Normal,0.9979,54.85
+Test37.csv,Normal,0.9979,52.61
+Test38.csv,Normal,0.9999,48.92
 Test39.csv,Normal,1.0,0.0
-Test40.csv,Normal,0.9676,46.78
-Test41.csv,Normal,0.9778,22.91
-Test42.csv,Normal,0.9718,50.95
-Test43.csv,Side II,0.8367,56.4
-Test44.csv,Normal,0.9757,27.93
-Test45.csv,Normal,0.9474,59.55
-Test46.csv,Side I,0.1782,66.38
+Test40.csv,Normal,0.9996,46.78
+Test41.csv,Normal,1.0,22.91
+Test42.csv,Normal,0.9999,50.95
+Test43.csv,Side II,0.9997,56.4
+Test44.csv,Normal,0.9999,27.93
+Test45.csv,Normal,0.9997,59.55
+Test46.csv,Normal,0.9601,66.38
 Test47.csv,Normal,1.0,8.01
 Test48.csv,Normal,1.0,8.87
-Test49.csv,Normal,0.9766,35.84
+Test49.csv,Normal,1.0,35.84
 Test50.csv,Normal,1.0,0.0
 Test51.csv,Normal,1.0,0.0
-Test52.csv,Normal,0.9655,35.78
-Test53.csv,Normal,0.9768,20.35
-Test54.csv,Normal,0.9294,35.73
-Test55.csv,Normal,0.978,13.46
-Test56.csv,Normal,0.9198,65.74
-Test57.csv,Normal,0.9755,53.03
+Test52.csv,Normal,0.9998,35.78
+Test53.csv,Normal,1.0,20.35
+Test54.csv,Normal,0.9985,35.73
+Test55.csv,Normal,1.0,13.46
+Test56.csv,Normal,0.9996,65.74
+Test57.csv,Normal,0.9999,53.03
 Test58.csv,Normal,1.0,0.0
-Test59.csv,Normal,0.9492,37.87
-Test60.csv,Normal,0.9817,28.31
+Test59.csv,Normal,0.971,37.87
+Test60.csv,Normal,1.0,28.31
 Test61.csv,Normal,1.0,8.55
 Test62.csv,Normal,1.0,6.52
 Test63.csv,Normal,1.0,3.15
-Test64.csv,Normal,0.9143,41.76
+Test64.csv,Normal,0.9995,41.76
 Test65.csv,Normal,1.0,7.05
-Test66.csv,Side II,0.8075,47.21
-Test67.csv,Normal,0.978,28.2
+Test66.csv,Side II,0.9996,47.21
+Test67.csv,Normal,1.0,28.2
 Test68.csv,Normal,1.0,0.0

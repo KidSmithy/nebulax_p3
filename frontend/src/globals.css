@@ -10,20 +10,20 @@ code, pre, .font-mono {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* SMRT & LTA Transit Glassmorphic Panels */
+/* SMRT & LTA Transit Glassmorphic Panels (Light Mode) */
 .glass-panel {
-  background: rgba(13, 19, 31, 0.78);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
 }
 
 .glass-panel-glow {
-  background: rgba(17, 24, 39, 0.88);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(237, 28, 36, 0.35);
-  box-shadow: 0 0 25px rgba(237, 28, 36, 0.15);
+  box-shadow: 0 8px 24px -4px rgba(237, 28, 36, 0.15), 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .custom-scrollbar::-webkit-scrollbar {

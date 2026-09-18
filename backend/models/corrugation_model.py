@@ -32,11 +32,15 @@ class RailCorrugationModel:
                 except Exception as e:
                     print(f"[RailCorrugationModel] Warning loading bundle from {p}: {e}")
 
-    def evaluate_chainage(self, current_kp: float, grounded_override: bool = False) -> dict:
+    def evaluate_chainage(self, current_kp: float, grounded_override: bool = False,
+                          rng: np.random.Generator = None) -> dict:
         """
         Evaluates track corrugation at current chainage KP (km).
         If rail grinding was performed (grounded_override), severity drops to nominal.
         """
+        if rng is None:
+            rng = np.random.default_rng()
+
         if grounded_override:
             return {
                 "kp_start": round(current_kp - 0.05, 3),
@@ -63,7 +67,7 @@ class RailCorrugationModel:
                 }
 
         # Nominal smooth rail
-        noise_depth = float(np.random.uniform(9.0, 14.5))
+        noise_depth = float(rng.uniform(9.0, 14.5))
         return {
             "kp_start": round(current_kp - 0.05, 3),
             "kp_end": round(current_kp + 0.05, 3),

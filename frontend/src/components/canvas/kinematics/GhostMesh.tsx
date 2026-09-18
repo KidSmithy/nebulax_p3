@@ -11,24 +11,24 @@ export const GhostMesh: React.FC<GhostMeshProps> = ({ nominalOpenDist, visible }
   return (
     <group position={[0, 0, 0]}>
       {/* Left Leaf Ghost (Nominal Baseline wireframe) */}
-      <mesh position={[-0.4 - nominalOpenDist, 0, 0]}>
-        <boxGeometry args={[0.55, 1.8, 0.03]} />
+      <mesh position={[-0.28 - nominalOpenDist, 0, 0]}>
+        <boxGeometry args={[0.54, 1.82, 0.04]} />
         <meshBasicMaterial
-          color="#10b981"
+          color="#009645"
           wireframe
           transparent
-          opacity={0.35}
+          opacity={0.45}
         />
       </mesh>
 
       {/* Right Leaf Ghost */}
-      <mesh position={[0.4 + nominalOpenDist, 0, 0]}>
-        <boxGeometry args={[0.55, 1.8, 0.03]} />
+      <mesh position={[0.28 + nominalOpenDist, 0, 0]}>
+        <boxGeometry args={[0.54, 1.82, 0.04]} />
         <meshBasicMaterial
-          color="#10b981"
+          color="#009645"
           wireframe
           transparent
-          opacity={0.35}
+          opacity={0.45}
         />
       </mesh>
     </group>
