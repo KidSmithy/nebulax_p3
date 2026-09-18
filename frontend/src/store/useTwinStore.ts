@@ -4,11 +4,12 @@ import {
   AIInsight,
   ActiveInterventions,
   CameraPreset,
+  Finding,
+  LogEntry,
   SubsystemSelection,
   UiMode,
   UnifiedTelemetryFrame,
   WhatIfResult,
-  AcvResult,
 } from '../types/telemetry';
 
 /** Tagged onto each socket so its own onclose knows whether it was closed on purpose. */
@@ -32,9 +33,12 @@ interface TwinState {
   cameraZoom: number;
   /** Which of the 8 cars (1-8) the scene focuses on and hangs its hotspots on. */
   monitoredCar: number;
-  acvResult: AcvResult | null;
-  acvUploading: boolean;
-  acvError: string | null;
+  /** The upload's own direct response, for the onboarding walkthrough's results step. */
+  uploadResult: Finding | null;
+  uploading: boolean;
+  uploadError: string | null;
+  /** Persistent (backend, in-memory) receipt log of every resolved finding. */
+  resolvedLog: LogEntry[];
   selectedSubsystem: SubsystemSelection;
   xrayMode: boolean;
   isPlaying: boolean;
@@ -74,7 +78,9 @@ interface TwinState {
   setCameraMode: (mode: CameraPreset) => void;
   setCameraZoom: (zoom: number) => void;
   setMonitoredCar: (car: number) => void;
-  uploadAcv: (file: File) => Promise<boolean>;
+  uploadSubsystemData: (subsystem: SubsystemSelection, file: File) => Promise<Finding | null>;
+  fetchLog: () => Promise<void>;
+  resolveFinding: (subsystem: SubsystemSelection) => Promise<void>;
   setSelectedSubsystem: (subsystem: SubsystemSelection) => void;
   setActiveInspection: (inspection: 'door' | 'acv' | 'shm' | 'rail' | null) => void;
   toggleXray: () => void;
@@ -108,9 +114,10 @@ export const useTwinStore = create<TwinState>((set, get) => ({
   cameraMode: 'meso',
   cameraZoom: ZOOM_FOR_MODE.meso,
   monitoredCar: 3,
-  acvResult: null,
-  acvUploading: false,
-  acvError: null,
+  uploadResult: null,
+  uploading: false,
+  uploadError: null,
+  resolvedLog: [],
   selectedSubsystem: 'overview',
   xrayMode: false,
   isPlaying: true,
@@ -163,24 +170,57 @@ export const useTwinStore = create<TwinState>((set, get) => ({
 
   setMonitoredCar: (car) => set({ monitoredCar: Math.min(CAR_COUNT, Math.max(1, Math.round(car))) }),
 
-  uploadAcv: async (file) => {
-    set({ acvUploading: true, acvError: null });
+  uploadSubsystemData: async (subsystem, file) => {
+    set({ uploading: true, uploadError: null });
     try {
       const body = new FormData();
       body.append('file', file);
-      const res = await fetch('/api/acv/predict', { method: 'POST', body });
+      body.append('subsystem', subsystem);
+      const res = await fetch('/api/predict/upload', { method: 'POST', body });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        set({ acvError: data.detail ?? 'The upload failed. Try again.' });
-        return false;
+        set({ uploadError: data.detail ?? 'The upload failed. Try again.' });
+        return null;
       }
-      set({ acvResult: data as AcvResult });
-      return true;
+      const finding = data as Finding;
+      set({ uploadResult: finding });
+      // Establishes which car everything else gets tagged to, per the "ACV
+      // resolves first" assumption - see useMonitoredItems/TrainAssembly.
+      if (subsystem === 'acv' && finding.most_likely_faulty_car) {
+        get().setMonitoredCar(Number(finding.most_likely_faulty_car));
+      }
+      return finding;
     } catch {
-      set({ acvError: 'Could not reach the backend. Check that it is running.' });
-      return false;
+      set({ uploadError: 'Could not reach the backend. Check that it is running.' });
+      return null;
     } finally {
-      set({ acvUploading: false });
+      set({ uploading: false });
+    }
+  },
+
+  fetchLog: async () => {
+    try {
+      const res = await fetch('/api/log');
+      const data = await res.json();
+      set({ resolvedLog: data.log ?? [] });
+    } catch (err) {
+      console.error('[Log] fetch failed:', err);
+    }
+  },
+
+  resolveFinding: async (subsystem) => {
+    try {
+      const res = await fetch('/api/predict/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subsystem, car: get().monitoredCar }),
+      });
+      const entry = await res.json().catch(() => null);
+      if (res.ok && entry) {
+        set((state) => ({ resolvedLog: [...state.resolvedLog, entry as LogEntry] }));
+      }
+    } catch (err) {
+      console.error('[Log] resolve failed:', err);
     }
   },
 

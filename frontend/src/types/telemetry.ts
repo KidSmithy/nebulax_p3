@@ -112,6 +112,54 @@ export interface UnifiedTelemetryFrame {
   plain_status?: Record<string, MetricStatus>;
   counterfactual?: CounterfactualBlock;
   next_corrugation_zone?: CorrugationZoneInfo;
+  latest_upload_results?: Partial<Record<SubsystemSelection, Finding>>;
+}
+
+/**
+ * Normalized shape every /api/predict/upload model returns, regardless of
+ * subsystem - the four model files all converge on this envelope plus their
+ * own extra fields. Never invent an explanation/suggestion on top of this;
+ * conductor_summary and recommended_action are the real, model-produced text.
+ */
+export interface Finding {
+  subsystem: string;
+  file_name: string;
+  status: MetricStatus;
+  verdict: string;
+  anomaly_score: number;
+  recommended_action: string;
+  conductor_summary: string;
+  // Subsystem-specific extras (present on some, absent on others).
+  most_likely_faulty_car?: string;
+  confidence?: string;
+  confidence_margin?: number;
+  ranked_cars?: string[];
+  car_diagnostics?: Array<Record<string, unknown>>;
+  fault_type?: string;
+  total_cycles?: number;
+  abnormal_cycles?: number;
+  vibration_rms_g?: number;
+  bearing_defect_prob?: number;
+  fatigue_damage_index?: number;
+  critical_weld_node?: string;
+  depth_microns?: number;
+  wavelength_class?: string;
+  maintenance_urgency?: string;
+}
+
+/** One receipt-style entry in the persistent resolved-issues log. */
+export interface LogEntry {
+  id: number;
+  subsystem: string;
+  car: number | null;
+  file_name: string;
+  status: MetricStatus;
+  anomaly_score: number;
+  recommended_action: string;
+  conductor_summary: string;
+  measured_impact: WhatIfResult['measured_impact'] | null;
+  resolved_at_kp: number;
+  resolved_at_timestamp: string;
 }
 
 /** Impact measurement echoed back when an intervention is toggled. */
@@ -173,23 +221,6 @@ export interface AIAnswer {
 
 export type CameraPreset = 'macro' | 'meso' | 'micro';
 
-/** One car's row from the ACV ranker; rank 1 is the most likely faulty car. */
-export interface AcvCarRank {
-  rank: number;
-  car: string;
-  score: number | null;
-  diagnosable: boolean;
-  evidence: { feature: string; value: number | null }[];
-}
-
-export interface AcvResult {
-  file_id: string;
-  ranked_cars: string;
-  ranked_cars_list: string[];
-  most_likely_faulty_car: string;
-  verdict: string;
-  cars: AcvCarRank[];
-}
 export type SubsystemSelection = 'overview' | 'door' | 'acv' | 'shm' | 'rail';
 
 /** Beginner hides jargon and leads with plain words; Expert shows raw engineering units. */
