@@ -158,3 +158,100 @@ class RailCorrugationModel:
             "conductor_summary": summary,
         }
 
+    def predict_batch(self, file_list: list, batch_name: str = "rail_batch.zip") -> dict:
+        """
+        Evaluates a batch of Rail Corrugation vibration test files (e.g. from an uploaded ZIP).
+        file_list: list of (file_name, file_bytes)
+        """
+        results = []
+        for fname, fbytes in file_list:
+            try:
+                res = self.predict_from_csv(fbytes, fname)
+                results.append(res)
+            except Exception as e:
+                print(f"[RailCorrugationModel] Error processing {fname} in batch: {e}")
+
+        if not results:
+            raise ValueError(f"Could not parse any valid Rail Corrugation CSV files from '{batch_name}'.")
+
+        total_files = len(results)
+        depths = [r["depth_microns"] for r in results]
+        scores = [r["anomaly_score"] for r in results]
+        rms_vals = [r["mean_channel_rms"] for r in results]
+
+        mean_depth = round(float(np.mean(depths)), 1)
+        max_depth = round(float(np.max(depths)), 1)
+        worst_item = max(results, key=lambda r: r["anomaly_score"])
+        worst_file = worst_item["file_name"]
+
+        mean_rms = round(float(np.mean(rms_vals)), 2)
+        max_rms = round(float(np.max(rms_vals)), 2)
+
+        anomalous_files = [r for r in results if r["status"] != "GOOD"]
+        anomaly_count = len(anomalous_files)
+
+        if worst_item["anomaly_score"] > 0.65:
+            verdict = "ACTION_NEEDED"
+            action = "ACTION_GRIND_RAIL"
+            conductor_summary = (
+                f"Batch evaluation of {total_files} rail vibration runs in '{batch_name}': "
+                f"Severe corrugation warning identified across {anomaly_count} test section(s). "
+                f"Peak roughness detected in '{worst_file}' with estimated depth of {max_depth} microns "
+                f"(severity {worst_item['anomaly_score']:.2f}, mean vibration RMS {worst_item['mean_channel_rms']:.2f}g). "
+                f"Immediate rail grinding required within 48 hours to avert wheel-rail acoustic damage."
+            )
+        elif anomaly_count > 0:
+            verdict = "WATCH"
+            action = "ACTION_GRIND_RAIL"
+            conductor_summary = (
+                f"Batch evaluation of {total_files} rail vibration runs in '{batch_name}': "
+                f"Moderate corrugation detected in {anomaly_count} of {total_files} sections. "
+                f"Average roughness depth across batch is {mean_depth} microns (worst section '{worst_file}' at {max_depth} microns). "
+                f"Rail grinding recommended within 7 days."
+            )
+        else:
+            verdict = "GOOD"
+            action = "NONE"
+            conductor_summary = (
+                f"Batch evaluation of {total_files} rail vibration runs in '{batch_name}': "
+                f"All {total_files} track sections show smooth rail surface profiles "
+                f"(batch mean depth {mean_depth} microns, mean vibration RMS {mean_rms:.2f}g). "
+                f"Track acoustic and surface parameters are nominal."
+            )
+
+        batch_breakdown = [
+            {
+                "file": r["file_name"],
+                "depth_microns": r["depth_microns"],
+                "severity": r["anomaly_score"],
+                "wavelength_class": r["wavelength_class"],
+                "mean_channel_rms": r["mean_channel_rms"],
+                "verdict": r["verdict"],
+                "urgency": r["maintenance_urgency"]
+            }
+            for r in results
+        ]
+
+        return {
+            "subsystem": "rail",
+            "file_name": batch_name,
+            "is_batch": True,
+            "status": verdict,
+            "verdict": verdict,
+            "total_files": total_files,
+            "anomaly_count": anomaly_count,
+            "depth_microns": max_depth,
+            "mean_depth_microns": mean_depth,
+            "worst_file": worst_file,
+            "mean_channel_rms": max_rms,
+            "batch_mean_channel_rms": mean_rms,
+            "wavelength_class": worst_item["wavelength_class"],
+            "anomaly_score": worst_item["anomaly_score"],
+            "maintenance_urgency": worst_item["maintenance_urgency"],
+            "grinding_priority_rank": worst_item["grinding_priority_rank"],
+            "recommended_action": action,
+            "conductor_summary": conductor_summary,
+            "batch_items": batch_breakdown,
+        }
+
+

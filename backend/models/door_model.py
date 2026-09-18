@@ -40,9 +40,14 @@ class DoorPredictor:
             if path.exists():
                 try:
                     self.bundle = joblib.load(path)
-                    self.model = self.bundle['model']
-                    if 'feature_cols' in self.bundle:
-                        self.feature_cols = self.bundle['feature_cols']
+                    # Some bundles are {'model':..., 'feature_cols':...}; others are
+                    # just the bare estimator (joblib.dump(classifier, path)).
+                    if isinstance(self.bundle, dict):
+                        self.model = self.bundle['model']
+                        if 'feature_cols' in self.bundle:
+                            self.feature_cols = self.bundle['feature_cols']
+                    else:
+                        self.model = self.bundle
                     print(f"[DoorPredictor] Successfully loaded model bundle from {path}")
                     return
                 except Exception as e:
@@ -427,4 +432,99 @@ class DoorPredictor:
             "conductor_summary": conductor_summary,
             "segments": segment_details,
         }
+
+    def predict_batch(self, file_list: list, batch_name: str = "door_batch.zip") -> dict:
+        """
+        Evaluates a batch of Door cycle test CSV files (e.g. from an uploaded ZIP).
+        file_list: list of (file_name, file_bytes)
+        """
+        results = []
+        for fname, fbytes in file_list:
+            try:
+                res = self.predict_from_csv(fbytes, fname)
+                results.append(res)
+            except Exception as e:
+                print(f"[DoorPredictor] Error processing {fname} in batch: {e}")
+
+        if not results:
+            raise ValueError(f"Could not parse any valid Door CSV files from '{batch_name}'.")
+
+        total_files = len(results)
+        total_cycles = sum(r["total_cycles"] for r in results)
+        total_abnormal = sum(r["abnormal_cycles"] for r in results)
+        total_normal = total_cycles - total_abnormal
+        overall_fault_rate = float(total_abnormal / total_cycles) if total_cycles > 0 else 0.0
+
+        worst_item = max(results, key=lambda r: r["anomaly_score"])
+        worst_file = worst_item["file_name"]
+        anomalous_files = [r for r in results if r["status"] != "GOOD"]
+        anomaly_count = len(anomalous_files)
+
+        max_current = max(r["max_current_peak_a"] for r in results)
+        mean_rms_current = round(float(np.mean([r["mean_current_rms_a"] for r in results])), 2)
+
+        if worst_item["status"] == "ACTION_NEEDED" or overall_fault_rate > 0.25:
+            verdict = "ACTION_NEEDED"
+            action = "ACTION_LUBRICATE_DOOR"
+            conductor_summary = (
+                f"Batch evaluation of {total_files} door run files ({total_cycles} total cycles) in '{batch_name}': "
+                f"Severe door mechanism resistance detected across {anomaly_count} run(s) ({total_abnormal} abnormal cycles, "
+                f"{overall_fault_rate*100:.1f}% overall fault rate). "
+                f"Worst-case dataset is '{worst_file}' with peak current spiking to {max_current}A. "
+                f"Immediate mechanical guide rail cleaning, lubrication, and door leaf realignment required."
+            )
+        elif anomaly_count > 0 or overall_fault_rate > 0.0:
+            verdict = "WATCH"
+            action = "ACTION_LUBRICATE_DOOR"
+            conductor_summary = (
+                f"Batch evaluation of {total_files} door run files ({total_cycles} total cycles) in '{batch_name}': "
+                f"Intermittent resistance observed in {anomaly_count} of {total_files} runs "
+                f"({total_abnormal} anomalous cycles, {overall_fault_rate*100:.1f}% fault rate). "
+                f"Guide rail lubrication recommended during next depot inspection."
+            )
+        else:
+            verdict = "GOOD"
+            action = "NONE"
+            conductor_summary = (
+                f"Batch evaluation of {total_files} door run files ({total_cycles} total cycles) in '{batch_name}': "
+                f"All {total_cycles} door operating cycles performed nominally across all test files "
+                f"(mean RMS current {mean_rms_current}A, peak {max_current}A). "
+                f"Passenger door electromechanical actuation is fully nominal."
+            )
+
+        batch_breakdown = [
+            {
+                "file": r["file_name"],
+                "total_cycles": r["total_cycles"],
+                "abnormal_cycles": r["abnormal_cycles"],
+                "fault_rate_pct": r["fault_rate_pct"],
+                "peak_current_a": r["max_current_peak_a"],
+                "verdict": r["verdict"],
+                "fault_type": r["fault_type"]
+            }
+            for r in results
+        ]
+
+        return {
+            "subsystem": "door",
+            "file_name": batch_name,
+            "is_batch": True,
+            "status": verdict,
+            "verdict": verdict,
+            "total_files": total_files,
+            "anomaly_count": anomaly_count,
+            "total_cycles": total_cycles,
+            "normal_cycles": total_normal,
+            "abnormal_cycles": total_abnormal,
+            "fault_rate_pct": round(overall_fault_rate * 100, 1),
+            "worst_file": worst_file,
+            "anomaly_score": worst_item["anomaly_score"],
+            "fault_type": worst_item["fault_type"],
+            "recommended_action": action,
+            "max_current_peak_a": max_current,
+            "mean_current_rms_a": mean_rms_current,
+            "conductor_summary": conductor_summary,
+            "batch_items": batch_breakdown,
+        }
+
 

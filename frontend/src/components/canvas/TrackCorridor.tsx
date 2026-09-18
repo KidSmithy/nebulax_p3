@@ -36,12 +36,15 @@ export const TrackCorridor: React.FC = () => {
   });
 
   // Underground track geometry parameters
-  const tieCount = 44;
+  // Long enough for the 8-car consist (world Z -57.5..126.5); the corridor is
+  // centred on TRACK_Z so the monitored car / rail beacon stay where they were.
+  const tieCount = 180;
   const tieSpacing = 1.1;
   const corridorLength = tieCount * tieSpacing;
+  const TRACK_Z = 34;
 
   return (
-    <group position={[0, -0.15, 0]}>
+    <group position={[0, -0.15, TRACK_Z]}>
       {/* ========================================================= */}
       {/* 1. CONCRETE TRACKBED / DEPOT SLAB                         */}
       {/* Clean open trackform suitable for studio / inspection     */}
@@ -100,7 +103,7 @@ export const TrackCorridor: React.FC = () => {
           setActiveInspection('rail');
         }}
       >
-        <boxGeometry args={[0.09, 0.15, corridorLength, 1, 1, 120]} />
+        <boxGeometry args={[0.09, 0.15, corridorLength, 1, 1, 480]} />
       </mesh>
 
       {/* Right Steel Rail Ribbon */}
@@ -112,7 +115,7 @@ export const TrackCorridor: React.FC = () => {
           setActiveInspection('rail');
         }}
       >
-        <boxGeometry args={[0.09, 0.15, corridorLength, 1, 1, 120]} />
+        <boxGeometry args={[0.09, 0.15, corridorLength, 1, 1, 480]} />
       </mesh>
 
       {/* ========================================================= */}
@@ -153,7 +156,7 @@ export const TrackCorridor: React.FC = () => {
       {/* 5. INTERACTIVE RAIL CORRUGATION INSPECTION BEACON          */}
       {/* ========================================================= */}
       <group
-        position={[1.9, 0.45, -1.8]}
+        position={[1.9, 0.45, -1.8 - TRACK_Z]}
         onClick={(e) => {
           e.stopPropagation();
           setActiveInspection('rail');

@@ -8,6 +8,7 @@ import {
   UiMode,
   UnifiedTelemetryFrame,
   WhatIfResult,
+  AcvResult,
 } from '../types/telemetry';
 
 /** Tagged onto each socket so its own onclose knows whether it was closed on purpose. */
@@ -20,10 +21,20 @@ const EMPTY_INTERVENTIONS: ActiveInterventions = {
   ACTION_INSPECT_BEARING: false,
 };
 
+export const CAR_COUNT = 8;
+const ZOOM_FOR_MODE: Record<CameraPreset, number> = { micro: 0, meso: 0.5, macro: 1 };
+
 interface TwinState {
   currentFrame: UnifiedTelemetryFrame | null;
   history: UnifiedTelemetryFrame[];
   cameraMode: CameraPreset;
+  /** 0 = close on the selected component, 0.5 = one car, 1 = all 8 cars. */
+  cameraZoom: number;
+  /** Which of the 8 cars (1-8) the scene focuses on and hangs its hotspots on. */
+  monitoredCar: number;
+  acvResult: AcvResult | null;
+  acvUploading: boolean;
+  acvError: string | null;
   selectedSubsystem: SubsystemSelection;
   xrayMode: boolean;
   isPlaying: boolean;
@@ -61,6 +72,9 @@ interface TwinState {
   // Actions
   setFrame: (frame: UnifiedTelemetryFrame) => void;
   setCameraMode: (mode: CameraPreset) => void;
+  setCameraZoom: (zoom: number) => void;
+  setMonitoredCar: (car: number) => void;
+  uploadAcv: (file: File) => Promise<boolean>;
   setSelectedSubsystem: (subsystem: SubsystemSelection) => void;
   setActiveInspection: (inspection: 'door' | 'acv' | 'shm' | 'rail' | null) => void;
   toggleXray: () => void;
@@ -92,6 +106,11 @@ export const useTwinStore = create<TwinState>((set, get) => ({
   currentFrame: null,
   history: [],
   cameraMode: 'meso',
+  cameraZoom: ZOOM_FOR_MODE.meso,
+  monitoredCar: 3,
+  acvResult: null,
+  acvUploading: false,
+  acvError: null,
   selectedSubsystem: 'overview',
   xrayMode: false,
   isPlaying: true,
@@ -135,7 +154,35 @@ export const useTwinStore = create<TwinState>((set, get) => ({
       };
     }),
 
-  setCameraMode: (mode) => set({ cameraMode: mode }),
+  setCameraMode: (mode) => set({ cameraMode: mode, cameraZoom: ZOOM_FOR_MODE[mode] }),
+
+  setCameraZoom: (zoom) => {
+    const z = Math.min(1, Math.max(0, zoom));
+    set({ cameraZoom: z, cameraMode: z < 0.25 ? 'micro' : z < 0.75 ? 'meso' : 'macro' });
+  },
+
+  setMonitoredCar: (car) => set({ monitoredCar: Math.min(CAR_COUNT, Math.max(1, Math.round(car))) }),
+
+  uploadAcv: async (file) => {
+    set({ acvUploading: true, acvError: null });
+    try {
+      const body = new FormData();
+      body.append('file', file);
+      const res = await fetch('/api/acv/predict', { method: 'POST', body });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        set({ acvError: data.detail ?? 'The upload failed. Try again.' });
+        return false;
+      }
+      set({ acvResult: data as AcvResult });
+      return true;
+    } catch {
+      set({ acvError: 'Could not reach the backend. Check that it is running.' });
+      return false;
+    } finally {
+      set({ acvUploading: false });
+    }
+  },
 
   setSelectedSubsystem: (subsystem) => {
     set({ selectedSubsystem: subsystem });

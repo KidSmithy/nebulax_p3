@@ -647,18 +647,30 @@ class ACVSubsystemModel:
     def predict_from_csv(self, file_source, file_name: str = "acv_data.csv") -> dict:
         """
         Runs ACV thermodynamic leak detection and consist temperature ranking
-        from an uploaded CSV file.
-        """
-        import io
-        import pandas as pd
-        if isinstance(file_source, (bytes, bytearray)):
-            df = pd.read_csv(io.BytesIO(file_source))
-        elif isinstance(file_source, str) and "\n" in file_source:
-            df = pd.read_csv(io.StringIO(file_source))
-        else:
-            df = pd.read_csv(file_source)
+        from an uploaded CSV or Excel (.xlsx) case file.
 
-        leak_result = self.localise_leak(df, file_id=file_name)
+        load_case() picks its parser by file extension (pd.read_csv vs
+        pd.read_excel), so raw upload bytes are spooled to a temp file with
+        the ORIGINAL extension preserved rather than forced through
+        pd.read_csv - that would corrupt/reject a binary .xlsx workbook,
+        which is the format the real ACV test cases ship in.
+        """
+        import os
+        import tempfile
+
+        suffix = os.path.splitext(file_name)[1] or ".xlsx"
+        if isinstance(file_source, (bytes, bytearray)):
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                tmp.write(file_source)
+                tmp_path = tmp.name
+            try:
+                leak_result = self.localise_leak(tmp_path, file_id=file_name)
+            finally:
+                os.unlink(tmp_path)
+        else:
+            # Already a path (or an in-memory DataFrame from a caller that
+            # parsed it itself) - hand it straight to localise_leak.
+            leak_result = self.localise_leak(file_source, file_id=file_name)
         top_car = leak_result.get("most_likely_faulty_car")
         margin = leak_result.get("confidence_margin") or 0.0
         confidence = leak_result.get("confidence", "UNKNOWN")
@@ -696,4 +708,75 @@ class ACVSubsystemModel:
             "ranked_cars": leak_result.get("ranked_cars_list", []),
             "car_diagnostics": leak_result.get("car_diagnostics", []),
         }
+
+    def predict_batch(self, file_list: list, batch_name: str = "acv_batch.zip") -> dict:
+        """
+        Evaluates a batch of ACV consist run CSV/Excel files (e.g. from an uploaded ZIP).
+        file_list: list of (file_name, file_bytes)
+        """
+        results = []
+        for fname, fbytes in file_list:
+            try:
+                res = self.predict_from_csv(fbytes, fname)
+                results.append(res)
+            except Exception as e:
+                print(f"[ACVPhysicsPredictor] Error processing {fname} in batch: {e}")
+
+        if not results:
+            raise ValueError(f"Could not parse any valid ACV data files from '{batch_name}'.")
+
+        total_files = len(results)
+        anomalous_files = [r for r in results if r["status"] != "GOOD"]
+        anomaly_count = len(anomalous_files)
+
+        worst_item = max(results, key=lambda r: r.get("confidence_margin", 0.0) if r["status"] != "GOOD" else 0.0)
+        worst_file = worst_item["file_name"]
+
+        if anomaly_count > 0:
+            verdict = "ACTION_NEEDED"
+            action = "ACTION_REPLACE_FILTER"
+            conductor_summary = (
+                f"Batch evaluation of {total_files} ACV trip log(s) in '{batch_name}': "
+                f"Thermal refrigerant anomaly identified in {anomaly_count} log(s). "
+                f"Primary faulty car is Car {worst_item.get('most_likely_faulty_car')} in '{worst_file}' "
+                f"(confidence {worst_item.get('confidence')}, margin {worst_item.get('confidence_margin', 0.0):.2f}). "
+                f"Recommend servicing AC pack and filter on Car {worst_item.get('most_likely_faulty_car')}."
+            )
+        else:
+            verdict = "GOOD"
+            action = "NONE"
+            conductor_summary = (
+                f"Batch evaluation of {total_files} ACV trip log(s) in '{batch_name}': "
+                f"All {total_files} runs show normal thermodynamic balance across all consist passenger cars."
+            )
+
+        batch_breakdown = [
+            {
+                "file": r["file_name"],
+                "faulty_car": r.get("most_likely_faulty_car"),
+                "confidence": r.get("confidence"),
+                "margin": r.get("confidence_margin"),
+                "verdict": r["verdict"]
+            }
+            for r in results
+        ]
+
+        return {
+            "subsystem": "acv",
+            "file_name": batch_name,
+            "is_batch": True,
+            "status": verdict,
+            "verdict": verdict,
+            "total_files": total_files,
+            "anomaly_count": anomaly_count,
+            "most_likely_faulty_car": worst_item.get("most_likely_faulty_car"),
+            "confidence": worst_item.get("confidence"),
+            "confidence_margin": worst_item.get("confidence_margin"),
+            "worst_file": worst_file,
+            "anomaly_score": worst_item.get("anomaly_score", 0.15),
+            "recommended_action": action,
+            "conductor_summary": conductor_summary,
+            "batch_items": batch_breakdown,
+        }
+
 

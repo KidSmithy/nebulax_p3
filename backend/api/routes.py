@@ -5,7 +5,10 @@ REST API Endpoints for NebulaX P3 Rail Digital Twin.
 ===============================================================================
 """
 
-from typing import Any, Dict, Optional
+import io
+import re
+from typing import Any, Dict, List, Optional, Tuple
+import zipfile
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
@@ -19,6 +22,26 @@ router = APIRouter(prefix="/api")
 ai_service = AIInsightService()
 
 
+def _natural_sort_key(s: str):
+    return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
+
+
+def _extract_zip_files(content: bytes) -> List[Tuple[str, bytes]]:
+    """Extracts valid data files (.csv, .txt, .log, .xlsx) from a ZIP archive."""
+    extracted = []
+    with zipfile.ZipFile(io.BytesIO(content)) as z:
+        names = sorted(z.namelist(), key=_natural_sort_key)
+        for name in names:
+            if name.endswith("/") or "__MACOSX" in name or "/." in name or name.startswith("."):
+                continue
+            base = name.split("/")[-1]
+            if base.startswith("._") or not base:
+                continue
+            if base.lower().endswith((".csv", ".txt", ".tsv", ".log", ".xlsx")):
+                extracted.append((base, z.read(name)))
+    return extracted
+
+
 class WhatIfRequest(BaseModel):
     action: str
     enabled: bool = True
@@ -30,6 +53,11 @@ class AskRequest(BaseModel):
 
 class InsightRequest(BaseModel):
     force: bool = False
+
+
+class ResolveRequest(BaseModel):
+    subsystem: str
+    car: Optional[int] = None
 
 
 def setup_routes(harmonizer, whatif_engine):
@@ -104,17 +132,51 @@ def setup_routes(harmonizer, whatif_engine):
     async def upload_predict(file: UploadFile = File(...), subsystem: str = Form(...)):
         content = await file.read()
         sub = subsystem.lower().strip()
+        filename = file.filename or "uploaded_data.csv"
+        is_zip = filename.lower().endswith(".zip")
+
         try:
-            if sub in ("door", "doors"):
-                result = harmonizer.broker.door_model.predict_from_csv(content, file.filename or "door_data.csv")
-            elif sub in ("shm", "bogie"):
-                result = harmonizer.broker.shm_model.predict_from_csv(content, file.filename or "shm_data.csv")
-            elif sub in ("acv", "aircon"):
-                result = harmonizer.broker.acv_model.predict_from_csv(content, file.filename or "acv_data.csv")
-            elif sub in ("rail", "rail_corrugation", "corrugation"):
-                result = harmonizer.broker.rail_model.predict_from_csv(content, file.filename or "rail_data.csv")
+            if is_zip:
+                file_list = _extract_zip_files(content)
+                if not file_list:
+                    raise HTTPException(status_code=422, detail="No valid CSV or data files found in ZIP archive.")
+
+                if len(file_list) == 1:
+                    fname, fbytes = file_list[0]
+                    if sub in ("door", "doors"):
+                        result = harmonizer.broker.door_model.predict_from_csv(fbytes, fname)
+                    elif sub in ("shm", "bogie"):
+                        result = harmonizer.broker.shm_model.predict_from_csv(fbytes, fname)
+                    elif sub in ("acv", "aircon"):
+                        result = harmonizer.broker.acv_model.predict_from_csv(fbytes, fname)
+                    elif sub in ("rail", "rail_corrugation", "corrugation"):
+                        result = harmonizer.broker.rail_model.predict_from_csv(fbytes, fname)
+                    else:
+                        raise HTTPException(status_code=400, detail=f"Unknown subsystem: {subsystem}")
+                else:
+                    if sub in ("door", "doors"):
+                        result = harmonizer.broker.door_model.predict_batch(file_list, filename)
+                    elif sub in ("shm", "bogie"):
+                        result = harmonizer.broker.shm_model.predict_batch(file_list, filename)
+                    elif sub in ("acv", "aircon"):
+                        result = harmonizer.broker.acv_model.predict_batch(file_list, filename)
+                    elif sub in ("rail", "rail_corrugation", "corrugation"):
+                        result = harmonizer.broker.rail_model.predict_batch(file_list, filename)
+                    else:
+                        raise HTTPException(status_code=400, detail=f"Unknown subsystem: {subsystem}")
             else:
-                raise HTTPException(status_code=400, detail=f"Unknown subsystem: {subsystem}")
+                if sub in ("door", "doors"):
+                    result = harmonizer.broker.door_model.predict_from_csv(content, filename)
+                elif sub in ("shm", "bogie"):
+                    result = harmonizer.broker.shm_model.predict_from_csv(content, filename)
+                elif sub in ("acv", "aircon"):
+                    result = harmonizer.broker.acv_model.predict_from_csv(content, filename)
+                elif sub in ("rail", "rail_corrugation", "corrugation"):
+                    result = harmonizer.broker.rail_model.predict_from_csv(content, filename)
+                else:
+                    raise HTTPException(status_code=400, detail=f"Unknown subsystem: {subsystem}")
+        except HTTPException:
+            raise
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
         except Exception as e:
@@ -126,5 +188,52 @@ def setup_routes(harmonizer, whatif_engine):
     @router.get("/predict/latest")
     async def get_latest_predictions():
         return {"predictions": harmonizer.latest_upload_results}
+
+    # ------------------------------------------------------------------
+    # Resolve an uploaded finding: apply its recommended repair for a real
+    # measured delta (same engine the Repairs tab uses), then log it.
+    # ------------------------------------------------------------------
+    @router.post("/predict/resolve")
+    async def resolve_prediction(req: ResolveRequest):
+        finding = harmonizer.latest_upload_results.get(req.subsystem)
+        if finding is None:
+            raise HTTPException(status_code=404, detail=f"No active finding for '{req.subsystem}'.")
+
+        action = finding.get("recommended_action")
+        measured_impact = None
+        if action and action != "NONE":
+            whatif_result = whatif_engine.simulate_action(action, True)
+            measured_impact = whatif_result.get("measured_impact")
+
+        entry = harmonizer.resolve_upload(req.subsystem, car=req.car, measured_impact=measured_impact)
+        return entry
+
+    @router.get("/log")
+    async def get_resolved_log():
+        return {"log": harmonizer.resolved_log}
+
+    @router.post("/acv/predict")
+    async def acv_predict(file: UploadFile = File(...)):
+        content = await file.read()
+        filename = file.filename or "acv_data.csv"
+        try:
+            if filename.lower().endswith(".zip"):
+                file_list = _extract_zip_files(content)
+                if not file_list:
+                    raise HTTPException(status_code=422, detail="No valid CSV or Excel files found in ZIP archive.")
+                if len(file_list) == 1:
+                    result = harmonizer.broker.acv_model.predict_from_csv(file_list[0][1], file_list[0][0])
+                else:
+                    result = harmonizer.broker.acv_model.predict_batch(file_list, filename)
+            else:
+                result = harmonizer.broker.acv_model.predict_from_csv(content, filename)
+        except HTTPException:
+            raise
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Inference error: {e}")
+        harmonizer.set_upload_result("acv", result)
+        return result
 
     return router

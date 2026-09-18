@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, CheckCircle2, FileText, HardHat, Loader2, UploadCloud, Wrench, X, AlertCircle } from 'lucide-react';
+import { Archive, ArrowRight, CheckCircle2, FileText, HardHat, Loader2, UploadCloud, Wrench, X, AlertCircle } from 'lucide-react';
 import { useTwinStore } from '../../../store/useTwinStore';
 import { useMonitoredItems, MonitoredItem } from '../../../lib/useMonitoredItems';
 import { STATUS_SHORT, STATUS_STYLES } from '../../../lib/metricGlossary';
-import { SubsystemSelection } from '../../../types/telemetry';
+import { AcvResult, SubsystemSelection } from '../../../types/telemetry';
 
 type Step = 'subsystem' | 'upload' | 'results';
 const STEP_ORDER: Step[] = ['subsystem', 'upload', 'results'];
@@ -47,13 +47,22 @@ const ModelResultsCard: React.FC<{
       <div className="border border-slate-200 bg-white p-3 rounded-sm space-y-2.5 shadow-sm">
         <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
           <div className="min-w-0 flex items-center gap-1.5">
-            <FileText className="w-4 h-4 text-slate-500 shrink-0" />
+            {uploadResult.is_batch ? (
+              <Archive className="w-4 h-4 text-ink-900 shrink-0" />
+            ) : (
+              <FileText className="w-4 h-4 text-slate-500 shrink-0" />
+            )}
             <div className="min-w-0">
-              <div className="text-xs font-bold text-slate-800 truncate">
-                {uploadResult.file_name || 'Uploaded Dataset'}
+              <div className="text-xs font-bold text-slate-800 truncate flex items-center gap-1.5">
+                <span>{uploadResult.file_name || 'Uploaded Dataset'}</span>
+                {uploadResult.is_batch && (
+                  <span className="text-[9px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded font-mono font-normal">
+                    {uploadResult.total_files} runs
+                  </span>
+                )}
               </div>
               <div className="text-[10px] text-slate-500 font-mono">
-                Subsystem: {String(uploadResult.subsystem).toUpperCase()} · Model Evaluated
+                Subsystem: {String(uploadResult.subsystem).toUpperCase()} · {uploadResult.is_batch ? 'Batch Model Inference' : 'Model Evaluated'}
               </div>
             </div>
           </div>
@@ -81,8 +90,12 @@ const ModelResultsCard: React.FC<{
                 <span className="font-semibold text-slate-800">{uploadResult.max_current_peak_a} A</span>
               </div>
               <div className="bg-slate-50 p-2 rounded border border-slate-100">
-                <span className="text-[10px] text-slate-500 block font-medium">Mean Transit Time</span>
-                <span className="font-semibold text-slate-800">{uploadResult.mean_duration_s} s</span>
+                <span className="text-[10px] text-slate-500 block font-medium">
+                  {uploadResult.is_batch ? 'Worst Run File' : 'Mean Transit Time'}
+                </span>
+                <span className="font-semibold text-slate-800 truncate block">
+                  {uploadResult.is_batch ? uploadResult.worst_file : `${uploadResult.mean_duration_s} s`}
+                </span>
               </div>
             </>
           )}
@@ -90,11 +103,19 @@ const ModelResultsCard: React.FC<{
           {uploadResult.subsystem === 'shm' && (
             <>
               <div className="bg-slate-50 p-2 rounded border border-slate-100">
-                <span className="text-[10px] text-slate-500 block font-medium">Vibration RMS</span>
-                <span className="font-semibold text-slate-800">{uploadResult.vibration_rms_g} g</span>
+                <span className="text-[10px] text-slate-500 block font-medium">
+                  {uploadResult.is_batch ? 'Peak / Mean RMS' : 'Vibration RMS'}
+                </span>
+                <span className="font-semibold text-slate-800">
+                  {uploadResult.is_batch 
+                    ? `${uploadResult.vibration_rms_g}g / ${uploadResult.mean_vibration_rms_g}g` 
+                    : `${uploadResult.vibration_rms_g} g`}
+                </span>
               </div>
               <div className="bg-slate-50 p-2 rounded border border-slate-100">
-                <span className="text-[10px] text-slate-500 block font-medium">Fatigue Damage Index</span>
+                <span className="text-[10px] text-slate-500 block font-medium">
+                  {uploadResult.is_batch ? 'Worst Fatigue Index' : 'Fatigue Damage Index'}
+                </span>
                 <span className="font-semibold text-slate-800">{uploadResult.fatigue_damage_index}</span>
               </div>
               <div className="bg-slate-50 p-2 rounded border border-slate-100">
@@ -104,8 +125,12 @@ const ModelResultsCard: React.FC<{
                 </span>
               </div>
               <div className="bg-slate-50 p-2 rounded border border-slate-100">
-                <span className="text-[10px] text-slate-500 block font-medium">Critical Weld Node</span>
-                <span className="font-semibold text-slate-800 truncate block">{uploadResult.critical_weld_node}</span>
+                <span className="text-[10px] text-slate-500 block font-medium">
+                  {uploadResult.is_batch ? 'Worst-Case Run' : 'Critical Weld Node'}
+                </span>
+                <span className="font-semibold text-slate-800 truncate block">
+                  {uploadResult.is_batch ? uploadResult.worst_file : uploadResult.critical_weld_node}
+                </span>
               </div>
             </>
           )}
@@ -114,7 +139,7 @@ const ModelResultsCard: React.FC<{
             <>
               <div className="bg-slate-50 p-2 rounded border border-slate-100">
                 <span className="text-[10px] text-slate-500 block font-medium">Faulty Car Location</span>
-                <span className="font-semibold text-slate-800">{uploadResult.most_likely_faulty_car || 'Consist Normal'}</span>
+                <span className="font-semibold text-slate-800">{uploadResult.most_likely_faulty_car ? `Car ${uploadResult.most_likely_faulty_car}` : 'Consist Normal'}</span>
               </div>
               <div className="bg-slate-50 p-2 rounded border border-slate-100">
                 <span className="text-[10px] text-slate-500 block font-medium">Detection Confidence</span>
@@ -126,16 +151,98 @@ const ModelResultsCard: React.FC<{
           {uploadResult.subsystem === 'rail' && (
             <>
               <div className="bg-slate-50 p-2 rounded border border-slate-100">
-                <span className="text-[10px] text-slate-500 block font-medium">Corrugation Depth</span>
-                <span className="font-semibold text-slate-800">{uploadResult.depth_microns} μm</span>
+                <span className="text-[10px] text-slate-500 block font-medium">
+                  {uploadResult.is_batch ? 'Peak / Mean Roughness' : 'Corrugation Depth'}
+                </span>
+                <span className="font-semibold text-slate-800">
+                  {uploadResult.is_batch 
+                    ? `${uploadResult.depth_microns} / ${uploadResult.mean_depth_microns} μm` 
+                    : `${uploadResult.depth_microns} μm`}
+                </span>
               </div>
               <div className="bg-slate-50 p-2 rounded border border-slate-100">
                 <span className="text-[10px] text-slate-500 block font-medium">Wavelength Pattern</span>
                 <span className="font-semibold text-slate-800">{uploadResult.wavelength_class}</span>
               </div>
+              {uploadResult.is_batch && (
+                <>
+                  <div className="bg-slate-50 p-2 rounded border border-slate-100">
+                    <span className="text-[10px] text-slate-500 block font-medium">Track Sections</span>
+                    <span className="font-semibold text-slate-800">
+                      {uploadResult.total_files} runs ({uploadResult.anomaly_count} alerts)
+                    </span>
+                  </div>
+                  <div className="bg-slate-50 p-2 rounded border border-slate-100">
+                    <span className="text-[10px] text-slate-500 block font-medium">Worst Track Run</span>
+                    <span className="font-semibold text-slate-800 truncate block">{uploadResult.worst_file}</span>
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
+
+        {/* Batch Runs Breakdown Table */}
+        {uploadResult.is_batch && uploadResult.batch_items && uploadResult.batch_items.length > 0 && (
+          <div className="border border-slate-100 p-2 rounded bg-slate-50 space-y-1.5">
+            <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+              <span>Batch Runs Breakdown ({uploadResult.batch_items.length} files)</span>
+              <span>{uploadResult.anomaly_count} alert(s)</span>
+            </div>
+            <div className="max-h-28 overflow-y-auto space-y-1 pr-1 custom-scrollbar text-[10px]">
+              {uploadResult.batch_items.map((item: any, idx: number) => {
+                const itemStyles = STATUS_STYLES[item.verdict as keyof typeof STATUS_STYLES] || STATUS_STYLES['GOOD'];
+                return (
+                  <div key={idx} className="flex items-center justify-between p-1 rounded bg-white border border-slate-100">
+                    <span className="font-mono text-slate-700 truncate max-w-[140px]" title={item.file}>
+                      {item.file}
+                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {item.depth_microns !== undefined && (
+                        <span className="text-slate-500 font-mono">{item.depth_microns} μm</span>
+                      )}
+                      {item.damage_index !== undefined && (
+                        <span className="text-slate-500 font-mono">D: {item.damage_index}</span>
+                      )}
+                      {item.fault_rate_pct !== undefined && (
+                        <span className="text-slate-500 font-mono">{item.fault_rate_pct}%</span>
+                      )}
+                      {item.faulty_car !== undefined && (
+                        <span className="text-slate-500 font-mono">Car {item.faulty_car}</span>
+                      )}
+                      <span className={`px-1 py-0.2 rounded border font-semibold text-[9px] ${itemStyles.text} ${itemStyles.border} ${itemStyles.bg}`}>
+                        {STATUS_SHORT[item.verdict as keyof typeof STATUS_SHORT] || item.verdict}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Consist car rank display for ACV */}
+        {uploadResult.subsystem === 'acv' && uploadResult.ranked_cars && uploadResult.ranked_cars.length > 0 && (
+          <div className="border border-slate-100 p-2 rounded bg-slate-50 space-y-1.5">
+            <span className="text-[10px] text-slate-500 block font-medium">Consist Fault Ranking (Most Likely First)</span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {uploadResult.ranked_cars.map((car: any, i: number) => (
+                <span key={car} className="flex items-center gap-1.5">
+                  <span
+                    className={`w-6 h-6 flex items-center justify-center text-xs font-bold border rounded ${
+                      i === 0
+                        ? 'bg-ink-900 text-white border-ink-900'
+                        : 'bg-white text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    {car}
+                  </span>
+                  {i < uploadResult.ranked_cars.length - 1 && <span className="text-slate-300 text-xs">›</span>}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Conductor Narrative */}
         <div className="bg-slate-50 border-l-2 border-ink-900 p-2.5 rounded-r">
@@ -187,6 +294,45 @@ const ModelResultsCard: React.FC<{
         </button>
       </div>
     </div>
+  );
+};
+
+const AcvResultsCard: React.FC<{ result: AcvResult; onDone: () => void }> = ({ result, onDone }) => {
+  const top = Number(result.most_likely_faulty_car);
+  return (
+    <>
+      <Prompt>
+        Car {top} is the most likely to have the fault. Here is how I ranked all {result.ranked_cars_list.length} cars,
+        most likely first.
+      </Prompt>
+      <div className="border border-slate-200 p-3 space-y-2.5">
+        <div className="text-label font-mono text-slate-400 truncate">{result.file_id}</div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {result.ranked_cars_list.map((car, i) => (
+            <span key={car} className="flex items-center gap-1.5">
+              <span
+                className={`w-7 h-7 flex items-center justify-center text-xs font-bold border ${
+                  i === 0
+                    ? 'bg-ink-900 text-white border-ink-900'
+                    : 'bg-white text-slate-600 border-slate-200'
+                }`}
+              >
+                {car}
+              </span>
+              {i < result.ranked_cars_list.length - 1 && <span className="text-slate-300 text-xs">›</span>}
+            </span>
+          ))}
+        </div>
+        <p className="text-label text-slate-500 leading-relaxed">{result.verdict}</p>
+      </div>
+      <button
+        onClick={onDone}
+        className="w-full flex items-center justify-center gap-1.5 bg-ink-900 text-white text-xs font-semibold py-2.5 hover:bg-ink-700 transition-colors duration-150"
+      >
+        <CheckCircle2 className="w-3.5 h-3.5" />
+        Zoom to Car {top}
+      </button>
+    </>
   );
 };
 
@@ -242,15 +388,22 @@ const ResultsCard: React.FC<{ item: MonitoredItem; beginner: boolean; onDone: ()
 };
 
 /**
- * Full-screen takeover shown first: pick a subsystem, "upload" a file (no
- * backend to send it to yet, so this is a scripted beat that hands off to
- * the live feed), then see that subsystem's live reading. Reusable from the
+ * Full-screen takeover: pick a subsystem, upload a data file, see the result.
+ * ACV is real: the file goes to /api/acv/predict and comes back as a car
+ * ranking. The other subsystems have no upload endpoint yet, so their upload
+ * step is a scripted beat that hands off to the live feed. Reusable from the
  * composer's "Upload new data" action, which unmounts and remounts this so
  * every run starts clean at step one.
  */
 export const ConductorOnboarding: React.FC = () => {
   const setConductorState = useTwinStore((s) => s.setConductorState);
   const setSelectedSubsystem = useTwinStore((s) => s.setSelectedSubsystem);
+  const setMonitoredCar = useTwinStore((s) => s.setMonitoredCar);
+  const setCameraMode = useTwinStore((s) => s.setCameraMode);
+  const uploadAcv = useTwinStore((s) => s.uploadAcv);
+  const acvUploading = useTwinStore((s) => s.acvUploading);
+  const acvError = useTwinStore((s) => s.acvError);
+  const acvResult = useTwinStore((s) => s.acvResult);
   const beginner = useTwinStore((s) => s.uiMode) === 'beginner';
   const { orderedItems } = useMonitoredItems();
   const subsystemOptions = ONBOARDING_SUBSYSTEMS.map((o) => orderedItems.find((i) => i.id === o.id)!);
@@ -263,8 +416,19 @@ export const ConductorOnboarding: React.FC = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const finish = () => setConductorState('docked');
+  // Every way out of the walkthrough lands on the one-car view.
+  const finish = (targetCar?: number) => {
+    setCameraMode('meso');
+    if (targetCar) {
+      setMonitoredCar(targetCar);
+    }
+    setConductorState('docked');
+  };
   const openChat = () => setConductorState('popup');
+
+  const finishAcv = (result: AcvResult) => {
+    finish(Number(result.most_likely_faulty_car));
+  };
 
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => {
@@ -304,6 +468,13 @@ export const ConductorOnboarding: React.FC = () => {
       }
       const data = await res.json();
       setUploadResult(data);
+
+      if (subsystem === 'acv' || data.subsystem === 'acv') {
+        useTwinStore.setState({ acvResult: data });
+        if (data.most_likely_faulty_car) {
+          setMonitoredCar(Number(data.most_likely_faulty_car));
+        }
+      }
 
       // Seed conductor chat with the findings from this upload
       useTwinStore.setState((state) => ({
@@ -351,7 +522,7 @@ export const ConductorOnboarding: React.FC = () => {
             </span>
             <div className="min-w-0">
               <div className="text-sm font-bold text-slate-900 leading-tight">Conductor</div>
-              <div className="text-label text-slate-500 leading-tight truncate">Car 3 setup</div>
+              <div className="text-label text-slate-500 leading-tight truncate">Setup</div>
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
@@ -364,7 +535,7 @@ export const ConductorOnboarding: React.FC = () => {
               ))}
             </div>
             <button
-              onClick={finish}
+              onClick={() => finish()}
               className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
               title="Skip for now"
             >
@@ -406,8 +577,8 @@ export const ConductorOnboarding: React.FC = () => {
           {step === 'upload' && (
             <>
               <Prompt>
-                Upload a CSV data file for {selected ? labelFor(selected.id) : 'this subsystem'}
-                , or skip it and I'll keep watching the live feed.
+                Upload a CSV data file or a ZIP archive containing multiple test runs for{' '}
+                {selected ? labelFor(selected.id) : 'this subsystem'}, or skip it and I'll keep watching the live feed.
               </Prompt>
 
               {uploadError && (
@@ -420,26 +591,34 @@ export const ConductorOnboarding: React.FC = () => {
                 </div>
               )}
 
-              {!processing ? (
+              {!processing && !(subsystem === 'acv' && acvUploading) ? (
                 <>
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="w-full flex flex-col items-center justify-center gap-1.5 border border-dashed border-slate-300 hover:border-ink-500 hover:bg-slate-50 transition-colors duration-150 py-6 rounded"
                   >
                     <UploadCloud className="w-6 h-6 text-slate-400" />
-                    <span className="text-xs font-medium text-slate-700">Click to choose a file</span>
-                    <span className="text-label text-slate-400">CSV dataset (Door, SHM, ACV, Rail)</span>
+                    <span className="text-xs font-medium text-slate-700">Click to choose a file or ZIP archive</span>
+                    <span className="text-label text-slate-400 text-center px-4">
+                      {subsystem === 'acv'
+                        ? 'ACV case workbook or archive (.xlsx, .csv, .zip)'
+                        : 'CSV dataset or ZIP archive (e.g. SHM or Rail multi-run tests)'}
+                    </span>
                   </button>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv,.txt,.log"
+                    accept={subsystem === 'acv' ? '.xlsx,.csv,.zip' : '.csv,.zip,.txt,.log'}
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       if (f) handleFileUpload(f);
+                      e.target.value = '';
                     }}
                   />
+                  {subsystem === 'acv' && acvError && (
+                    <p className="text-label text-status-fault leading-relaxed">{acvError}</p>
+                  )}
                   <button
                     onClick={skipToLive}
                     className="w-full text-center text-label font-semibold text-slate-500 hover:text-ink-900 py-1.5 transition-colors duration-150"
@@ -465,11 +644,13 @@ export const ConductorOnboarding: React.FC = () => {
             uploadResult ? (
               <ModelResultsCard
                 uploadResult={uploadResult}
-                onDone={finish}
+                onDone={() => finish(uploadResult.most_likely_faulty_car ? Number(uploadResult.most_likely_faulty_car) : undefined)}
                 onOpenChat={openChat}
               />
+            ) : subsystem === 'acv' && acvResult && fileName ? (
+              <AcvResultsCard result={acvResult} onDone={() => finishAcv(acvResult)} />
             ) : (
-              <ResultsCard item={selected} beginner={beginner} onDone={finish} />
+              <ResultsCard item={selected} beginner={beginner} onDone={() => finish()} />
             )
           )}
         </div>

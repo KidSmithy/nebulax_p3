@@ -270,7 +270,7 @@ class SHMSubsystemModel:
         if self.scaler is not None and len(self.models) > 0:
             x_raw = np.array([[feat_dict.get(f, 0.0) for f in self.features]])
             x_scaled = self.scaler.transform(x_raw)
-            preds = [float(m.predict(x_scaled)[0]) for m in self.models]
+            preds = [float(np.exp(m.predict(x_scaled)[0])) for m in self.models]
             if len(self.weights) == len(preds):
                 weighted_pred = sum(p * w for p, w in zip(preds, self.weights))
             else:
@@ -351,4 +351,101 @@ class SHMSubsystemModel:
             "conductor_summary": conductor_summary,
             "fft_spectrum": spectrum_pts,
         }
+
+    def predict_batch(self, file_list: list, batch_name: str = "shm_batch.zip") -> dict:
+        """
+        Evaluates a batch of SHM sensor files (e.g. from an uploaded ZIP).
+        file_list: list of (file_name, file_bytes)
+        """
+        results = []
+        for fname, fbytes in file_list:
+            try:
+                res = self.predict_from_csv(fbytes, fname)
+                results.append(res)
+            except Exception as e:
+                print(f"[SHMModel] Error processing {fname} in batch: {e}")
+
+        if not results:
+            raise ValueError(f"Could not parse any valid SHM sensor CSV files from '{batch_name}'.")
+
+        total_files = len(results)
+        damage_indices = [r["fatigue_damage_index"] for r in results]
+        rms_values = [r["vibration_rms_g"] for r in results]
+        bearing_probs = [r["bearing_defect_prob"] for r in results]
+
+        mean_damage = round(float(np.mean(damage_indices)), 4)
+        max_damage = round(float(np.max(damage_indices)), 4)
+        worst_damage_item = max(results, key=lambda r: r["fatigue_damage_index"])
+        worst_file = worst_damage_item["file_name"]
+
+        mean_rms = round(float(np.mean(rms_values)), 2)
+        max_rms = round(float(np.max(rms_values)), 2)
+        max_bearing_prob = round(float(np.max(bearing_probs)), 2)
+
+        anomalous_files = [r for r in results if r["status"] != "GOOD"]
+        anomaly_count = len(anomalous_files)
+
+        if max_damage > 0.40 or max_bearing_prob > 0.45 or max_rms > 3.5:
+            verdict = "ACTION_NEEDED"
+            action = "ACTION_INSPECT_BEARING"
+            conductor_summary = (
+                f"Batch evaluation of {total_files} SHM files in '{batch_name}': "
+                f"Severe structural risk detected in {anomaly_count} run(s). "
+                f"Worst-case test run is '{worst_file}' with fatigue damage index {max_damage:.3f} "
+                f"and peak bearing defect probability {max_bearing_prob*100:.0f}%. "
+                f"Maximum vibration reached {max_rms:.2f}g. "
+                f"Immediate axle-box bearing inspection and structural weld testing recommended."
+            )
+        elif anomaly_count > 0:
+            verdict = "WATCH"
+            action = "ACTION_INSPECT_BEARING"
+            conductor_summary = (
+                f"Batch evaluation of {total_files} SHM files in '{batch_name}': "
+                f"Elevated stress observed in {anomaly_count} of {total_files} runs. "
+                f"Average fatigue damage index across batch is {mean_damage:.3f} (max {max_damage:.3f} in '{worst_file}'). "
+                f"Bearing inspection advised at upcoming depot service."
+            )
+        else:
+            verdict = "GOOD"
+            action = "NONE"
+            conductor_summary = (
+                f"Batch evaluation of {total_files} SHM files in '{batch_name}': "
+                f"All {total_files} sensor runs are structurally nominal (mean RMS {mean_rms:.2f}g, "
+                f"average fatigue damage index {mean_damage:.3f}). "
+                f"Bogie structural health and axle bearings are in good operational condition."
+            )
+
+        batch_breakdown = [
+            {
+                "file": r["file_name"],
+                "damage_index": r["fatigue_damage_index"],
+                "rms_g": r["vibration_rms_g"],
+                "bearing_risk_pct": round(r["bearing_defect_prob"] * 100),
+                "verdict": r["verdict"],
+                "critical_node": r["critical_weld_node"]
+            }
+            for r in results
+        ]
+
+        return {
+            "subsystem": "shm",
+            "file_name": batch_name,
+            "is_batch": True,
+            "status": verdict,
+            "verdict": verdict,
+            "total_files": total_files,
+            "anomaly_count": anomaly_count,
+            "fatigue_damage_index": max_damage,
+            "mean_fatigue_damage_index": mean_damage,
+            "worst_file": worst_file,
+            "vibration_rms_g": max_rms,
+            "mean_vibration_rms_g": mean_rms,
+            "bearing_defect_prob": max_bearing_prob,
+            "anomaly_score": worst_damage_item["anomaly_score"],
+            "critical_weld_node": worst_damage_item["critical_weld_node"],
+            "recommended_action": action,
+            "conductor_summary": conductor_summary,
+            "batch_items": batch_breakdown,
+        }
+
 

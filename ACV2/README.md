@@ -24,6 +24,9 @@ Full numbers: [`reports/evaluation.md`](reports/evaluation.md),
 [`reports/feature_diagnostics.txt`](reports/feature_diagnostics.txt),
 [`reports/inspect_test_case.txt`](reports/inspect_test_case.txt).
 
+How it was built, step by step, including the dead ends and the comparison against the
+pre-existing `ACV/` pipeline: [`METHODOLOGY_STEP_BY_STEP.md`](METHODOLOGY_STEP_BY_STEP.md).
+
 ---
 
 ## 1. Why a leak is visible at all

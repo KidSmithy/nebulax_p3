@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useTwinStore } from './store/useTwinStore';
 import { TwinCanvas } from './components/canvas/TwinCanvas';
 import { CockpitHeader } from './components/hud/CockpitHeader';
+import { ZoomSlider } from './components/hud/ZoomSlider';
 
 import { ConductorDock } from './components/hud/conductor/ConductorDock';
 import { ConductorPopup } from './components/hud/conductor/ConductorPopup';
@@ -48,6 +49,7 @@ export const App: React.FC = () => {
 
         {/* Cockpit HUD Overlays */}
         <CockpitHeader />
+        <ZoomSlider />
 
         {conductorEnabled && conductorState === 'docked' && <ConductorDock />}
         {conductorEnabled && conductorState === 'popup' && <ConductorPopup />}
