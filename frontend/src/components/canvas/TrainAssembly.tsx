@@ -5,7 +5,6 @@ import { CAR_PITCH, REFERENCE_CAR } from './consist';
 import { C151Car, C151Anchors } from './c151/C151Car';
 import { AirflowParticles } from './particles/AirflowParticles';
 import { InspectionTag } from './InspectionTag';
-import { FindingBubble } from './FindingBubble';
 import { classifyMetric } from '../../lib/metricGlossary';
 
 /**
@@ -61,6 +60,7 @@ const CarMarkers: React.FC<{ status: string; monitoredIndex: number }> = ({ stat
 export const TrainAssembly: React.FC = () => {
   const fullTrainView = useTwinStore((state) => state.cameraMode) === 'macro';
   const monitoredCar = useTwinStore((state) => state.monitoredCar);
+  const livery = useTwinStore((state) => state.activeLine) === 'EWL' ? 'green' : 'red';
   const monitoredIndex = monitoredCar - 1;
   const xrayMode = useTwinStore((state) => state.xrayMode);
   const currentFrame = useTwinStore((state) => state.currentFrame);
@@ -101,6 +101,7 @@ export const TrainAssembly: React.FC = () => {
             variant={car.variant}
             position={[0, 0, car.z]}
             yaw={car.yaw}
+            livery={livery}
             doorCycleState={door?.cycle_state}
             doorAnomalyScore={door?.anomaly_score ?? 0}
             bogieStressIntensity={stressIntensity}
@@ -114,6 +115,7 @@ export const TrainAssembly: React.FC = () => {
             variant={car.variant}
             position={[0, 0, car.z]}
             yaw={car.yaw}
+            livery={livery}
             xrayMode={xrayMode}
             onReady={mergeAnchors}
           />
@@ -141,8 +143,7 @@ export const TrainAssembly: React.FC = () => {
             document.body.style.cursor = 'auto';
           }}
         >
-          <InspectionTag type="door" position={[0.3, 1.1, 0]} beaconLabel="Door 3R System" status={doorStatus} />
-          <FindingBubble subsystem="door" position={[0.3, 1.1, 0]} label="Passenger doors" />
+          <InspectionTag type="door" position={[0.3, 1.1, 0]} beaconLabel="Door 3R System" />
         </group>
       )}
 
@@ -162,8 +163,7 @@ export const TrainAssembly: React.FC = () => {
           }}
         >
           <AirflowParticles position={[0, 0.3, 0]} count={120} />
-          <InspectionTag type="acv" position={[0, 0.55, 0]} beaconLabel="ACV Climate Pack" status={acvStatus} />
-          <FindingBubble subsystem="acv" position={[0, 0.55, 0]} label="Air-conditioning" />
+          <InspectionTag type="acv" position={[0, 0.55, 0]} beaconLabel="ACV Climate Pack" />
         </group>
       )}
 
@@ -182,8 +182,7 @@ export const TrainAssembly: React.FC = () => {
             document.body.style.cursor = 'auto';
           }}
         >
-          <InspectionTag type="shm" position={[0.9, 0.5, 0]} beaconLabel="Bogie SHM" status={shmStatus} />
-          <FindingBubble subsystem="shm" position={[0.9, 0.5, 0]} label="Wheels & frame" />
+          <InspectionTag type="shm" position={[0.9, 0.5, 0]} beaconLabel="Bogie SHM" />
         </group>
       )}
       </group>

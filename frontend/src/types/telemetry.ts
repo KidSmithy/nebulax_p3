@@ -112,7 +112,8 @@ export interface UnifiedTelemetryFrame {
   plain_status?: Record<string, MetricStatus>;
   counterfactual?: CounterfactualBlock;
   next_corrugation_zone?: CorrugationZoneInfo;
-  latest_upload_results?: Partial<Record<SubsystemSelection, Finding>>;
+  /** Unresolved uploaded findings, per line. */
+  uploads_by_line?: Record<Line, Partial<Record<SubsystemSelection, Finding>>>;
 }
 
 /**
@@ -150,6 +151,7 @@ export interface Finding {
 /** One receipt-style entry in the persistent resolved-issues log. */
 export interface LogEntry {
   id: number;
+  line: Line;
   subsystem: string;
   car: number | null;
   file_name: string;
@@ -218,6 +220,9 @@ export interface AIAnswer {
   model?: string;
   degraded_reason?: string | null;
 }
+
+/** The two MRT lines the twin can show. */
+export type Line = 'NSL' | 'EWL';
 
 export type CameraPreset = 'macro' | 'meso' | 'micro';
 

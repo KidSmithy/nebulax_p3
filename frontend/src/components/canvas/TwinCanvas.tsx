@@ -6,6 +6,7 @@ import { useTwinStore } from '../../store/useTwinStore';
 import { TrainAssembly } from './TrainAssembly';
 import { TrackCorridor } from './TrackCorridor';
 import { carShiftZ } from './consist';
+import { LINES } from '../../lib/lines';
 
 type Pose = { pos: THREE.Vector3; look: THREE.Vector3 };
 
@@ -106,6 +107,7 @@ const CameraController: React.FC = () => {
 export const TwinCanvas: React.FC = () => {
   const setActiveInspection = useTwinStore((state) => state.setActiveInspection);
   const setCameraZoom = useTwinStore((state) => state.setCameraZoom);
+  const activeLine = useTwinStore((state) => state.activeLine);
 
   return (
     <div
@@ -123,7 +125,7 @@ export const TwinCanvas: React.FC = () => {
         {/* Soft fill from ceiling/side */}
         <directionalLight position={[-10, 14, -8]} intensity={0.7} color="#e2e8f0" />
         {/* Bogie & track inspection soft fill */}
-        <pointLight position={[0, 0.6, 7.5]} intensity={1.2} color="#f87171" distance={16} />
+        <pointLight position={[0, 0.6, 7.5]} intensity={1.2} color={LINES[activeLine].light} distance={16} />
 
         {/* Crisp Light Atmospheric Fog */}
         <fog attach="fog" args={['#f1f5f9', 45, 130]} />

@@ -48,21 +48,27 @@ def _dig(frame_like: dict, path: str):
     return node.get(parts[1]) if isinstance(node, dict) else None
 
 
+# The two MRT lines the twin shows. They share one simulated telemetry stream
+# (EWL mirrors NSL), but each keeps its own findings; the log is shared and tagged.
+LINES = ("NSL", "EWL")
+
+
 class TelemetryHarmonizer:
     def __init__(self):
         self.generator = TelemetryGenerator()
         self.broker = InferenceBroker()
         self.interventions = dict(NO_INTERVENTIONS)
-        self.latest_upload_results = {}
+        self.uploads_by_line = {line: {} for line in LINES}
         # In-memory only: survives frontend reloads (it's server state), not a
         # backend restart. No DB exists anywhere else in this app either, so
         # this matches the project's own pattern rather than adding one.
         self.resolved_log = []
         self._next_log_id = 1
 
-    def set_upload_result(self, subsystem: str, result: dict):
-        """Stores the most recent CSV batch prediction for a subsystem."""
-        self.latest_upload_results[subsystem] = result
+    def set_upload_result(self, subsystem: str, result: dict, line: str = "NSL"):
+        """Stores the most recent CSV batch prediction for a subsystem on a line."""
+        result["line"] = line
+        self.uploads_by_line[line][subsystem] = result
         # Adapt generator physics to reflect real tested anomalies
         if subsystem == "door":
             if result.get("status") == "ACTION_NEEDED":
@@ -75,20 +81,23 @@ class TelemetryHarmonizer:
             elif result.get("status") == "GOOD":
                 self.generator.bearing_wear = 0.04
 
-    def resolve_upload(self, subsystem: str, car: int = None, measured_impact: dict = None) -> dict:
+    def resolve_upload(
+        self, subsystem: str, car: int = None, measured_impact: dict = None, line: str = "NSL"
+    ) -> dict:
         """
         Clears the active finding for a subsystem (the bubble disappears) and
         appends one receipt-style entry to the persistent log. The measured
         delta, if any, comes from the SAME whatif_engine.simulate_action() the
         Repairs tab uses - never invented here.
         """
-        finding = self.latest_upload_results.pop(subsystem, None)
+        finding = self.uploads_by_line[line].pop(subsystem, None)
         if finding is None:
             return None
 
         raw = self.generator.step(dt=0.0)
         entry = {
             "id": self._next_log_id,
+            "line": line,
             "subsystem": subsystem,
             "car": car,
             "file_name": finding.get("file_name"),
@@ -158,7 +167,7 @@ class TelemetryHarmonizer:
             "active_interventions": dict(self.interventions),
             "plain_status": self._plain_status(frame_flat),
             "next_corrugation_zone": self.next_corrugation_zone(raw["track_chainage_km"]),
-            "latest_upload_results": dict(self.latest_upload_results),
+            "uploads_by_line": {line: dict(found) for line, found in self.uploads_by_line.items()},
         }
 
         # Pass 2: the same instant with every intervention reverted, so the
