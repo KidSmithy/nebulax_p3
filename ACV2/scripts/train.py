@@ -32,8 +32,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from acv2 import __version__                                     # noqa: E402
 from acv2 import config as cfg                                   # noqa: E402
+from acv2 import confidence                                      # noqa: E402
 from acv2.evaluate import (RANDOM_BASELINE_8, build_case_set,     # noqa: E402
-                           calibrate_groups, loocv)
+                           calibrate_groups, loocv, observed_separation)
 from acv2.ranker import DEFAULT_MODEL                             # noqa: E402
 
 warnings.filterwarnings("ignore")
@@ -80,9 +81,34 @@ def main() -> None:
         "notes": ("Peer-consensus physics ranker. No fitted estimator: feature signs come "
                   "from the vapour-compression energy balance, weights from the physical "
                   "prior, and calibration only rescales six group multipliers."),
+        "zero_weight_channels": {
+            name: spec[3] for name, spec in cfg.FEATURE_SPEC.items() if spec[2] <= 0
+        },
+        "confidence_calibration": {
+            "null_calibration_present": os.path.exists(cfg.NULL_CALIBRATION_PATH),
+            "detection_limit_present": os.path.exists(cfg.DETECTION_LIMIT_PATH),
+            "n_null_consists": len((confidence.load_null_calibration() or {})
+                                   .get("dixon_q_null", [])),
+            "built_by": "scripts/validate_robustness.py",
+            "note": ("Confidence is referenced to fault-free consists, not to the raw top-1 "
+                     "margin: measurement showed healthy consists separate as strongly as "
+                     "faulty ones, so the margin is not evidence of fault presence."),
+        },
     }
     joblib.dump(model, cfg.MODEL_PATH)
     print(f"\nWrote {cfg.MODEL_PATH}")
+
+    print("\nSeparation of each labelled file against the fault-free null ...")
+    separation = observed_separation(case_set, model)
+    calibration = confidence.load_null_calibration()
+    if calibration:
+        separation["null_p_value"] = [
+            confidence.null_p_value(q, calibration["dixon_q_null"])
+            for q in separation["dixon_q"]]
+    else:
+        print("  (no null calibration yet - run scripts/validate_robustness.py)")
+    print(separation.to_string(index=False))
+    model["scores"]["separation"] = separation.to_dict(orient="records")
 
     # a flat feature dump, so the numbers behind every verdict are inspectable
     frames = []

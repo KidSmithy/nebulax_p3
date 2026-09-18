@@ -16,6 +16,14 @@ import io
 from sklearn.ensemble import RandomForestClassifier
 from backend.core.config import ROOT_DIR, DOOR_DIR, DATASETS_DIR, MODEL_DATA_DIR
 
+DOOR_CHANNELS = [
+    'Motor current(mA)', 'Motor Voltage(10mV)', 'Motor electrodynamic force',
+    'Door opening time(.1s)', 'Door closing time(.1s)', 'Close command',
+    'Open command', 'DCSR', 'DCSL', 'DLSR', 'DLSL',
+    'Door Opened', 'Door Locked', 'Door is opening', 'Door is closing',
+    'Door leaf position'
+]
+
 BUNDLE_PATHS = [
     MODEL_DATA_DIR / "door_model_bundle.joblib",
     DOOR_DIR / "door_model_bundle.joblib",
@@ -25,6 +33,7 @@ class DoorPredictor:
     def __init__(self):
         self.bundle = None
         self.model = None
+        self.expected_features = 210
         self.feature_cols = [
             'duration_s', 'n_rows', 'op_is_open',
             'cur_mean', 'cur_std', 'cur_min', 'cur_max', 'cur_median', 'cur_q75', 'cur_q90', 'cur_rms', 'cur_integral',
@@ -40,124 +49,27 @@ class DoorPredictor:
             if path.exists():
                 try:
                     self.bundle = joblib.load(path)
-                    # Some bundles are {'model':..., 'feature_cols':...}; others are
-                    # just the bare estimator (joblib.dump(classifier, path)).
                     if isinstance(self.bundle, dict):
-                        self.model = self.bundle['model']
+                        self.model = self.bundle.get('model', self.bundle)
                         if 'feature_cols' in self.bundle:
                             self.feature_cols = self.bundle['feature_cols']
                     else:
                         self.model = self.bundle
-                    if getattr(self.model, 'n_features_in_', None) not in (None, len(self.feature_cols)):
-                        print(f"[DoorPredictor] Model expects {getattr(self.model, 'n_features_in_')} features, but feature_cols has {len(self.feature_cols)}. Training compatible 29-feature model...")
-                        train_path = DATASETS_DIR / "Door" / "Train.csv"
-                        ans_path = DATASETS_DIR / "Door" / "Train_Segments_Answer.csv"
-                        if not train_path.exists():
-                            train_path = DOOR_DIR / "Train.csv"
-                            ans_path = DOOR_DIR / "Train_Segments_Answer.csv"
-                        if train_path.exists() and ans_path.exists():
-                            self._train_and_save(train_path, ans_path)
-                            return
-
-                    print(f"[DoorPredictor] Successfully loaded model bundle from {path}")
+                    self.expected_features = getattr(self.model, 'n_features_in_', 210)
+                    print(f"[DoorPredictor] Successfully loaded model bundle from {path} (expected_features={self.expected_features})")
                     return
                 except Exception as e:
                     print(f"[DoorPredictor] Failed to load cached bundle from {path}: {e}")
 
+        # Fallback mock model if bundle not found
+        self.model = RandomForestClassifier(n_estimators=50, max_depth=5, random_state=42)
+        dummy_X = np.random.randn(20, len(self.feature_cols))
+        dummy_y = np.random.randint(0, 2, size=20)
+        self.model.fit(dummy_X, dummy_y)
+        self.expected_features = len(self.feature_cols)
 
-        # Train baseline if bundle not found
-        train_path = DATASETS_DIR / "Door" / "Train.csv"
-        ans_path = DATASETS_DIR / "Door" / "Train_Segments_Answer.csv"
-        if not train_path.exists():
-            train_path = DOOR_DIR / "Train.csv"
-            ans_path = DOOR_DIR / "Train_Segments_Answer.csv"
 
-        if train_path.exists() and ans_path.exists():
-            self._train_and_save(train_path, ans_path)
-        else:
-            # Fallback mock model
-            self.model = RandomForestClassifier(n_estimators=50, max_depth=5, random_state=42)
-            dummy_X = np.random.randn(20, len(self.feature_cols))
-            dummy_y = np.random.randint(0, 2, size=20)
-            self.model.fit(dummy_X, dummy_y)
 
-    def _train_and_save(self, train_path, ans_path):
-        df_train = pd.read_csv(train_path)
-        df_ans = pd.read_csv(ans_path)
-
-        # Parse timestamps
-        sp = df_train['Datetime'].str.split('-', expand=True).astype(int)
-        parsed_dt = pd.to_datetime({
-            'year': sp[0], 'month': sp[1], 'day': sp[2],
-            'hour': sp[3], 'minute': sp[4], 'second': sp[5],
-            'microsecond': sp[6] * 1000
-        })
-        df_train['parsed_dt'] = parsed_dt
-
-        # Detect segment gaps
-        gaps = np.where(df_train['parsed_dt'].diff().dt.total_seconds() > 0.1)[0]
-        starts = [0] + list(gaps)
-        ends = [g - 1 for g in gaps] + [len(df_train) - 1]
-
-        records = []
-        for i in range(min(len(starts), len(df_ans))):
-            s, e = starts[i], ends[i]
-            sub = df_train.iloc[s:e+1]
-            cur = sub['Motor current(mA)'].values
-            volt = sub['Motor Voltage(10mV)'].values
-            emf = sub['Motor electrodynamic force'].values
-            pos = sub['Door leaf position'].clip(0, 700).values
-
-            pos_diff = pos[-1] - pos[0]
-            inferred_op = 'Open' if pos_diff > 0 else 'Close'
-            speed = np.abs(np.diff(pos) / 0.02) if len(pos) > 1 else np.array([0.0])
-            power = (volt / 100.0) * (cur / 1000.0)
-            duration_s = (parsed_dt.iloc[e] - parsed_dt.iloc[s]).total_seconds()
-
-            rec = {
-                'duration_s': duration_s,
-                'n_rows': len(sub),
-                'op_is_open': 1 if inferred_op == 'Open' else 0,
-                'cur_mean': np.mean(cur),
-                'cur_std': np.std(cur),
-                'cur_min': np.min(cur),
-                'cur_max': np.max(cur),
-                'cur_median': np.median(cur),
-                'cur_q75': np.percentile(cur, 75),
-                'cur_q90': np.percentile(cur, 90),
-                'cur_rms': np.sqrt(np.mean(cur**2)),
-                'cur_integral': np.sum(np.abs(cur) * 0.02),
-                'volt_mean': np.mean(volt),
-                'volt_std': np.std(volt),
-                'volt_min': np.min(volt),
-                'volt_max': np.max(volt),
-                'volt_q75': np.percentile(volt, 75),
-                'emf_mean': np.mean(emf),
-                'emf_std': np.std(emf),
-                'emf_min': np.min(emf),
-                'emf_max': np.max(emf),
-                'emf_q75': np.percentile(emf, 75),
-                'work_elec': np.sum(np.abs(power) * 0.02),
-                'power_max': np.max(np.abs(power)),
-                'speed_mean': np.mean(speed) if len(speed) > 0 else 0,
-                'speed_max': np.max(speed) if len(speed) > 0 else 0,
-                'speed_std': np.std(speed) if len(speed) > 0 else 0,
-                'switch_dc_trans': np.sum(np.abs(np.diff(sub['DCSR'].values))) if 'DCSR' in sub else 0,
-                'switch_dl_trans': np.sum(np.abs(np.diff(sub['DLSR'].values))) if 'DLSR' in sub else 0,
-                'target': 1 if df_ans['status'].iloc[i] == 'Abnormal resistance' else 0
-            }
-            records.append(rec)
-
-        df_feat = pd.DataFrame(records)
-        X = df_feat[self.feature_cols].values
-        y = df_feat['target'].values
-
-        self.model = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
-        self.model.fit(X, y)
-        self.bundle = {'model': self.model, 'feature_cols': self.feature_cols}
-        target_path = MODEL_DATA_DIR / "door_model_bundle.joblib"
-        joblib.dump(self.bundle, target_path)
-        print(f"[DoorPredictor] Model trained on {len(X)} cycles and saved to {target_path}")
 
 
     def evaluate_cycle(self, motor_current_amps: float, nominal_current_amps: float,
@@ -246,16 +158,26 @@ class DoorPredictor:
             df = pd.read_excel(file_source) if is_excel else pd.read_csv(file_source)
 
 
-        # Standardize column naming if necessary
+        # Standardize column naming for all 16 Door channels
         col_map = {c.strip(): c for c in df.columns}
         for std, aliases in [
             ('Datetime', ['datetime', 'time', 'timestamp', 'Timestamp']),
             ('Motor current(mA)', ['motor_current', 'current_ma', 'motor current(mA)', 'Motor current']),
             ('Motor Voltage(10mV)', ['motor_voltage', 'voltage', 'Motor voltage(10mV)', 'Motor Voltage']),
             ('Motor electrodynamic force', ['emf', 'back_emf', 'Motor EMF']),
-            ('Door leaf position', ['position', 'door_position', 'Door Position']),
+            ('Door opening time(.1s)', ['door_opening_time', 'opening_time', 'Door opening time(0.1 s)']),
+            ('Door closing time(.1s)', ['door_closing_time', 'closing_time', 'Door closing time(0.1 s)']),
+            ('Close command', ['close_command', 'Close Command', 'close_cmd']),
+            ('Open command', ['open_command', 'Open Command', 'open_cmd']),
             ('DCSR', ['dcsr', 'DCSR_switch']),
+            ('DCSL', ['dcsl', 'DCSL_switch']),
             ('DLSR', ['dlsr', 'DLSR_switch']),
+            ('DLSL', ['dlsl', 'DLSL_switch']),
+            ('Door Opened', ['door_opened', 'Opened', 'opened']),
+            ('Door Locked', ['door_locked', 'Locked', 'locked']),
+            ('Door is opening', ['door_is_opening', 'is_opening']),
+            ('Door is closing', ['door_is_closing', 'is_closing']),
+            ('Door leaf position', ['position', 'door_position', 'Door Position']),
         ]:
             if std not in df.columns:
                 for a in aliases:
@@ -265,20 +187,30 @@ class DoorPredictor:
 
         # Fallback columns if missing
         if 'Motor current(mA)' not in df.columns:
-            # Check for numeric column with current
             num_cols = df.select_dtypes(include=[np.number]).columns
             if len(num_cols) > 0:
                 df['Motor current(mA)'] = df[num_cols[0]]
             else:
                 raise ValueError("Uploaded CSV must contain numeric motor current measurements.")
 
-        for c, def_val in [
-            ('Motor Voltage(10mV)', 5000),
-            ('Motor electrodynamic force', 500),
-            ('Door leaf position', 350),
-            ('DCSR', 0),
-            ('DLSR', 0)
-        ]:
+        defaults = {
+            'Motor Voltage(10mV)': 5000.0,
+            'Motor electrodynamic force': 500.0,
+            'Door opening time(.1s)': 30.0,
+            'Door closing time(.1s)': 30.0,
+            'Close command': 0.0,
+            'Open command': 0.0,
+            'DCSR': 0.0,
+            'DCSL': 0.0,
+            'DLSR': 0.0,
+            'DLSL': 0.0,
+            'Door Opened': 0.0,
+            'Door Locked': 0.0,
+            'Door is opening': 0.0,
+            'Door is closing': 0.0,
+            'Door leaf position': 350.0,
+        }
+        for c, def_val in defaults.items():
             if c not in df.columns:
                 df[c] = def_val
 
@@ -286,7 +218,6 @@ class DoorPredictor:
         segments = []
         if 'Datetime' in df.columns:
             try:
-                # Try custom dash parser first
                 sample_dt = str(df['Datetime'].dropna().iloc[0])
                 if '-' in sample_dt and sample_dt.count('-') >= 5:
                     sp = df['Datetime'].astype(str).str.split('-', expand=True).astype(int)
@@ -302,13 +233,12 @@ class DoorPredictor:
                 starts = [0] + list(gaps)
                 ends = [g - 1 for g in gaps] + [len(df) - 1]
                 for s, e in zip(starts, ends):
-                    if e - s >= 5:  # at least 5 rows per cycle
+                    if e - s >= 5:
                         segments.append((s, e))
             except Exception as dt_err:
                 print(f"[DoorPredictor] Timestamp parsing note: {dt_err}. Segmenting by stroke...")
 
         if not segments:
-            # Fallback segmenting by stroke chunking
             chunk_size = 150
             for s in range(0, len(df), chunk_size):
                 e = min(s + chunk_size - 1, len(df) - 1)
@@ -316,6 +246,7 @@ class DoorPredictor:
                     segments.append((s, e))
 
         records = []
+        x_rows_210 = []
         for i, (s, e) in enumerate(segments):
             sub = df.iloc[s:e+1]
             cur = sub['Motor current(mA)'].values.astype(float)
@@ -327,7 +258,7 @@ class DoorPredictor:
             inferred_op = 'Open' if pos_diff > 0 else 'Close'
             speed = np.abs(np.diff(pos) / 0.02) if len(pos) > 1 else np.array([0.0])
             power = (volt / 100.0) * (cur / 1000.0)
-            
+
             if 'parsed_dt' in df.columns:
                 dur = (df['parsed_dt'].iloc[e] - df['parsed_dt'].iloc[s]).total_seconds()
             else:
@@ -368,11 +299,25 @@ class DoorPredictor:
             }
             records.append(rec)
 
+            # Extract exact 210 features across all 16 Door channels
+            v = sub[DOOR_CHANNELS].to_numpy(dtype=float)
+            v = np.nan_to_num(v, nan=0.0)
+            stats = [v.mean(0), v.std(0), v.min(0), v.max(0),
+                     np.quantile(v, .25, axis=0), np.median(v, axis=0),
+                     np.quantile(v, .75, axis=0), np.sqrt((v ** 2).mean(0)),
+                     np.abs(v).mean(0), v[0], v[-1], v[-1] - v[0],
+                     np.abs(np.diff(v, axis=0)).sum(0)]
+            feat_row = np.r_[np.concatenate(stats), dur, len(v)]
+            x_rows_210.append(feat_row)
+
         if not records:
             raise ValueError("Could not extract valid door travel cycles from uploaded data.")
 
-        # Prepare feature matrix matching self.feature_cols
-        X = np.array([[r.get(c, 0.0) for c in self.feature_cols] for r in records])
+        if self.expected_features == 210 and len(x_rows_210) > 0:
+            X = np.asarray(x_rows_210, dtype=float)
+        else:
+            X = np.array([[r.get(c, 0.0) for c in self.feature_cols] for r in records])
+
         preds = self.model.predict(X)
         probs = self.model.predict_proba(X) if hasattr(self.model, 'predict_proba') else np.zeros((len(X), 2))
 

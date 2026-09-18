@@ -29,6 +29,11 @@ ARTIFACT_DIR = os.path.join(ACV2_DIR, "artifacts")
 REPORT_DIR = os.path.join(ACV2_DIR, "reports")
 
 MODEL_PATH = os.path.join(ARTIFACT_DIR, "acv2_model.joblib")
+# Calibration artefacts produced by scripts/validate_robustness.py. Both are
+# optional: without them the ranker reports a raw separation statistic and
+# simply declines to attach a calibrated probability to it.
+NULL_CALIBRATION_PATH = os.path.join(ARTIFACT_DIR, "null_calibration.json")
+DETECTION_LIMIT_PATH = os.path.join(ARTIFACT_DIR, "detection_limit.json")
 
 # --------------------------------------------------------------------------
 # Schema harmonisation
@@ -195,8 +200,22 @@ FEATURE_SPEC: dict[str, tuple[str, int, float, str]] = {
     "cusum_fraction": ("progression", +1, 0.35,
                        "Fraction of the record after a CUSUM change point on the residual"),
     # ---- controller response --------------------------------------------
-    "full_demand_frac": ("control", +1, 0.30,
-                         "Fraction of cooling time the controller escalates to full cooling"),
+    # DEMOTED TO ZERO WEIGHT. Physically this should be diagnostic - a pack that
+    # cannot hold set point ought to be commanded to full cooling more often -
+    # but measurement disagrees: on the six labelled files the channel scores
+    # 0.531 used alone, *below* the 0.5625 random-permutation baseline, it is
+    # computable in only 4 of 6 files, and its mean z at the true faulty car is
+    # negative (-1.241), i.e. the faulty car is commanded to full cooling *less*
+    # often than its siblings. The likely reason is that the demand tier is a
+    # controller state that depends on the set point and the load schedule, not
+    # on delivered capacity, so it tracks duty history rather than health.
+    # It is kept computed and reported as a descriptive channel, but it is given
+    # zero weight so it can never contribute noise to a ranking. Group ablation
+    # confirms the training score is 1.0000 with the control group removed.
+    "full_demand_frac": ("control", +1, 0.00,
+                         "Fraction of cooling time the controller escalates to full cooling "
+                         "(DESCRIPTIVE ONLY: scored 0.531 alone vs 0.5625 random baseline, "
+                         "so it carries zero weight)"),
     # ---- refrigerant-circuit branch (rich schema only) -------------------
     "circuit_asym_lift": ("refrigerant", +1, 1.00,
                           "Relative mismatch in pressure lift (p_high - p_low) between the "
@@ -249,4 +268,31 @@ FUSION = {
     # in a stable, documented order rather than dropped (the submission must
     # rank every car that appears in the file's headers).
     "inactive_penalty": -1e6,
+}
+
+# --------------------------------------------------------------------------
+# Confidence
+# --------------------------------------------------------------------------
+# The raw top-1 margin is *not* interpretable on its own. Measurement:
+# deleting the known faulty car from each labelled file and re-ranking the
+# seven healthy siblings produces a top-1 margin of the same size (median
+# margin ratio 0.94x, see reports/robustness.md test B). A large margin
+# therefore does not mean a fault was found - it can simply mean one car is
+# the warmest, which is true of every consist including a perfectly healthy
+# one. Any confidence statement must be referenced to that null.
+CONFIDENCE = {
+    # Dixon-Q-style separation, scale free and standard for a single-outlier
+    # test in a very small sample: (s1 - s2) / (s1 - sn).
+    "statistic": "dixon_q",
+    # Verdict bands on the null-referenced p-value: P(Q_null >= Q_observed)
+    # estimated from the healthy-only consists of the labelled files.
+    "p_strong": 0.05,
+    "p_moderate": 0.20,
+    # Below this many null samples the p-value is reported but flagged as
+    # having too thin a calibration to lean on.
+    "min_null_samples": 20,
+    # A verdict whose leading evidence is smaller than the measured detection
+    # limit is reported as provisional regardless of its separation, because
+    # test C shows recovery is a coin flip in that regime.
+    "reliable_top1_rate": 0.90,
 }

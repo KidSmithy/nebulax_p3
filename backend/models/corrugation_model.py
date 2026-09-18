@@ -13,6 +13,7 @@ import joblib
 import numpy as np
 import io
 import pandas as pd
+from scipy.signal import welch
 from backend.core.config import RAIL_DIR, PS3_DIR, MODEL_DATA_DIR, CORRUGATION_ZONES
 
 BUNDLE_PATHS = [
@@ -21,21 +22,115 @@ BUNDLE_PATHS = [
     PS3_DIR / "models" / "rail_model_bundle.joblib"
 ]
 
+BANDS = ((0, 100), (100, 300), (300, 800), (800, 1600), (1600, 3000), (3000, 5000))
+DEFAULT_LABELS = ['Normal', 'Side I', 'Side II']
+
 class RailCorrugationModel:
     def __init__(self):
         self.bundle = None
-        self.model = None
-        self.feature_cols = []
+        self.models = []
+        self.feature_names = []
+        self.feature_indices = []
+        self.class_labels = DEFAULT_LABELS
+        self.model_id = "r3_cat_sqrt_random2"
+        self._load_bundle()
+
+    def _load_bundle(self):
         for p in BUNDLE_PATHS:
             if p.exists():
                 try:
                     self.bundle = joblib.load(p)
-                    self.model = self.bundle.get('model')
-                    self.feature_cols = self.bundle.get('feature_cols', [])
-                    print(f"[RailCorrugationModel] Loaded model bundle from {p}")
-                    break
+                    if isinstance(self.bundle, dict):
+                        self.model_id = self.bundle.get('model_id', self.model_id)
+                        raw_models = self.bundle.get('models', [])
+                        if raw_models and isinstance(raw_models[0], dict) and 'bundle' in raw_models[0]:
+                            self.models = [m['bundle']['estimator'] for m in raw_models]
+                            sub = raw_models[0]['bundle']
+                            self.feature_names = sub.get('feature_names', [])
+                            self.feature_indices = sub.get('feature_indices', [])
+                            self.class_labels = sub.get('class_labels', DEFAULT_LABELS)
+                        elif 'model' in self.bundle:
+                            self.models = [self.bundle['model']]
+                            self.feature_names = self.bundle.get('feature_cols', [])
+                        else:
+                            self.models = [m for m in raw_models if hasattr(m, 'predict_proba') or hasattr(m, 'predict')]
+
+                        print(f"[RailCorrugationModel] Loaded model bundle from {p} with {len(self.models)} estimators")
+                        return
+                    else:
+                        self.models = [self.bundle]
+                        print(f"[RailCorrugationModel] Loaded single estimator from {p}")
+                        return
                 except Exception as e:
                     print(f"[RailCorrugationModel] Warning loading bundle from {p}: {e}")
+
+    def _extract_features_252(self, df: pd.DataFrame) -> np.ndarray:
+        num_cols = df.select_dtypes(include=[np.number]).columns
+        if len(num_cols) == 129 or (len(num_cols) > 0 and 'speed' in str(num_cols[0]).lower()):
+            x = df[num_cols[1:]].to_numpy(dtype=float)
+        else:
+            x = df[num_cols].to_numpy(dtype=float)
+
+        if x.shape[1] != 128:
+            return None
+
+        x = np.nan_to_num(x, nan=0.0, posinf=1.0, neginf=-1.0)
+        if len(x) < 512:
+            pad = np.zeros((512 - len(x), 128))
+            x = np.vstack([x, pad])
+
+        rms = np.sqrt(np.mean(x * x, axis=0))
+        std = x.std(axis=0)
+        absx = np.abs(x)
+        quantiles = np.quantile(absx, (0.5, 0.95, 0.99), axis=0)
+        centered = x - x.mean(axis=0)
+        kurt = np.mean(centered ** 4, axis=0) / np.maximum(std ** 4, 1e-24)
+        crest = np.max(absx, axis=0) / np.maximum(rms, 1e-12)
+
+        nperseg = min(1024, len(x))
+        freq, density = welch(x, fs=10000.0, window='hann', nperseg=nperseg,
+                              noverlap=nperseg // 2, detrend='constant', scaling='density', axis=0)
+        dfreq = freq[1] - freq[0] if len(freq) > 1 else 1.0
+        power = density * dfreq
+        total = power.sum(axis=0)
+        shape = power / np.maximum(total, 1e-24)
+
+        channel_stats = {
+            'rms': rms, 'std': std, 'abs_q50': quantiles[0], 'abs_q95': quantiles[1],
+            'abs_q99': quantiles[2], 'crest': crest, 'kurtosis': kurt,
+            'spectral_centroid_hz': (shape * freq[:, None]).sum(axis=0),
+            'spectral_entropy': -(shape * np.log(np.maximum(shape, 1e-24))).sum(axis=0) / np.log(max(2, len(freq))),
+        }
+
+        for low, high in BANDS:
+            mask = (freq >= low) & (freq <= high if high == 5000 else freq < high)
+            band_power = power[mask].sum(axis=0) if np.any(mask) else np.zeros(128)
+            channel_stats[f'log1p_band_power_{low}_{high}hz'] = np.log1p(band_power)
+            channel_stats[f'band_fraction_{low}_{high}hz'] = band_power / np.maximum(total, 1e-24)
+
+        result = {}
+        for stat, values in channel_stats.items():
+            array = values.reshape(8, 8, 2)
+            for modality, name in enumerate(('vibration', 'shock')):
+                for side in (0, 1):
+                    selected = array[:, side::2, modality]
+                    prefix = f'{name}_side{side + 1}_{stat}'
+                    result[f'{prefix}_mean'] = float(selected.mean())
+                    result[f'{prefix}_max'] = float(selected.max())
+                    for car in range(8):
+                        result[f'car{car + 1}_{prefix}_mean'] = float(selected[car].mean())
+                side_values = [float(array[:, side::2, modality].mean()) for side in (0, 1)]
+                result[f'{name}_{stat}_side_difference'] = side_values[0] - side_values[1]
+                denom = abs(side_values[0]) + abs(side_values[1]) + 1e-12
+                result[f'{name}_{stat}_normalized_side_difference'] = (side_values[0] - side_values[1]) / denom
+
+        if self.feature_names and len(self.feature_indices) > 0:
+            feat_vec = np.array([result.get(name, 0.0) for name in self.feature_names])[self.feature_indices]
+        else:
+            global_keys = [k for k in result.keys() if not k.startswith('car')]
+            feat_vec = np.array([result[k] for k in global_keys])
+
+        return feat_vec.reshape(1, -1)
 
     def evaluate_chainage(self, current_kp: float, grounded_override: bool = False,
                           rng: np.random.Generator = None) -> dict:
@@ -104,13 +199,90 @@ class RailCorrugationModel:
             raise ValueError("Uploaded rail data must contain numeric sensor channels.")
 
         # Compute broadband RMS across vibration channels
-        vib_cols = [c for c in num_cols if 'vibration' in c.lower() or 'shock' in c.lower()]
+        vib_cols = [c for c in num_cols if 'vibration' in str(c).lower() or 'shock' in str(c).lower()]
         if not vib_cols:
             vib_cols = num_cols
 
         channel_rms = [float(np.sqrt(np.mean(df[c].dropna().values**2))) for c in vib_cols]
         mean_rms = float(np.mean(channel_rms)) if channel_rms else 0.5
         max_rms = float(np.max(channel_rms)) if channel_rms else 0.5
+
+        # Try ensemble feature extraction if 128 bearing channels are present
+        features = None
+        if len(num_cols) >= 128 and len(self.models) > 0:
+            try:
+                features = self._extract_features_252(df)
+            except Exception as feat_err:
+                print(f"[RailCorrugationModel] Feature extraction note: {feat_err}")
+
+        if features is not None and len(self.models) > 0:
+            all_probs = []
+            for m in self.models:
+                try:
+                    p = m.predict_proba(features)[0]
+                    all_probs.append(p)
+                except Exception:
+                    pass
+
+            if all_probs:
+                mean_probs = np.mean(all_probs, axis=0)
+                pred_idx = int(np.argmax(mean_probs))
+                pred_label = self.class_labels[pred_idx] if pred_idx < len(self.class_labels) else "Normal"
+                prob_normal = float(mean_probs[0])
+                prob_side_i = float(mean_probs[1]) if len(mean_probs) > 1 else 0.0
+                prob_side_ii = float(mean_probs[2]) if len(mean_probs) > 2 else 0.0
+
+                if pred_label == 'Normal':
+                    status = "GOOD"
+                    verdict = "GOOD"
+                    severity_score = round(float(np.clip(1.0 - prob_normal, 0.04, 0.35)), 2)
+                    depth_microns = round(float(np.clip(10.0 + severity_score * 20.0, 8.0, 18.0)), 1)
+                    wavelength = "NOMINAL"
+                    urgency = "NONE"
+                    action = "NONE"
+                    rank = 0
+                    summary = (
+                        f"Track surface analysis for '{file_name}': smooth rail surface detected "
+                        f"(confidence {prob_normal*100:.1f}%). Mean vibration RMS is {mean_rms:.2f}g. "
+                        f"Estimated roughness depth {depth_microns} microns is well within safe operating limits."
+                    )
+                else:
+                    is_severe = max(prob_side_i, prob_side_ii) > 0.65 or mean_rms > 1.5
+                    status = "ACTION_NEEDED" if is_severe else "WATCH"
+                    verdict = status
+                    severity_score = round(float(np.clip(max(prob_side_i, prob_side_ii), 0.45, 0.98)), 2)
+                    depth_microns = round(float(np.clip(28.0 + severity_score * 28.0, 25.0, 65.0)), 1)
+                    wavelength = "SHORT_PITCH" if is_severe else "LONG_PITCH"
+                    urgency = "IMMEDIATE_GRINDING_48H" if is_severe else "SCHEDULE_GRINDING_7D"
+                    action = "ACTION_GRIND_RAIL"
+                    rank = 1 if is_severe else 2
+                    summary = (
+                        f"Corrugation detected on {pred_label} for '{file_name}' (confidence {max(prob_side_i, prob_side_ii)*100:.1f}%). "
+                        f"Multi-channel vibration RMS reaches {mean_rms:.2f}g (peak {max_rms:.2f}g). "
+                        f"Estimated acoustic rail corrugation depth is {depth_microns} microns ({wavelength}). "
+                        f"Recommended: {urgency.replace('_', ' ').title()}."
+                    )
+
+                return {
+                    "subsystem": "rail",
+                    "file_name": file_name,
+                    "status": status,
+                    "verdict": verdict,
+                    "predicted_class": pred_label,
+                    "probabilities": {
+                        "normal": round(prob_normal, 4),
+                        "side_i": round(prob_side_i, 4),
+                        "side_ii": round(prob_side_ii, 4)
+                    },
+                    "anomaly_score": severity_score,
+                    "depth_microns": depth_microns,
+                    "wavelength_class": wavelength,
+                    "maintenance_urgency": urgency,
+                    "grinding_priority_rank": rank,
+                    "recommended_action": action,
+                    "mean_channel_rms": round(mean_rms, 2),
+                    "conductor_summary": summary,
+                }
 
         # Infer corrugation depth & severity
         depth_microns = round(float(np.clip(mean_rms * 28.0 + 8.0, 6.0, 65.0)), 1)

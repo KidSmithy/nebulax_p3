@@ -11,13 +11,16 @@ Structural Health Monitoring (SHM) Subsystem Model:
 import os
 import io
 import pickle
+import joblib
 import numpy as np
 import pandas as pd
 from scipy.signal import welch
 from backend.core.config import SHM_DIR, PS3_DIR, MODEL_DATA_DIR
 
 MODEL_PATHS = [
+    MODEL_DATA_DIR / "shm_model.joblib",
     MODEL_DATA_DIR / "shm_model.pkl",
+    SHM_DIR / "shm_model.joblib",
     SHM_DIR / "shm_model.pkl",
     PS3_DIR / "models" / "shm_model.pkl"
 ]
@@ -28,6 +31,9 @@ class SHMSubsystemModel:
         self.scaler = None
         self.models = []
         self.weights = []
+        self.is_calibration_model = False
+        self.rainflow_scale = 1.36007266e-9
+        self.rainflow_exponent = 5.0
         self.features = [
             'p2p', 'abs_peak', 'min', 'valley_min', 'psd_total_energy', 'mad',
             'rf_damage_proxy_m3.5', 'psd_energy_0_10Hz', 'rf_damage_proxy_m4.0',
@@ -40,19 +46,46 @@ class SHMSubsystemModel:
         for p in MODEL_PATHS:
             if p.exists():
                 try:
-                    with open(p, "rb") as f:
-                        self.payload = pickle.load(f)
-                    self.scaler = self.payload.get('scaler')
-                    self.models = self.payload.get('models', [])
-                    self.weights = self.payload.get('weights', [])
-                    if 'features' in self.payload:
-                        self.features = self.payload['features']
-                    if 'clip_range' in self.payload:
-                        self.clip_range = self.payload['clip_range']
-                    print(f"[SHMModel] Loaded trained model payload from {p} with {len(self.models)} ensemble regressors")
-                    return
+                    if str(p).lower().endswith(".joblib"):
+                        self.payload = joblib.load(p)
+                    else:
+                        with open(p, "rb") as f:
+                            self.payload = pickle.load(f)
+
+                    if isinstance(self.payload, dict):
+                        # Format A: Rainflow physics calibration model
+                        if 'scale' in self.payload:
+                            self.is_calibration_model = True
+                            self.rainflow_scale = float(self.payload['scale'])
+                            cfg = self.payload.get('config', {})
+                            self.rainflow_exponent = float(cfg.get('exponent', 5.0))
+                            if 'feature_names' in self.payload:
+                                self.features = self.payload['feature_names']
+                            print(f"[SHMModel] Loaded calibrated rainflow model from {p} (scale={self.rainflow_scale:.3e}, exponent={self.rainflow_exponent})")
+                            return
+
+                        # Format B: Multi-model ensemble
+                        self.scaler = self.payload.get('scaler')
+                        self.models = self.payload.get('models', [])
+                        self.weights = self.payload.get('weights', [])
+                        if 'selected_features' in self.payload:
+                            self.features = self.payload['selected_features']
+                        elif 'features' in self.payload:
+                            self.features = self.payload['features']
+                        if 'clipping_bounds' in self.payload:
+                            self.clip_range = tuple(self.payload['clipping_bounds'])
+                        elif 'clip_range' in self.payload:
+                            self.clip_range = tuple(self.payload['clip_range'])
+                        print(f"[SHMModel] Loaded trained model payload from {p} with {len(self.models)} ensemble regressors")
+                        return
+                    else:
+                        self.models = [self.payload]
+                        self.weights = [1.0]
+                        print(f"[SHMModel] Loaded estimator from {p}")
+                        return
                 except Exception as e:
                     print(f"[SHMModel] Warning loading model from {p}: {e}")
+
 
     def evaluate_vibration(
         self,
@@ -237,40 +270,47 @@ class SHMSubsystemModel:
             raise ValueError("Uploaded SHM CSV must contain numeric accelerometer/strain sensor values.")
         
         # Use primary acceleration / strain sensor column
-        sig = df[num_cols[0]].dropna().values.astype(np.float32).flatten()
+        sig = df[num_cols[0]].dropna().values.astype(np.float64).flatten()
         if len(sig) < 64:
             raise ValueError(f"Uploaded SHM data must have at least 64 samples (received {len(sig)}).")
 
-        # Subsample if extremely large to maintain responsiveness (< 250,000 samples)
-        if len(sig) > 250000:
-            step = len(sig) // 250000 + 1
-            sig_eval = sig[::step]
-        else:
-            sig_eval = sig
-
-        mean_val = float(np.mean(sig_eval))
-        min_val = float(np.min(sig_eval))
-        max_val = float(np.max(sig_eval))
+        mean_val = float(np.mean(sig))
+        min_val = float(np.min(sig))
+        max_val = float(np.max(sig))
         p2p_val = float(max_val - min_val)
-        abs_peak = float(np.max(np.abs(sig_eval)))
-        mad_val = float(np.mean(np.abs(sig_eval - mean_val)))
-        rms_val = float(np.sqrt(np.mean(sig_eval**2)))
+        abs_peak = float(np.max(np.abs(sig)))
+        mad_val = float(np.mean(np.abs(sig - mean_val)))
+        rms_val = float(np.sqrt(np.mean(sig**2)))
 
-        pct_vals = np.percentile(sig_eval, [25, 75])
+        pct_vals = np.percentile(sig, [25, 75])
         iqr_val = float(pct_vals[1] - pct_vals[0])
 
-        # Rainflow cycle analysis
-        extrema = self._get_turning_points(sig_eval)
-        rf_ranges, rf_counts = self._rainflow_fast(extrema)
-        amps = rf_ranges / 2.0
+        # Rainflow cycle analysis using official notebook methodology
+        amplitude = None
+        count = None
+        try:
+            import rainflow
+            cycles = np.asarray(list(rainflow.extract_cycles(sig)), dtype=float)
+            if cycles.ndim == 2 and cycles.shape[1] >= 3:
+                amplitude = cycles[:, 0] / 2.0
+                count = cycles[:, 2]
+        except Exception as rf_err:
+            pass
 
-        rf_proxy_33 = float(np.sum(rf_counts * (amps ** 3.3)))
-        rf_proxy_35 = float(np.sum(rf_counts * (amps ** 3.5)))
-        rf_proxy_40 = float(np.sum(rf_counts * (amps ** 4.0)))
-        rf_proxy_45 = float(np.sum(rf_counts * (amps ** 4.5)))
+        if amplitude is None or count is None:
+            extrema = self._get_turning_points(sig)
+            rf_ranges, rf_counts = self._rainflow_fast(extrema)
+            amplitude = rf_ranges / 2.0
+            count = rf_counts
 
-        # Welch PSD spectral distribution
-        freqs, psd = welch(sig_eval, fs=256.0, nperseg=min(2048, len(sig_eval)))
+        rf_proxy_33 = float(np.sum(count * (amplitude ** 3.3)))
+        rf_proxy_35 = float(np.sum(count * (amplitude ** 3.5)))
+        rf_proxy_40 = float(np.sum(count * (amplitude ** 4.0)))
+        rf_proxy_45 = float(np.sum(count * (amplitude ** 4.5)))
+
+        # Subsample for responsive Welch PSD if very large (> 250,000 samples)
+        sig_psd = sig[::(len(sig) // 250000 + 1)] if len(sig) > 250000 else sig
+        freqs, psd = welch(sig_psd, fs=256.0, nperseg=min(2048, len(sig_psd)))
         psd_total = float(np.sum(psd))
         psd_0_10 = float(np.sum(psd[np.where((freqs >= 0) & (freqs < 10))[0]]))
         peak_idx = int(np.argmax(psd))
@@ -291,8 +331,16 @@ class SHMSubsystemModel:
             'rf_damage_proxy_m4.5': rf_proxy_45
         }
 
-        # Model ensemble regression
-        if self.scaler is not None and len(self.models) > 0:
+        # Model regression: Rainflow Calibration vs. Multi-Model Ensemble
+        clip_min, clip_max = self.clip_range
+        if self.is_calibration_model:
+            # Calibrated ASTM E1049-85 Rainflow moment formula from PS3 training notebook:
+            # moment = sum(count * (amplitude ** exponent))
+            # damage = scale * moment
+            rf_moment = float(np.sum(count * (amplitude ** self.rainflow_exponent)))
+            pred_val = self.rainflow_scale * rf_moment
+            fatigue_damage_index = round(float(np.clip(pred_val, clip_min, clip_max)), 4)
+        elif self.scaler is not None and len(self.models) > 0:
             x_raw = np.array([[feat_dict.get(f, 0.0) for f in self.features]])
             x_scaled = self.scaler.transform(x_raw)
             preds = [float(np.exp(m.predict(x_scaled)[0])) for m in self.models]
@@ -300,11 +348,11 @@ class SHMSubsystemModel:
                 weighted_pred = sum(p * w for p, w in zip(preds, self.weights))
             else:
                 weighted_pred = float(np.mean(preds))
-            clip_min, clip_max = self.clip_range
             fatigue_damage_index = round(float(np.clip(weighted_pred, clip_min, clip_max)), 4)
         else:
             # Physics-based baseline approximation
             fatigue_damage_index = round(float(np.clip((rms_val / 4.0) ** 1.8 * 0.65, 0.05, 0.95)), 4)
+
 
         # Bearing defect probability estimation
         # Characteristic ball-pass impact ratio

@@ -157,7 +157,12 @@ def fuse(features: pd.DataFrame,
                 "contributions": pd.DataFrame(index=features.index), "weights": {}}
 
     physics, contributions, used = physics_score(z, group_weights, feature_weights)
-    outlier = outlier_score(z, physics)
+    # The outlier member must see exactly the channels the physics member is
+    # allowed to use. Otherwise a channel that was deliberately given zero
+    # weight (full_demand_frac, which measured below the random baseline) would
+    # still reach the ranking through the unsupervised back door, and "zero
+    # weight" would not mean what it says.
+    outlier = outlier_score(z[[c for c in z.columns if c in used]], physics)
     score = w_physics * physics + w_outlier * outlier
     return {
         "z": z,

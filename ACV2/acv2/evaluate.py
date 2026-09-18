@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 
 from . import config as cfg
+from . import confidence
 from .cleaning import CleanCase, clean
 from .detectors import fuse, oriented_z
 from .features import extract
@@ -307,4 +308,209 @@ def block_bootstrap_stability(case: CleanCase, model: dict | None = None,
         "mean_rank": {car: float(np.mean(ranks)) for car, ranks in
                       sorted(rank_sum.items(), key=lambda kv: np.mean(kv[1]))},
     }
+
+
+def peer_dropout_stability(case: CleanCase, model: dict | None = None,
+                           n_draws: int = 40, drop_k: int = 2,
+                           seed: int = 20260919) -> dict:
+    """
+    Car-level bootstrap: does the verdict survive a change of *reference set*?
+
+    This answers a criticism the block bootstrap cannot. Resampling 6-hour time
+    blocks correctly handles autocorrelation, but every draw still judges the
+    cars against the same seven siblings, so it measures within-case temporal
+    stability and nothing else. A peer-consensus detector has a second and
+    arguably more dangerous failure mode: the verdict may be an artefact of
+    *which* siblings happen to form the reference median. If dropping two
+    healthy cars moves the leader, the diagnosis was a property of the peer
+    group rather than of the accused car.
+
+    Cars other than the current leader are dropped, ``drop_k`` at a time, and
+    the case is re-ranked from the remaining consist - features recomputed from
+    scratch, because the peer reference, the ambient estimate and the load
+    strata all change when the consist changes.
+
+    It still cannot test generalisation to an unseen *file*; with six labelled
+    files nothing can. It tests generalisation to an unseen *consist*, which is
+    a real and previously unmeasured axis.
+    """
+    model = dict(DEFAULT_MODEL) if model is None else model
+    rng = np.random.default_rng(seed)
+
+    baseline_features, _ctx = extract(case)
+    baseline = fuse(baseline_features,
+                    group_weights=model.get("group_weights"),
+                    feature_weights=model.get("feature_weights"),
+                    w_physics=model.get("w_physics"),
+                    w_outlier=model.get("w_outlier"))["score"].sort_values(ascending=False)
+    if baseline.empty:
+        return {"n_draws": 0, "baseline_top": None, "top1_frequency": {},
+                "leader_retained": float("nan"), "mean_rank": {}}
+    leader = str(baseline.index[0])
+    candidates = [c for c in case.cars if c != leader]
+    drop_k = max(1, min(drop_k, max(0, len(candidates) - 2)))
+    if len(candidates) - drop_k < 2:
+        return {"n_draws": 0, "baseline_top": leader, "top1_frequency": {},
+                "leader_retained": float("nan"), "mean_rank": {}}
+
+    top1: dict[str, int] = {}
+    rank_sum: dict[str, list[int]] = {}
+    for _ in range(n_draws):
+        dropped = rng.choice(candidates, size=drop_k, replace=False).tolist()
+        try:
+            features, _ = extract(case.without_cars(dropped))
+            order = fuse(features,
+                         group_weights=model.get("group_weights"),
+                         feature_weights=model.get("feature_weights"),
+                         w_physics=model.get("w_physics"),
+                         w_outlier=model.get("w_outlier")
+                         )["score"].sort_values(ascending=False).index.tolist()
+        except Exception:
+            continue
+        if not order:
+            continue
+        top1[order[0]] = top1.get(order[0], 0) + 1
+        for position, car in enumerate(order, start=1):
+            rank_sum.setdefault(car, []).append(position)
+
+    draws = sum(top1.values())
+    return {
+        "n_draws": draws,
+        "drop_k": drop_k,
+        "baseline_top": leader,
+        "leader_retained": top1.get(leader, 0) / draws if draws else float("nan"),
+        "top1_frequency": {car: count / draws for car, count in
+                           sorted(top1.items(), key=lambda kv: -kv[1])} if draws else {},
+        "mean_rank": {car: float(np.mean(ranks)) for car, ranks in
+                      sorted(rank_sum.items(), key=lambda kv: np.mean(kv[1]))},
+    }
+
+
+# --------------------------------------------------------------------------
+# branch agreement
+# --------------------------------------------------------------------------
+# The refrigerant branch is computable in exactly one of the six labelled files,
+# because only that file's schema exposes circuit pressures. That is a data
+# limitation, not a measured weakness, and the wrong response is to downweight
+# the branch: a direct pressure measurement on the refrigerant loop is
+# physically the most informative evidence available, and weight should reflect
+# physical directness rather than how many of our six files happened to carry
+# pressure sensors.
+#
+# The right response is to make the branch auditable. This diagnostic scores
+# each file twice - once on inferred thermal evidence only, once on circuit
+# pressures only - and reports whether the two independent lines of reasoning
+# name the same car. Where they disagree it reports which one was right. With
+# n=1 that is a single data point and is labelled as such, but it is a stated
+# data point instead of a hidden assumption.
+INFERRED_GROUPS = ("thermal", "capacity", "progression")
+
+
+def _branch_model(groups: tuple[str, ...]) -> dict:
+    return _model_with_groups({g: (1.0 if g in groups else 0.0) for g in cfg.FEATURE_GROUPS})
+
+
+def branch_agreement(case_set: CaseSet) -> pd.DataFrame:
+    """Per file: top car from the inferred branch vs from the refrigerant branch."""
+    rows = []
+    for file_id in case_set.labelled():
+        features = case_set.features[file_id]
+        refrigerant_cols = [n for n, spec in cfg.FEATURE_SPEC.items()
+                            if spec[0] == "refrigerant" and n in features.columns
+                            and features[n].notna().sum() >= 2
+                            and features[n].nunique(dropna=True) > 1]
+        if not refrigerant_cols:
+            rows.append({"file_id": file_id, "true_car": case_set.labels[file_id],
+                         "refrigerant_available": False, "inferred_top": None,
+                         "refrigerant_top": None, "agree": None,
+                         "inferred_correct": None, "refrigerant_correct": None,
+                         "fused_correct": None})
+            continue
+        true_car = case_set.labels[file_id]
+        inferred = case_set.ranked(file_id, _branch_model(INFERRED_GROUPS))
+        circuit = case_set.ranked(file_id, _branch_model(("refrigerant",)))
+        fused = case_set.ranked(file_id, DEFAULT_MODEL)
+        rows.append({
+            "file_id": file_id, "true_car": true_car, "refrigerant_available": True,
+            "inferred_top": inferred[0], "refrigerant_top": circuit[0],
+            "agree": inferred[0] == circuit[0],
+            "inferred_correct": inferred[0] == true_car,
+            "refrigerant_correct": circuit[0] == true_car,
+            "fused_correct": fused[0] == true_car,
+            "inferred_rank_true": rank_of(inferred, true_car),
+            "refrigerant_rank_true": rank_of(circuit, true_car),
+        })
+    return pd.DataFrame(rows)
+
+
+# --------------------------------------------------------------------------
+# null calibration: what does a healthy consist look like?
+# --------------------------------------------------------------------------
+def null_consists(case_set: CaseSet, model: dict | None = None,
+                  extra_leave_one_out: bool = True) -> pd.DataFrame:
+    """
+    Separation statistics for consists that are known to contain no fault.
+
+    Each labelled file has its labelled faulty car deleted, which leaves a
+    consist of healthy siblings. Because the separation statistic depends on the
+    consist size, each healthy car is then also left out in turn, giving a
+    second family of smaller healthy consists and roughly eight null samples per
+    file instead of one. These are the reference distribution the ranker's
+    p-value is computed against.
+
+    Caveat, stated rather than buried: "healthy" here means "not the labelled
+    faulty car". If a file contained a second, unlabelled degraded pack it would
+    enter the null and make the null look more separated than it should, which
+    biases the reported confidence *downward* - the conservative direction.
+    """
+    model = dict(DEFAULT_MODEL) if model is None else model
+    rows = []
+    for file_id in case_set.labelled():
+        case = case_set.cases[file_id]
+        true_car = case_set.labels[file_id]
+        healthy = case.without_cars([true_car])
+        variants = [([true_car], healthy)]
+        if extra_leave_one_out:
+            for car in healthy.cars:
+                if len(healthy.cars) - 1 >= 3:
+                    variants.append(([true_car, car], case.without_cars([true_car, car])))
+        for dropped, consist in variants:
+            try:
+                features, _ctx = extract(consist)
+                scores = fuse(features,
+                              group_weights=model.get("group_weights"),
+                              feature_weights=model.get("feature_weights"),
+                              w_physics=model.get("w_physics"),
+                              w_outlier=model.get("w_outlier"))["score"]
+            except Exception:
+                continue
+            sep = confidence.separation(scores)
+            if not np.isfinite(sep["dixon_q"]):
+                continue
+            rows.append({"file_id": file_id, "dropped": "|".join(dropped),
+                         "n_cars": sep["n_cars"], "top_car": sep["top_car"],
+                         "margin": sep["margin"], "dixon_q": sep["dixon_q"],
+                         "top_z": sep["top_z"]})
+    return pd.DataFrame(rows)
+
+
+def observed_separation(case_set: CaseSet, model: dict | None = None) -> pd.DataFrame:
+    """Separation statistics for the labelled files as they actually are."""
+    model = dict(DEFAULT_MODEL) if model is None else model
+    rows = []
+    for file_id in case_set.labelled():
+        features = case_set.features[file_id]
+        scores = fuse(features,
+                      group_weights=model.get("group_weights"),
+                      feature_weights=model.get("feature_weights"),
+                      w_physics=model.get("w_physics"),
+                      w_outlier=model.get("w_outlier"))["score"]
+        sep = confidence.separation(scores)
+        rows.append({"file_id": file_id, "true_car": case_set.labels[file_id],
+                     "top_car": sep["top_car"], "correct": sep["top_car"] == case_set.labels[file_id],
+                     "n_cars": sep["n_cars"], "margin": sep["margin"],
+                     "dixon_q": sep["dixon_q"], "top_z": sep["top_z"],
+                     "elev_mean_top": float(features.loc[sep["top_car"], "elev_mean"])
+                     if sep["top_car"] in features.index else np.nan})
+    return pd.DataFrame(rows)
 

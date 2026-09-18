@@ -291,9 +291,20 @@ def extract(case: CleanCase) -> tuple[pd.DataFrame, dict]:
     frame.index.name = "car"
 
     ctx["has_refrigerant"] = bool(refrigerant)
+    # Groups that actually carry evidence in this file. A channel with zero prior
+    # weight is excluded even when the schema supports it, so the report cannot
+    # claim a branch as evidence when that branch contributes nothing to the
+    # ranking (full_demand_frac, demoted for measuring below the random baseline,
+    # is the whole of the control group).
     ctx["active_groups"] = sorted({
         cfg.FEATURE_SPEC[name][0] for name in cfg.FEATURE_SPEC
-        if name in frame.columns and frame[name].notna().sum() >= 2
+        if cfg.FEATURE_SPEC[name][2] > 0
+        and name in frame.columns and frame[name].notna().sum() >= 2
         and frame[name].nunique(dropna=True) > 1
     })
+    ctx["descriptive_only_groups"] = sorted({
+        cfg.FEATURE_SPEC[name][0] for name in cfg.FEATURE_SPEC
+        if cfg.FEATURE_SPEC[name][2] <= 0
+        and name in frame.columns and frame[name].notna().sum() >= 2
+    } - set(ctx["active_groups"]))
     return frame, ctx
