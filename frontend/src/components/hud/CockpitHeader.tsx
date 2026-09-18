@@ -16,8 +16,8 @@ import { InfoTip } from './InfoTip';
 import { METRIC_GLOSSARY, STATUS_STYLES, classifyMetric } from '../../lib/metricGlossary';
 
 const CAMERA_COPY: Record<CameraPreset, { plain: string; tip: string }> = {
-  macro: { plain: 'Whole line', tip: 'Pull back to see the train moving along the corridor.' },
-  meso: { plain: 'Whole train', tip: 'Look at the carriage as a whole.' },
+  macro: { plain: 'All 8 cars', tip: 'Pull back to see every car and which one needs attention.' },
+  meso: { plain: 'One car', tip: 'Look at Car 3 as a whole.' },
   micro: { plain: 'Close-up', tip: 'Zoom in on the selected component.' },
 };
 

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { useTwinStore } from '../../store/useTwinStore';
@@ -11,6 +11,7 @@ const CameraController: React.FC = () => {
   const selectedSubsystem = useTwinStore((state) => state.selectedSubsystem);
   const conductorState = useTwinStore((state) => state.conductorState);
   const controlsRef = useRef<any>(null);
+  const aspect = useThree((s) => s.size.width / s.size.height);
 
   const isTransitioning = useRef(false);
   const isUserInteracting = useRef(false);
@@ -25,8 +26,14 @@ const CameraController: React.FC = () => {
     const look = new THREE.Vector3(0, 1.2, 0);
 
     if (cameraMode === 'macro') {
-      pos.set(30.0, 18.0, 34.0);
-      look.set(0, 0, 0);
+      // All 8 cars (world Z -57.5..126.5) from a 36-degree side elevation.
+      // Distance is solved from the aspect ratio so the ~184 m train fills the
+      // ~65% of the width the left rail leaves free; the look target is nudged
+      // past the train's midpoint so it sits in that free region.
+      const halfWidth = 145;
+      const dist = Math.min(260, Math.max(110, halfWidth / (Math.tan(THREE.MathUtils.degToRad(22.5)) * aspect)));
+      look.set(0, 0, 70.0);
+      pos.set(dist * Math.cos(Math.PI / 5), dist * Math.sin(Math.PI / 5), 70.0);
     } else if (cameraMode === 'meso') {
       pos.set(15.0, 6.0, 13.0);
       look.set(0, 1.5, 2.2);
@@ -58,7 +65,7 @@ const CameraController: React.FC = () => {
     targetPos.current.copy(pos);
     targetLookAt.current.copy(look);
     isTransitioning.current = true;
-  }, [cameraMode, selectedSubsystem, conductorState]);
+  }, [cameraMode, selectedSubsystem, conductorState, aspect]);
 
   // Listen to user interaction on OrbitControls
   useEffect(() => {
@@ -83,6 +90,13 @@ const CameraController: React.FC = () => {
   }, []);
 
   useFrame((state, delta) => {
+    // Fog rides with the camera so zooming out never whites the train away.
+    if (state.scene.fog instanceof THREE.Fog) {
+      const d = state.camera.position.length();
+      state.scene.fog.near = Math.max(45, d + 60);
+      state.scene.fog.far = Math.max(130, d + 220);
+    }
+
     if (!isTransitioning.current || isUserInteracting.current) return;
 
     const posDist = state.camera.position.distanceTo(targetPos.current);
@@ -109,7 +123,7 @@ const CameraController: React.FC = () => {
       dampingFactor={0.08}
       maxPolarAngle={Math.PI / 2 - 0.01}
       minDistance={1.5}
-      maxDistance={60.0}
+      maxDistance={260.0}
     />
   );
 };

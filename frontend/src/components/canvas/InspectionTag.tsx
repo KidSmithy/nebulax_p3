@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { Html, Line } from '@react-three/drei';
 import { Activity, DoorOpen, Wind, GitCommit, X, ExternalLink } from 'lucide-react';
 import { useTwinStore } from '../../store/useTwinStore';
@@ -36,8 +37,15 @@ export const InspectionTag: React.FC<InspectionTagProps> = ({
   const setRightDrawerTab = useTwinStore((state) => state.setRightDrawerTab);
   const currentFrame = useTwinStore((state) => state.currentFrame);
   const isHudVisible = useTwinStore((state) => state.isHudVisible);
+  // Tags are sized for close inspection; zoomed far out they stack into an
+  // unreadable pile, so they step aside (car 3 sits near the world origin).
+  const [farAway, setFarAway] = useState(false);
+  useFrame(({ camera }) => {
+    const far = camera.position.length() > 70;
+    if (far !== farAway) setFarAway(far);
+  });
 
-  if (!isHudVisible) return null;
+  if (!isHudVisible || farAway) return null;
 
   const isActive = activeInspection === type;
   const subsystems = currentFrame?.subsystems;
