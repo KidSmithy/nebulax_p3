@@ -232,9 +232,139 @@ The backend broadcasts standardized 10 Hz JSON telemetry frames over WebSockets:
       "maintenance_urgency": "SCHEDULE_GRINDING_7D",
       "grinding_priority_rank": 2
     }
+  },
+  "active_interventions": {
+    "ACTION_GRIND_RAIL": true,
+    "ACTION_LUBRICATE_DOOR": false,
+    "ACTION_REPLACE_FILTER": false,
+    "ACTION_INSPECT_BEARING": false
+  },
+  "plain_status": {
+    "shm.vibration_rms_g": "ACTION_NEEDED",
+    "acv.efficiency_rating": "WATCH",
+    "door.motor_current_amps": "GOOD"
+  },
+  "counterfactual": {
+    "active": true,
+    "active_actions": ["ACTION_GRIND_RAIL"],
+    "headline": "Overall health improved from 35% to 91%",
+    "improved_count": 6,
+    "metrics": [
+      {
+        "path": "shm.vibration_rms_g",
+        "label": "Bogie vibration",
+        "unit": "g",
+        "before": 4.78,
+        "after": 2.17,
+        "delta": -2.61,
+        "percent_change": -54.6,
+        "direction": "better",
+        "status_before": "ACTION_NEEDED",
+        "status_after": "GOOD"
+      }
+    ]
+  },
+  "next_corrugation_zone": {
+    "kp_start": 18.250,
+    "kp_centre": 18.300,
+    "distance_km": 3.398,
+    "is_inside_zone": false
   }
 }
 ```
+
+### Counterfactual block
+
+Every frame is evaluated **twice from the same physical instant using the same
+noise seed**: once with the operator's maintenance interventions applied, once
+with all of them reverted. `counterfactual.metrics` is the measured difference
+between those two evaluations, so the "what did my repair achieve?" figures in
+the UI are real measurements rather than hardcoded estimates. When an action has
+no effect, the delta is honestly zero and the UI explains why.
+
+`plain_status` carries a `GOOD` / `WATCH` / `ACTION_NEEDED` verdict per metric,
+derived from `METRIC_THRESHOLDS` in `backend/core/config.py`. The frontend
+glossary mirrors those thresholds, so the words and colours in the HUD can never
+contradict the backend's own judgement.
+
+### WebSocket message kinds
+
+| `type` | Direction | Purpose |
+| --- | --- | --- |
+| `frame` | server → client | 10 Hz telemetry frame, as above |
+| `whatif_result` | server → client | Confirmation of a toggled intervention, including its measured impact |
+| `playback` | client → server | Play/pause and speed multiplier |
+| `seek` | client → server | Jump to a chainage |
+| `whatif` | client → server | Apply or revert a maintenance action |
+| `reset_whatif` | client → server | Revert every action at once |
+
+---
+
+## 🤖 AI Insight Layer (optional)
+
+The HUD's **AI** tab turns the raw engineering readings into a plain-language
+explanation for non-specialists, plus a free-text Q&A box.
+
+### Setup
+
+```powershell
+copy backend\.env.example backend\.env
+# then edit backend\.env and set your key
+```
+
+```ini
+OPENAI_API_KEY=sk-proj-your-key-here
+OPENAI_MODEL=gpt-5.6-terra
+AI_INSIGHT_MIN_INTERVAL_SEC=6
+```
+
+Install the two extra dependencies (already in `requirements.txt`):
+
+```powershell
+.\venv\Scripts\python.exe -m pip install "openai>=1.99,<2" python-dotenv
+```
+
+### Behaviour and safeguards
+
+- **The key never leaves the server.** The browser calls this backend; only the
+  backend calls OpenAI.
+- **The model is given pre-interpreted readings**, each annotated with its
+  threshold and the verdict the UI is already displaying. It cannot invent its
+  own idea of "normal" or contradict the dashboard.
+- **Calls are throttled and cached** on a coarse fingerprint of the operational
+  situation. A 10 Hz stream never becomes 10 model calls per second, and
+  auto-refresh is opt-in at 20 s intervals.
+- **Graceful degradation.** With no key, an exhausted quota, or an API error, a
+  deterministic rule-based explanation is returned and labelled as such. The
+  dashboard degrades in quality, never in availability.
+
+### Endpoints
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/ai/status` | Whether AI is enabled, and which model |
+| `POST` | `/api/ai/insight` | Structured plain-language explanation of the current frame |
+| `POST` | `/api/ai/ask` | Free-text question grounded in the live readings |
+| `GET` | `/api/metrics/glossary` | Backend thresholds, for asserting UI/backend agreement |
+| `GET` | `/api/whatif/actions` | Available interventions and their plain-language copy |
+| `POST` | `/api/whatif/reset` | Revert all interventions |
+
+---
+
+## 👓 Making the dashboard readable for non-experts
+
+The HUD ships a **Beginner/Expert toggle** (the `SIMPLE` / `EXPERT` button).
+
+- **Beginner** replaces jargon with everyday wording — "Axle-box vibration RMS"
+  becomes "Wheel shaking", "COP efficiency rating" becomes "Efficiency" — and
+  states each verdict in words (`Normal`, `Watch`, `Act`) rather than relying on
+  colour alone.
+- **Expert** restores the engineering terminology and raw units.
+
+Every reading carries a **?** tooltip defining what it measures, why it matters,
+its healthy range, and an everyday analogy. Definitions live in one place,
+`frontend/src/lib/metricGlossary.ts`, alongside a `TERM_GLOSSARY` that explains
+enum values such as `SHORT_PITCH` or `GUIDE_RAIL_FRICTION`.
 
 ---
 

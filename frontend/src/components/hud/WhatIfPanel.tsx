@@ -10,7 +10,8 @@ import {
   Wrench,
 } from 'lucide-react';
 import { useTwinStore } from '../../store/useTwinStore';
-import { CounterfactualMetric, InterventionAction } from '../../types/telemetry';
+import { InterventionAction } from '../../types/telemetry';
+import { plainTerm } from '../../lib/metricGlossary';
 import { InfoTip } from './InfoTip';
 
 interface ActionCopy {
@@ -73,7 +74,19 @@ function fmt(m: { before: number; after: number; unit: string; decimals: number 
   return `${v.toFixed(m.decimals)}${m.unit ? ' ' + m.unit : ''}`;
 }
 
-const DeltaRow: React.FC<{ m: CounterfactualMetric }> = ({ m }) => {
+/** Minimum a row needs; both the frame counterfactual and the per-action
+ *  impact payload satisfy this, so one component renders both. */
+interface DeltaLike {
+  path: string;
+  label: string;
+  unit: string;
+  decimals: number;
+  before: number;
+  after: number;
+  direction: 'better' | 'worse' | 'unchanged';
+}
+
+const DeltaRow: React.FC<{ m: DeltaLike }> = ({ m }) => {
   const better = m.direction === 'better';
   const Icon = better ? TrendingDown : TrendingUp;
   return (
@@ -103,6 +116,9 @@ export const WhatIfPanel: React.FC = () => {
   const cf = currentFrame?.counterfactual;
   const zone = currentFrame?.next_corrugation_zone;
   const anyActive = Object.values(activeInterventions).some(Boolean);
+
+  const doorState = currentFrame?.subsystems?.door?.cycle_state;
+  const doorMoving = doorState === 'OPENING' || doorState === 'CLOSING';
 
   const health = cf?.metrics.find((m) => m.path === 'fleet_health_index');
 
@@ -217,6 +233,15 @@ export const WhatIfPanel: React.FC = () => {
           (m) => m.direction !== 'unchanged' && prefixes.some((p) => m.path.startsWith(p))
         );
 
+        // A parked door draws no current, so lubrication cannot show a saving
+        // at this instant. Say so, rather than implying the door is healthy.
+        const doorParked =
+          item.action === 'ACTION_LUBRICATE_DOOR' && !doorMoving && doorState !== undefined;
+
+        // Per-action figures returned when this specific card was toggled.
+        const ownResult =
+          lastResult?.action === item.action ? lastResult.measured_impact : undefined;
+
         return (
           <div
             key={item.action}
@@ -253,6 +278,24 @@ export const WhatIfPanel: React.FC = () => {
               <div className="mt-1.5 pt-1.5 border-t border-emerald-200 space-y-1">
                 {own.length > 0 ? (
                   own.map((m) => <DeltaRow key={m.path} m={m} />)
+                ) : ownResult?.changed_metrics?.length ? (
+                  <>
+                    {ownResult.changed_metrics
+                      .filter((m) => prefixes.some((p) => m.path.startsWith(p)))
+                      .map((m) => (
+                        <DeltaRow key={m.path} m={m} />
+                      ))}
+                    {ownResult.note && (
+                      <div className="text-[9px] text-slate-500 italic leading-relaxed">
+                        {ownResult.note}
+                      </div>
+                    )}
+                  </>
+                ) : doorParked ? (
+                  <div className="text-[9.5px] text-slate-500 leading-relaxed">
+                    The door is {plainTerm(doorState).toLowerCase()} right now, so its motor is
+                    idle. The saving appears while the door is opening or closing.
+                  </div>
                 ) : (
                   <div className="text-[9.5px] text-slate-500 leading-relaxed">
                     {item.locationSensitive

@@ -138,6 +138,7 @@ export interface WhatIfResult {
       direction: 'better' | 'worse';
     }>;
     note: string | null;
+    measured_at_peak_travel?: boolean;
   };
   next_corrugation_zone?: CorrugationZoneInfo;
 }

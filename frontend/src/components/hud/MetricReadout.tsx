@@ -47,7 +47,7 @@ export const MetricReadout: React.FC<MetricReadoutProps> = ({
 
   if (!def) return null;
 
-  const label = beginner ? def.plainName : def.technicalName;
+  const label = beginner ? def.shortName ?? def.plainName : def.technicalName;
   const hasGauge = def.good < 9000 && value !== undefined && value !== null;
   const pos = hasGauge ? gaugePosition(path, value as number) : 0;
   const goodPos = gaugePosition(path, def.good);

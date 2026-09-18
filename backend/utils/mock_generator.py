@@ -150,3 +150,29 @@ class TelemetryGenerator:
 
     def seek(self, target_kp: float):
         self.current_kp = max(DEFAULT_START_KP, min(target_kp, TRACK_MAX_KP))
+
+    def peak_travel_snapshot(self, raw: dict) -> dict:
+        """
+        A copy of `raw` repositioned to the busiest instant of a door cycle.
+
+        A parked door draws no current, so there is nothing to diagnose and
+        nothing for lubrication to improve. Evaluating the door action against
+        the current instant would therefore report "no effect" for the ~18 of
+        every 25 seconds the door spends closed, which reads as a broken
+        feature. This provides a representative mid-travel instant instead, so
+        the benefit can always be quantified. Callers must label the result as
+        being measured at peak travel rather than right now.
+        """
+        snap = dict(raw)
+        # Mid-travel of a CLOSING cycle: sin(pi/2) = 1, the current peak.
+        nominal_peak = 8.2 + 1.3
+        snap["door_nominal_current"] = round(nominal_peak, 3)
+        snap["door_nominal_transit"] = 3.10
+        snap["door_current"] = float(np.clip(nominal_peak * self.door_friction_factor, 0.0, 14.0))
+        snap["door_transit_time"] = round(
+            3.10 * (1.0 + (self.door_friction_factor - 1.0) * 0.30), 2
+        )
+        snap["door_is_moving"] = True
+        snap["is_door_opening"] = False
+        snap["door_phase"] = "CLOSING"
+        return snap

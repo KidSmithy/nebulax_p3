@@ -119,6 +119,13 @@ class WhatIfEngine:
         raw = h.generator.step(dt=0.0)
         seed = raw["frame_id"]
 
+        # A parked door cannot demonstrate the benefit of lubrication, so the
+        # door action is measured at a representative point in its travel.
+        measured_at_peak_travel = False
+        if action_type == "ACTION_LUBRICATE_DOOR" and not raw.get("door_is_moving", True):
+            raw = h.generator.peak_travel_snapshot(raw)
+            measured_at_peak_travel = True
+
         without = {**h.interventions, action_type: False}
         with_it = {**h.interventions, action_type: True}
 
@@ -149,7 +156,13 @@ class WhatIfEngine:
 
         has_effect = bool(deltas)
         note = None
-        if not has_effect and ACTION_CATALOG.get(action_type, {}).get("location_sensitive"):
+        if measured_at_peak_travel:
+            note = (
+                "The door is parked right now, so its motor is idle. These figures are "
+                "measured at the busiest point of a door cycle, which is where the "
+                "improvement actually shows."
+            )
+        elif not has_effect and ACTION_CATALOG.get(action_type, {}).get("location_sensitive"):
             zone = h.next_corrugation_zone(raw["track_chainage_km"])
             note = (
                 f"No effect here because the track at KP {raw['track_chainage_km']:.3f} "
@@ -163,4 +176,5 @@ class WhatIfEngine:
             "has_measurable_effect": has_effect,
             "changed_metrics": deltas,
             "note": note,
+            "measured_at_peak_travel": measured_at_peak_travel,
         }
