@@ -87,12 +87,17 @@ class RailCorrugationModel:
         """
         Processes an axle-box multi-channel shock/vibration CSV to detect rail corrugation.
         """
+        is_excel = str(file_name).lower().endswith(('.xlsx', '.xls'))
         if isinstance(file_source, (bytes, bytearray)):
-            df = pd.read_csv(io.BytesIO(file_source))
+            bio = io.BytesIO(file_source)
+            df = pd.read_excel(bio) if is_excel else pd.read_csv(bio)
         elif isinstance(file_source, str) and "\n" in file_source:
             df = pd.read_csv(io.StringIO(file_source))
+        elif isinstance(file_source, pd.DataFrame):
+            df = file_source.copy()
         else:
-            df = pd.read_csv(file_source)
+            df = pd.read_excel(file_source) if is_excel else pd.read_csv(file_source)
+
 
         num_cols = df.select_dtypes(include=[np.number]).columns
         if len(num_cols) == 0:

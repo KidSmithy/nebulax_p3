@@ -48,10 +48,22 @@ class DoorPredictor:
                             self.feature_cols = self.bundle['feature_cols']
                     else:
                         self.model = self.bundle
+                    if getattr(self.model, 'n_features_in_', None) not in (None, len(self.feature_cols)):
+                        print(f"[DoorPredictor] Model expects {getattr(self.model, 'n_features_in_')} features, but feature_cols has {len(self.feature_cols)}. Training compatible 29-feature model...")
+                        train_path = DATASETS_DIR / "Door" / "Train.csv"
+                        ans_path = DATASETS_DIR / "Door" / "Train_Segments_Answer.csv"
+                        if not train_path.exists():
+                            train_path = DOOR_DIR / "Train.csv"
+                            ans_path = DOOR_DIR / "Train_Segments_Answer.csv"
+                        if train_path.exists() and ans_path.exists():
+                            self._train_and_save(train_path, ans_path)
+                            return
+
                     print(f"[DoorPredictor] Successfully loaded model bundle from {path}")
                     return
                 except Exception as e:
                     print(f"[DoorPredictor] Failed to load cached bundle from {path}: {e}")
+
 
         # Train baseline if bundle not found
         train_path = DATASETS_DIR / "Door" / "Train.csv"
@@ -220,12 +232,17 @@ class DoorPredictor:
         Extracts electromechanical features per transit segment and predicts faults
         (Normal vs. Abnormal resistance).
         """
+        is_excel = str(file_name).lower().endswith(('.xlsx', '.xls'))
         if isinstance(file_source, (bytes, bytearray)):
-            df = pd.read_csv(io.BytesIO(file_source))
+            bio = io.BytesIO(file_source)
+            df = pd.read_excel(bio) if is_excel else pd.read_csv(bio)
         elif isinstance(file_source, str) and "\n" in file_source:
             df = pd.read_csv(io.StringIO(file_source))
+        elif isinstance(file_source, pd.DataFrame):
+            df = file_source.copy()
         else:
-            df = pd.read_csv(file_source)
+            df = pd.read_excel(file_source) if is_excel else pd.read_csv(file_source)
+
 
         # Standardize column naming if necessary
         col_map = {c.strip(): c for c in df.columns}

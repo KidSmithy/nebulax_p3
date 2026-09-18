@@ -193,18 +193,43 @@ class SHMSubsystemModel:
         moment extraction on an uploaded SHM accelerometer/strain sensor CSV,
         then evaluates the multi-model ensemble (BayesianRidge, ElasticNet, SVR, ExtraTrees).
         """
+        is_excel = str(file_name).lower().endswith(('.xlsx', '.xls'))
         if isinstance(file_source, (bytes, bytearray)):
-            try:
-                df = pd.read_csv(io.BytesIO(file_source), header=None, dtype=np.float32)
-            except Exception:
-                df = pd.read_csv(io.BytesIO(file_source))
+            bio = io.BytesIO(file_source)
+            if is_excel:
+                try:
+                    df = pd.read_excel(bio)
+                    if len(df.select_dtypes(include=[np.number]).columns) == 0:
+                        bio.seek(0)
+                        df = pd.read_excel(bio, header=None)
+                except Exception:
+                    bio.seek(0)
+                    df = pd.read_excel(bio, header=None)
+            else:
+                try:
+                    df = pd.read_csv(bio, header=None, dtype=np.float32)
+                except Exception:
+                    bio.seek(0)
+                    df = pd.read_csv(bio)
         elif isinstance(file_source, str) and "\n" in file_source:
             df = pd.read_csv(io.StringIO(file_source), header=None, dtype=np.float32)
+        elif isinstance(file_source, pd.DataFrame):
+            df = file_source.copy()
         else:
-            try:
-                df = pd.read_csv(file_source, header=None, dtype=np.float32)
-            except Exception:
-                df = pd.read_csv(file_source)
+            if is_excel:
+                try:
+                    df = pd.read_excel(file_source)
+                    if len(df.select_dtypes(include=[np.number]).columns) == 0:
+                        df = pd.read_excel(file_source, header=None)
+                except Exception:
+                    df = pd.read_excel(file_source, header=None)
+            else:
+                try:
+                    df = pd.read_csv(file_source, header=None, dtype=np.float32)
+                except Exception:
+                    df = pd.read_csv(file_source)
+
+
 
         # Extract numeric sensor signal array
         num_cols = df.select_dtypes(include=[np.number]).columns

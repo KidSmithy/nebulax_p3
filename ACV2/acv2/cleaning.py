@@ -112,6 +112,82 @@ class CleanCase:
                 f"cooling_rows={r['cooling_rows']} circuits={len(self.circuits)} "
                 f"dropouts={r['dropouts_total']} invalid={r['invalid_total']}")
 
+    def without_cars(self, drop: list[str]) -> "CleanCase":
+        """
+        Drop cars from the consist entirely.
+
+        Used by the specificity test: removing the known faulty car leaves a
+        consist of healthy siblings, and the detector should then find no
+        confident outlier. The ambient is recomputed from the remaining outdoor
+        probes so the load proxy stays self-consistent.
+        """
+        drop = set(drop)
+        keep = [c for c in self.header_cars if c not in drop]
+        cars = [c for c in self.cars if c not in drop]
+
+        def cols(frame: pd.DataFrame) -> pd.DataFrame:
+            return frame[[c for c in frame.columns if c not in drop]]
+
+        t_out = cols(self.t_out)
+        ambient = t_out.median(axis=1, skipna=True)
+        ambient = ambient.groupby(self.segment).transform(
+            lambda s: s.interpolate(limit_direction="both", limit=30))
+        return CleanCase(
+            panel=self.panel, cars=cars, header_cars=keep,
+            t_in=cols(self.t_in), t_set=cols(self.t_set), t_out=t_out,
+            ambient=ambient, cooling=cols(self.cooling), demand=cols(self.demand),
+            reporting=cols(self.reporting), invalid=cols(self.invalid),
+            dropout=cols(self.dropout),
+            circuits={k: {n: (cols(v) if isinstance(v, pd.DataFrame) and
+                              set(v.columns) & set(self.header_cars) else v)
+                          for n, v in ch.items()} for k, ch in self.circuits.items()},
+            time=self.time, segment=self.segment,
+            report=dict(self.report, dropped_cars=sorted(drop)),
+        )
+
+    def with_injected_deficit(self, car: str, delta_k: float,
+                              growth: float = 1.0) -> "CleanCase":
+        """
+        Add a synthetic capacity deficit to one car's cabin temperature.
+
+        The shape follows the steady-state solution of the energy balance,
+        ``T_in* = T_out + (Q_gain - Q_max)/UA``: the elevation scales with the
+        instantaneous thermal load and grows over the record, because a leak is
+        progressive. It is normalised so that ``delta_k`` is exactly the mean
+        elevation added, which makes the injection magnitude directly comparable
+        to the observed ``elev_mean`` of the real faulty cars. The result is then
+        re-quantised onto the channel's own measurement grid, so a deficit below
+        the sensor resolution is not made artificially easy to see.
+        """
+        load = (self.ambient - self.t_set[car]).clip(lower=0.0)
+        span = float(self.elapsed_days.max() - self.elapsed_days.min()) or 1.0
+        t_frac = (self.elapsed_days - self.elapsed_days.min()) / span
+        shape = (load / max(load.mean(), 1e-6)) * (1.0 - growth / 2.0 + growth * t_frac)
+        shape = shape.where(self.cooling[car].astype(bool), 0.0).fillna(0.0)
+        mean_shape = float(shape[shape > 0].mean()) if (shape > 0).any() else 1.0
+        addition = delta_k * shape / max(mean_shape, 1e-6)
+
+        values = pd.to_numeric(self.t_in[car], errors="coerce")
+        finite = values.dropna().unique()
+        grid = 0.5
+        if len(finite) > 2:
+            steps = np.diff(np.sort(finite))
+            steps = steps[steps > 1e-6]
+            if steps.size:
+                grid = float(np.min(steps))
+        t_in = self.t_in.copy()
+        t_in[car] = np.round((values + addition) / grid) * grid
+
+        return CleanCase(
+            panel=self.panel, cars=self.cars, header_cars=self.header_cars,
+            t_in=t_in, t_set=self.t_set, t_out=self.t_out, ambient=self.ambient,
+            cooling=self.cooling, demand=self.demand, reporting=self.reporting,
+            invalid=self.invalid, dropout=self.dropout, circuits=self.circuits,
+            time=self.time, segment=self.segment,
+            report=dict(self.report, injected={"car": car, "delta_k": delta_k,
+                                               "grid_k": grid}),
+        )
+
     def subset(self, mask: pd.Series) -> "CleanCase":
         """
         Row subset of the case, used by the block-bootstrap stability check.

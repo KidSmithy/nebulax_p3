@@ -601,14 +601,14 @@ export const ConductorOnboarding: React.FC = () => {
                     <span className="text-xs font-medium text-slate-700">Click to choose a file or ZIP archive</span>
                     <span className="text-label text-slate-400 text-center px-4">
                       {subsystem === 'acv'
-                        ? 'ACV case workbook or archive (.xlsx, .csv, .zip)'
-                        : 'CSV dataset or ZIP archive (e.g. SHM or Rail multi-run tests)'}
+                        ? 'ACV case workbook or archive (.xlsx, .xls, .csv, .zip)'
+                        : 'CSV / Excel dataset (.csv, .xlsx) or ZIP archive'}
                     </span>
                   </button>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept={subsystem === 'acv' ? '.xlsx,.csv,.zip' : '.csv,.zip,.txt,.log'}
+                    accept=".csv,.xlsx,.xls,.zip,.txt,.log"
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];

@@ -37,9 +37,10 @@ def _extract_zip_files(content: bytes) -> List[Tuple[str, bytes]]:
             base = name.split("/")[-1]
             if base.startswith("._") or not base:
                 continue
-            if base.lower().endswith((".csv", ".txt", ".tsv", ".log", ".xlsx")):
+            if base.lower().endswith((".csv", ".txt", ".tsv", ".log", ".xlsx", ".xls")):
                 extracted.append((base, z.read(name)))
     return extracted
+
 
 
 class WhatIfRequest(BaseModel):
