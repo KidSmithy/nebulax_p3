@@ -33,6 +33,7 @@ AI_ENABLED = bool(OPENAI_API_KEY)
 PS3_DIR = ROOT_DIR / "PS3"
 DATASETS_DIR = PS3_DIR / "02_Datasets"
 
+MODEL_DATA_DIR = BACKEND_DIR / "model_data"
 DOOR_DIR = ROOT_DIR / "Door"
 ACV_DIR = ROOT_DIR / "ACV"
 RAIL_DIR = ROOT_DIR / "Rail_Corrugation"

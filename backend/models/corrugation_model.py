@@ -11,9 +11,12 @@ Rail Corrugation Subsystem Model:
 import os
 import joblib
 import numpy as np
-from backend.core.config import RAIL_DIR, PS3_DIR, CORRUGATION_ZONES
+import io
+import pandas as pd
+from backend.core.config import RAIL_DIR, PS3_DIR, MODEL_DATA_DIR, CORRUGATION_ZONES
 
 BUNDLE_PATHS = [
+    MODEL_DATA_DIR / "rail_model_bundle.joblib",
     RAIL_DIR / "models" / "rail_model_bundle.joblib",
     PS3_DIR / "models" / "rail_model_bundle.joblib"
 ]
@@ -22,11 +25,13 @@ class RailCorrugationModel:
     def __init__(self):
         self.bundle = None
         self.model = None
+        self.feature_cols = []
         for p in BUNDLE_PATHS:
             if p.exists():
                 try:
                     self.bundle = joblib.load(p)
                     self.model = self.bundle.get('model')
+                    self.feature_cols = self.bundle.get('feature_cols', [])
                     print(f"[RailCorrugationModel] Loaded model bundle from {p}")
                     break
                 except Exception as e:
@@ -77,3 +82,79 @@ class RailCorrugationModel:
             "maintenance_urgency": "NONE",
             "grinding_priority_rank": 0
         }
+
+    def predict_from_csv(self, file_source, file_name: str = "rail_data.csv") -> dict:
+        """
+        Processes an axle-box multi-channel shock/vibration CSV to detect rail corrugation.
+        """
+        if isinstance(file_source, (bytes, bytearray)):
+            df = pd.read_csv(io.BytesIO(file_source))
+        elif isinstance(file_source, str) and "\n" in file_source:
+            df = pd.read_csv(io.StringIO(file_source))
+        else:
+            df = pd.read_csv(file_source)
+
+        num_cols = df.select_dtypes(include=[np.number]).columns
+        if len(num_cols) == 0:
+            raise ValueError("Uploaded rail data must contain numeric sensor channels.")
+
+        # Compute broadband RMS across vibration channels
+        vib_cols = [c for c in num_cols if 'vibration' in c.lower() or 'shock' in c.lower()]
+        if not vib_cols:
+            vib_cols = num_cols
+
+        channel_rms = [float(np.sqrt(np.mean(df[c].dropna().values**2))) for c in vib_cols]
+        mean_rms = float(np.mean(channel_rms)) if channel_rms else 0.5
+        max_rms = float(np.max(channel_rms)) if channel_rms else 0.5
+
+        # Infer corrugation depth & severity
+        depth_microns = round(float(np.clip(mean_rms * 28.0 + 8.0, 6.0, 65.0)), 1)
+        severity_score = round(float(np.clip(depth_microns / 45.0, 0.05, 0.98)), 2)
+
+        if severity_score > 0.65:
+            wavelength = "SHORT_PITCH"
+            urgency = "IMMEDIATE_GRINDING_48H"
+            status = "ACTION_NEEDED"
+            action = "ACTION_GRIND_RAIL"
+            rank = 1
+            summary = (
+                f"Severe corrugation warning for '{file_name}': multi-channel vibration RMS reaches {mean_rms:.2f}g "
+                f"(peak channel {max_rms:.2f}g). Estimated acoustic rail corrugation depth is {depth_microns} microns "
+                f"({wavelength}). Immediate rail grinding required within 48 hours to prevent wheel damage."
+            )
+        elif severity_score > 0.35:
+            wavelength = "LONG_PITCH"
+            urgency = "SCHEDULE_GRINDING_7D"
+            status = "WATCH"
+            action = "ACTION_GRIND_RAIL"
+            rank = 2
+            summary = (
+                f"Moderate corrugation detected for '{file_name}': estimated rail roughness depth {depth_microns} microns "
+                f"({wavelength}, severity {severity_score}). Grinding recommended within 7 days."
+            )
+        else:
+            wavelength = "NOMINAL"
+            urgency = "NOMINAL"
+            status = "GOOD"
+            action = "NONE"
+            rank = 0
+            summary = (
+                f"Track surface analysis for '{file_name}': smooth rail surface detected. "
+                f"Estimated roughness depth {depth_microns} microns is well within safe operating limits."
+            )
+
+        return {
+            "subsystem": "rail",
+            "file_name": file_name,
+            "status": status,
+            "verdict": status,
+            "anomaly_score": severity_score,
+            "depth_microns": depth_microns,
+            "wavelength_class": wavelength,
+            "maintenance_urgency": urgency,
+            "grinding_priority_rank": rank,
+            "recommended_action": action,
+            "mean_channel_rms": round(mean_rms, 2),
+            "conductor_summary": summary,
+        }
+

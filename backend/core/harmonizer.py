@@ -53,6 +53,22 @@ class TelemetryHarmonizer:
         self.generator = TelemetryGenerator()
         self.broker = InferenceBroker()
         self.interventions = dict(NO_INTERVENTIONS)
+        self.latest_upload_results = {}
+
+    def set_upload_result(self, subsystem: str, result: dict):
+        """Stores the most recent CSV batch prediction for a subsystem."""
+        self.latest_upload_results[subsystem] = result
+        # Adapt generator physics to reflect real tested anomalies
+        if subsystem == "door":
+            if result.get("status") == "ACTION_NEEDED":
+                self.generator.door_friction_factor = 1.35
+            elif result.get("status") == "GOOD":
+                self.generator.door_friction_factor = 1.0
+        elif subsystem == "shm":
+            if result.get("bearing_defect_prob", 0) > 0.35:
+                self.generator.bearing_wear = min(0.85, float(result["bearing_defect_prob"]))
+            elif result.get("status") == "GOOD":
+                self.generator.bearing_wear = 0.04
 
     # ------------------------------------------------------------------
     # Intervention state
@@ -108,6 +124,7 @@ class TelemetryHarmonizer:
             "active_interventions": dict(self.interventions),
             "plain_status": self._plain_status(frame_flat),
             "next_corrugation_zone": self.next_corrugation_zone(raw["track_chainage_km"]),
+            "latest_upload_results": dict(self.latest_upload_results),
         }
 
         # Pass 2: the same instant with every intervention reverted, so the
