@@ -1,0 +1,3665 @@
+{
+  "generatedAt": "2026-09-18T05:55:14.745Z",
+  "validator": "Khronos glTF-Validator + independent Draco-decoded geometry and runtime contract checks",
+  "assets": [
+    {
+      "file": "assets/c151-cab.glb",
+      "bytes": 137404,
+      "passed": true,
+      "triangles": 5818,
+      "vertices": 11562,
+      "bounds": {
+        "min": [
+          -1.600000023841858,
+          -7.152557379708213e-9,
+          0
+        ],
+        "max": [
+          1.600030541419983,
+          3.7000160121917727,
+          23
+        ]
+      },
+      "texture": {
+        "width": 1024,
+        "height": 1024,
+        "depth": 8,
+        "colorType": 6,
+        "interlace": 0,
+        "swatchPixelCounts": {
+          "F2F4F7": 474135,
+          "D5202B": 57358,
+          "59606B": 59276
+        }
+      },
+      "nodeCount": 36,
+      "meshCount": 25,
+      "materialNames": [
+        "MRT_Body",
+        "MRT_Glass",
+        "MRT_Light",
+        "MRT_Metal"
+      ],
+      "geometry": [
+        {
+          "node": "Headlight_L",
+          "triangles": 64
+        },
+        {
+          "node": "Headlight_R",
+          "triangles": 64
+        },
+        {
+          "node": "Body_Shell",
+          "triangles": 1854
+        },
+        {
+          "node": "Glass_Windows",
+          "triangles": 180
+        },
+        {
+          "node": "Glass_Windscreen",
+          "triangles": 36
+        },
+        {
+          "node": "Door_L1_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_L1_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Door_L2_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_L2_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Door_L3_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_L3_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Door_L4_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_L4_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R1_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R1_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R2_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R2_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R3_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R3_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R4_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R4_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Bogie_Rear",
+          "triangles": 1012
+        },
+        {
+          "node": "Bogie_Front",
+          "triangles": 1012
+        },
+        {
+          "node": "Roof_AC_1",
+          "triangles": 46
+        },
+        {
+          "node": "Roof_AC_2",
+          "triangles": 46
+        }
+      ],
+      "winding": {
+        "faces": 5818,
+        "degenerateFaces": 0,
+        "minNormalAlignment": 0.9999443351201363,
+        "roofACSideFaces": 48,
+        "minRoofACOutwardDot": 0.8792965530107688,
+        "endChamferFaces": 56,
+        "minEndChamferOutwardDot": 1.2384088108879814
+      },
+      "doors": [
+        {
+          "name": "Door_L1",
+          "pivot": [
+            -1.5879999999999996,
+            1.1,
+            4.448000000000001
+          ],
+          "leaves": [
+            {
+              "name": "Door_L1_Leaf_A",
+              "translation": [
+                0.002000000000000668,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.002000000000000668,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_L1_Leaf_B",
+              "translation": [
+                1.4940000000000002,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4940000000000002,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        },
+        {
+          "name": "Door_L2",
+          "pivot": [
+            -1.5879999999999985,
+            1.1,
+            9.448
+          ],
+          "leaves": [
+            {
+              "name": "Door_L2_Leaf_A",
+              "translation": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_L2_Leaf_B",
+              "translation": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        },
+        {
+          "name": "Door_L3",
+          "pivot": [
+            -1.5879999999999974,
+            1.1,
+            14.448000000000002
+          ],
+          "leaves": [
+            {
+              "name": "Door_L3_Leaf_A",
+              "translation": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_L3_Leaf_B",
+              "translation": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        },
+        {
+          "name": "Door_L4",
+          "pivot": [
+            -1.5879999999999963,
+            1.1,
+            19.448000000000004
+          ],
+          "leaves": [
+            {
+              "name": "Door_L4_Leaf_A",
+              "translation": [
+                0.0020000000000024443,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.0020000000000024443,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_L4_Leaf_B",
+              "translation": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        },
+        {
+          "name": "Door_R1",
+          "pivot": [
+            1.5880000000000014,
+            1.1,
+            4.448000000000001
+          ],
+          "leaves": [
+            {
+              "name": "Door_R1_Leaf_A",
+              "translation": [
+                0.002000000000000668,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.002000000000000668,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_R1_Leaf_B",
+              "translation": [
+                1.4940000000000002,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4940000000000002,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        },
+        {
+          "name": "Door_R2",
+          "pivot": [
+            1.5880000000000025,
+            1.1,
+            9.448
+          ],
+          "leaves": [
+            {
+              "name": "Door_R2_Leaf_A",
+              "translation": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_R2_Leaf_B",
+              "translation": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        },
+        {
+          "name": "Door_R3",
+          "pivot": [
+            1.5880000000000036,
+            1.1,
+            14.448000000000002
+          ],
+          "leaves": [
+            {
+              "name": "Door_R3_Leaf_A",
+              "translation": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_R3_Leaf_B",
+              "translation": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        },
+        {
+          "name": "Door_R4",
+          "pivot": [
+            1.5880000000000047,
+            1.1,
+            19.448000000000004
+          ],
+          "leaves": [
+            {
+              "name": "Door_R4_Leaf_A",
+              "translation": [
+                0.0020000000000024443,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.0020000000000024443,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_R4_Leaf_B",
+              "translation": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        }
+      ],
+      "sideUV": [
+        {
+          "side": "L",
+          "samples": 242,
+          "uFromYZ": [
+            -4.912556998064137e-8,
+            0.04317066124088087,
+            0.003536883438406743
+          ],
+          "vFromYZ": [
+            -0.06510014624581861,
+            4.414896239129246e-8,
+            0.2252534530777422
+          ],
+          "maxResidual": 0.000034770330447905524,
+          "affineStrip": true
+        },
+        {
+          "side": "R",
+          "samples": 222,
+          "uFromYZ": [
+            -5.772400233784291e-7,
+            0.04317065050390818,
+            0.0035387270699334715
+          ],
+          "vFromYZ": [
+            -0.06510498795940195,
+            1.8686176654625353e-8,
+            0.39323485969521255
+          ],
+          "maxResidual": 0.00003535713324171342,
+          "affineStrip": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "Khronos glTF validator has zero errors",
+          "passed": true,
+          "details": {
+            "numErrors": 0,
+            "numWarnings": 0,
+            "numInfos": 61,
+            "numHints": 0,
+            "messages": [
+              {
+                "code": "UNSUPPORTED_EXTENSION",
+                "message": "Cannot validate an extension as it is not supported by the validator: 'KHR_draco_mesh_compression'.",
+                "severity": 2,
+                "pointer": "/extensionsUsed/0"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/1"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/2"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/3"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/4"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/5"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/6"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/7"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/8"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/9"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/10"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/11"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/12"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/13"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/14"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/15"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/16"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/17"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/18"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/19"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/20"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/21"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/22"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/23"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/24"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/25"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/26"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/27"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/28"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/29"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/30"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/31"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/32"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/33"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/34"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/35"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/36"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/37"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/38"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/39"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/40"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/41"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/42"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/43"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/44"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/45"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/46"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/47"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/48"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/49"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/50"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/51"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/52"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/53"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/54"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/55"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/56"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/57"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/58"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/59"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/60"
+              }
+            ],
+            "truncated": false
+          }
+        },
+        {
+          "name": "GLB contains one embedded buffer",
+          "passed": true
+        },
+        {
+          "name": "One default scene",
+          "passed": true
+        },
+        {
+          "name": "Draco required by the asset",
+          "passed": true
+        },
+        {
+          "name": "Every triangle primitive uses Draco",
+          "passed": true,
+          "details": {
+            "primitives": 60
+          }
+        },
+        {
+          "name": "No cameras, punctual lights, skins or animations",
+          "passed": true
+        },
+        {
+          "name": "Only core metallic-roughness material model",
+          "passed": true
+        },
+        {
+          "name": "Exactly the four required materials",
+          "passed": true,
+          "details": [
+            "MRT_Body",
+            "MRT_Glass",
+            "MRT_Light",
+            "MRT_Metal"
+          ]
+        },
+        {
+          "name": "Body uses albedo atlas",
+          "passed": true
+        },
+        {
+          "name": "Glass uses transparency",
+          "passed": true
+        },
+        {
+          "name": "Light material is emissive",
+          "passed": true
+        },
+        {
+          "name": "Exactly one embedded PNG albedo image",
+          "passed": true
+        },
+        {
+          "name": "Texture resolution is 1024 by 1024",
+          "passed": true,
+          "details": {
+            "width": 1024,
+            "height": 1024,
+            "depth": 8,
+            "colorType": 6,
+            "interlace": 0,
+            "swatchPixelCounts": {
+              "F2F4F7": 474135,
+              "D5202B": 57358,
+              "59606B": 59276
+            }
+          }
+        },
+        {
+          "name": "Exact requested paint swatches occur in texture",
+          "passed": true,
+          "details": {
+            "F2F4F7": 474135,
+            "D5202B": 57358,
+            "59606B": 59276
+          }
+        },
+        {
+          "name": "Required runtime names each occur exactly once",
+          "passed": true,
+          "details": {
+            "Body_Shell": 1,
+            "Bogie_Front": 1,
+            "Bogie_Rear": 1,
+            "Glass_Windows": 1,
+            "Roof_AC_1": 1,
+            "Roof_AC_2": 1,
+            "Door_L1": 1,
+            "Door_L2": 1,
+            "Door_L3": 1,
+            "Door_L4": 1,
+            "Door_R1": 1,
+            "Door_R2": 1,
+            "Door_R3": 1,
+            "Door_R4": 1,
+            "Glass_Windscreen": 1,
+            "Headlight_L": 1,
+            "Headlight_R": 1
+          }
+        },
+        {
+          "name": "No duplicate nonempty node names",
+          "passed": true
+        },
+        {
+          "name": "No interior, seats, cab equipment, pantograph or roof cabling nodes",
+          "passed": true
+        },
+        {
+          "name": "Root transforms are identity",
+          "passed": true
+        },
+        {
+          "name": "Mesh rotations and scales are applied",
+          "passed": true
+        },
+        {
+          "name": "Only intentional door coordinate frames are rotated",
+          "passed": true,
+          "details": [
+            {
+              "name": "DoorTrack_L",
+              "rotation": [
+                0,
+                0.7071067811865476,
+                0,
+                0.7071067811865476
+              ]
+            },
+            {
+              "name": "DoorTrack_R",
+              "rotation": [
+                0,
+                0.7071067811865476,
+                0,
+                0.7071067811865476
+              ]
+            }
+          ]
+        },
+        {
+          "name": "No negative or nonunit scales anywhere",
+          "passed": true
+        },
+        {
+          "name": "Decoded triangles meet preferred 3000–6000 budget",
+          "passed": true,
+          "details": 5818
+        },
+        {
+          "name": "Decoded triangle winding agrees with vertex normals",
+          "passed": true,
+          "details": {
+            "faces": 5818,
+            "degenerateFaces": 0,
+            "minNormalAlignment": 0.9999443351201363
+          }
+        },
+        {
+          "name": "Roof AC sidewalls face outward",
+          "passed": true,
+          "details": {
+            "faces": 48,
+            "minOutwardDot": 0.8792965530107688
+          }
+        },
+        {
+          "name": "Both body end chamfers face outward",
+          "passed": true,
+          "details": {
+            "faces": 56,
+            "minOutwardDot": 1.2384088108879814
+          }
+        },
+        {
+          "name": "Decoded triangles are below hard 8000 ceiling",
+          "passed": true,
+          "details": 5818
+        },
+        {
+          "name": "World bounds are exact real-scale coupling extents",
+          "passed": true,
+          "details": {
+            "min": [
+              -1.600000023841858,
+              -7.152557379708213e-9,
+              0
+            ],
+            "max": [
+              1.600030541419983,
+              3.7000160121917727,
+              23
+            ],
+            "size": [
+              3.200030565261841,
+              3.70001601934433,
+              23
+            ],
+            "tolerance": 0.003
+          }
+        },
+        {
+          "name": "Door_L1 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_L1",
+            "pivot": [
+              -1.5879999999999996,
+              1.1,
+              4.448000000000001
+            ],
+            "leaves": [
+              {
+                "name": "Door_L1_Leaf_A",
+                "translation": [
+                  0.002000000000000668,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.002000000000000668,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_L1_Leaf_B",
+                "translation": [
+                  1.4940000000000002,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4940000000000002,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_L1 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_L1 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_L1_Leaf_A",
+              "localXBounds": [
+                -8.882902346666077e-18,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_L1_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.0000028610229492189728
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Door_L2 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_L2",
+            "pivot": [
+              -1.5879999999999985,
+              1.1,
+              9.448
+            ],
+            "leaves": [
+              {
+                "name": "Door_L2_Leaf_A",
+                "translation": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_L2_Leaf_B",
+                "translation": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_L2 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_L2 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_L2_Leaf_A",
+              "localXBounds": [
+                -8.882902346666077e-18,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_L2_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.0000028610229492189728
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Door_L3 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_L3",
+            "pivot": [
+              -1.5879999999999974,
+              1.1,
+              14.448000000000002
+            ],
+            "leaves": [
+              {
+                "name": "Door_L3_Leaf_A",
+                "translation": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_L3_Leaf_B",
+                "translation": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_L3 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_L3 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_L3_Leaf_A",
+              "localXBounds": [
+                -8.882902346666077e-18,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_L3_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.0000028610229492189728
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Door_L4 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_L4",
+            "pivot": [
+              -1.5879999999999963,
+              1.1,
+              19.448000000000004
+            ],
+            "leaves": [
+              {
+                "name": "Door_L4_Leaf_A",
+                "translation": [
+                  0.0020000000000024443,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.0020000000000024443,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_L4_Leaf_B",
+                "translation": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_L4 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_L4 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_L4_Leaf_A",
+              "localXBounds": [
+                -8.882902346666077e-18,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_L4_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.0000028610229492189728
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Four evenly spaced doors on L side",
+          "passed": true,
+          "details": {
+            "positions": [
+              4.448000000000001,
+              9.448,
+              14.448000000000002,
+              19.448000000000004
+            ],
+            "spacing": [
+              4.999999999999999,
+              5.000000000000002,
+              5.000000000000002
+            ]
+          }
+        },
+        {
+          "name": "Door_R1 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_R1",
+            "pivot": [
+              1.5880000000000014,
+              1.1,
+              4.448000000000001
+            ],
+            "leaves": [
+              {
+                "name": "Door_R1_Leaf_A",
+                "translation": [
+                  0.002000000000000668,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.002000000000000668,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_R1_Leaf_B",
+                "translation": [
+                  1.4940000000000002,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4940000000000002,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_R1 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_R1 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_R1_Leaf_A",
+              "localXBounds": [
+                -2.2473173754085677e-19,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_R1_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.000002861022949218529
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Door_R2 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_R2",
+            "pivot": [
+              1.5880000000000025,
+              1.1,
+              9.448
+            ],
+            "leaves": [
+              {
+                "name": "Door_R2_Leaf_A",
+                "translation": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_R2_Leaf_B",
+                "translation": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_R2 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_R2 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_R2_Leaf_A",
+              "localXBounds": [
+                -2.2473173754085677e-19,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_R2_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.000002861022949218529
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Door_R3 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_R3",
+            "pivot": [
+              1.5880000000000036,
+              1.1,
+              14.448000000000002
+            ],
+            "leaves": [
+              {
+                "name": "Door_R3_Leaf_A",
+                "translation": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_R3_Leaf_B",
+                "translation": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_R3 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_R3 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_R3_Leaf_A",
+              "localXBounds": [
+                -2.2473173754085677e-19,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_R3_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.000002861022949218529
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Door_R4 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_R4",
+            "pivot": [
+              1.5880000000000047,
+              1.1,
+              19.448000000000004
+            ],
+            "leaves": [
+              {
+                "name": "Door_R4_Leaf_A",
+                "translation": [
+                  0.0020000000000024443,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.0020000000000024443,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_R4_Leaf_B",
+                "translation": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_R4 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_R4 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_R4_Leaf_A",
+              "localXBounds": [
+                -2.2473173754085677e-19,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_R4_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.000002861022949218529
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Four evenly spaced doors on R side",
+          "passed": true,
+          "details": {
+            "positions": [
+              4.448000000000001,
+              9.448,
+              14.448000000000002,
+              19.448000000000004
+            ],
+            "spacing": [
+              4.999999999999999,
+              5.000000000000002,
+              5.000000000000002
+            ]
+          }
+        },
+        {
+          "name": "Bogie_Front has an independent rotation pivot",
+          "passed": true,
+          "details": [
+            0,
+            0.43,
+            19
+          ]
+        },
+        {
+          "name": "Bogie_Rear has an independent rotation pivot",
+          "passed": true,
+          "details": [
+            0,
+            0.43,
+            4
+          ]
+        },
+        {
+          "name": "Bogie names follow positive-Z forward direction",
+          "passed": true
+        },
+        {
+          "name": "Glass_Windows uses MRT_Glass",
+          "passed": true
+        },
+        {
+          "name": "Glass_Windscreen uses MRT_Glass",
+          "passed": true
+        },
+        {
+          "name": "Headlight_L uses MRT_Light",
+          "passed": true
+        },
+        {
+          "name": "Headlight_R uses MRT_Light",
+          "passed": true
+        },
+        {
+          "name": "Each body side has one editable planar UV strip",
+          "passed": true,
+          "details": [
+            {
+              "side": "L",
+              "samples": 242,
+              "uFromYZ": [
+                -4.912556998064137e-8,
+                0.04317066124088087,
+                0.003536883438406743
+              ],
+              "vFromYZ": [
+                -0.06510014624581861,
+                4.414896239129246e-8,
+                0.2252534530777422
+              ],
+              "maxResidual": 0.000034770330447905524,
+              "affineStrip": true
+            },
+            {
+              "side": "R",
+              "samples": 222,
+              "uFromYZ": [
+                -5.772400233784291e-7,
+                0.04317065050390818,
+                0.0035387270699334715
+              ],
+              "vFromYZ": [
+                -0.06510498795940195,
+                1.8686176654625353e-8,
+                0.39323485969521255
+              ],
+              "maxResidual": 0.00003535713324171342,
+              "affineStrip": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "assets/c151-intermediate.glb",
+      "bytes": 132476,
+      "passed": true,
+      "triangles": 5414,
+      "vertices": 10814,
+      "bounds": {
+        "min": [
+          -1.600000023841858,
+          -7.152557379708213e-9,
+          0
+        ],
+        "max": [
+          1.600030541419983,
+          3.7000160121917727,
+          23
+        ]
+      },
+      "texture": {
+        "width": 1024,
+        "height": 1024,
+        "depth": 8,
+        "colorType": 6,
+        "interlace": 0,
+        "swatchPixelCounts": {
+          "F2F4F7": 484024,
+          "D5202B": 54444,
+          "59606B": 57912
+        }
+      },
+      "nodeCount": 34,
+      "meshCount": 22,
+      "materialNames": [
+        "MRT_Body",
+        "MRT_Glass",
+        "MRT_Light",
+        "MRT_Metal"
+      ],
+      "geometry": [
+        {
+          "node": "Body_Shell",
+          "triangles": 1614
+        },
+        {
+          "node": "Glass_Windows",
+          "triangles": 180
+        },
+        {
+          "node": "Door_L1_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_L1_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Door_L2_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_L2_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Door_L3_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_L3_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Door_L4_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_L4_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R1_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R1_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R2_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R2_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R3_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R3_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R4_Leaf_A",
+          "triangles": 94
+        },
+        {
+          "node": "Door_R4_Leaf_B",
+          "triangles": 94
+        },
+        {
+          "node": "Bogie_Rear",
+          "triangles": 1012
+        },
+        {
+          "node": "Bogie_Front",
+          "triangles": 1012
+        },
+        {
+          "node": "Roof_AC_1",
+          "triangles": 46
+        },
+        {
+          "node": "Roof_AC_2",
+          "triangles": 46
+        }
+      ],
+      "winding": {
+        "faces": 5414,
+        "degenerateFaces": 0,
+        "minNormalAlignment": 0.9999625091173847,
+        "roofACSideFaces": 48,
+        "minRoofACOutwardDot": 0.8792965530107688,
+        "endChamferFaces": 56,
+        "minEndChamferOutwardDot": 1.2384088108879814
+      },
+      "doors": [
+        {
+          "name": "Door_L1",
+          "pivot": [
+            -1.5879999999999996,
+            1.1,
+            4.448000000000001
+          ],
+          "leaves": [
+            {
+              "name": "Door_L1_Leaf_A",
+              "translation": [
+                0.002000000000000668,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.002000000000000668,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_L1_Leaf_B",
+              "translation": [
+                1.4940000000000002,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4940000000000002,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        },
+        {
+          "name": "Door_L2",
+          "pivot": [
+            -1.5879999999999985,
+            1.1,
+            9.448
+          ],
+          "leaves": [
+            {
+              "name": "Door_L2_Leaf_A",
+              "translation": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_L2_Leaf_B",
+              "translation": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        },
+        {
+          "name": "Door_L3",
+          "pivot": [
+            -1.5879999999999974,
+            1.1,
+            14.448000000000002
+          ],
+          "leaves": [
+            {
+              "name": "Door_L3_Leaf_A",
+              "translation": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_L3_Leaf_B",
+              "translation": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        },
+        {
+          "name": "Door_L4",
+          "pivot": [
+            -1.5879999999999963,
+            1.1,
+            19.448000000000004
+          ],
+          "leaves": [
+            {
+              "name": "Door_L4_Leaf_A",
+              "translation": [
+                0.0020000000000024443,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.0020000000000024443,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_L4_Leaf_B",
+              "translation": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        },
+        {
+          "name": "Door_R1",
+          "pivot": [
+            1.5880000000000014,
+            1.1,
+            4.448000000000001
+          ],
+          "leaves": [
+            {
+              "name": "Door_R1_Leaf_A",
+              "translation": [
+                0.002000000000000668,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.002000000000000668,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_R1_Leaf_B",
+              "translation": [
+                1.4940000000000002,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4940000000000002,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        },
+        {
+          "name": "Door_R2",
+          "pivot": [
+            1.5880000000000025,
+            1.1,
+            9.448
+          ],
+          "leaves": [
+            {
+              "name": "Door_R2_Leaf_A",
+              "translation": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_R2_Leaf_B",
+              "translation": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        },
+        {
+          "name": "Door_R3",
+          "pivot": [
+            1.5880000000000036,
+            1.1,
+            14.448000000000002
+          ],
+          "leaves": [
+            {
+              "name": "Door_R3_Leaf_A",
+              "translation": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.0019999999999988916,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_R3_Leaf_B",
+              "translation": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        },
+        {
+          "name": "Door_R4",
+          "pivot": [
+            1.5880000000000047,
+            1.1,
+            19.448000000000004
+          ],
+          "leaves": [
+            {
+              "name": "Door_R4_Leaf_A",
+              "translation": [
+                0.0020000000000024443,
+                0,
+                0
+              ],
+              "closedPosition": [
+                0.0020000000000024443,
+                0,
+                0
+              ],
+              "slideSign": -1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            },
+            {
+              "name": "Door_R4_Leaf_B",
+              "translation": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "closedPosition": [
+                1.4939999999999998,
+                0,
+                0
+              ],
+              "slideSign": 1,
+              "slideAxis": "X",
+              "stroke": 0.77,
+              "outerEdgeOrigin": true
+            }
+          ]
+        }
+      ],
+      "sideUV": [
+        {
+          "side": "L",
+          "samples": 242,
+          "uFromYZ": [
+            -5.069748800596522e-7,
+            0.04317075038959189,
+            0.003537203493084525
+          ],
+          "vFromYZ": [
+            -0.06510041216209553,
+            3.613606377062678e-8,
+            0.22525408322552895
+          ],
+          "maxResidual": 0.000035113357394497054,
+          "affineStrip": true
+        },
+        {
+          "side": "R",
+          "samples": 226,
+          "uFromYZ": [
+            -8.262177961086171e-7,
+            0.04317071979641955,
+            0.0035387802032031293
+          ],
+          "vFromYZ": [
+            -0.06510504006896156,
+            1.5437155057723695e-8,
+            0.3932350204603188
+          ],
+          "maxResidual": 0.00003565795545522636,
+          "affineStrip": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "Khronos glTF validator has zero errors",
+          "passed": true,
+          "details": {
+            "numErrors": 0,
+            "numWarnings": 0,
+            "numInfos": 60,
+            "numHints": 0,
+            "messages": [
+              {
+                "code": "UNSUPPORTED_EXTENSION",
+                "message": "Cannot validate an extension as it is not supported by the validator: 'KHR_draco_mesh_compression'.",
+                "severity": 2,
+                "pointer": "/extensionsUsed/0"
+              },
+              {
+                "code": "NODE_EMPTY",
+                "message": "Empty node encountered.",
+                "severity": 2,
+                "pointer": "/nodes/3"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/1"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/2"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/3"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/4"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/5"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/6"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/7"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/8"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/9"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/10"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/11"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/12"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/13"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/14"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/15"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/16"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/17"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/18"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/19"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/20"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/21"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/22"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/23"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/24"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/25"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/26"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/27"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/28"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/29"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/30"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/31"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/32"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/33"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/34"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/35"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/36"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/37"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/38"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/39"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/40"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/41"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/42"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/43"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/44"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/45"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/46"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/47"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/48"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/49"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/50"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/51"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/52"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/53"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/54"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/55"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/56"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/bufferViews/57"
+              },
+              {
+                "code": "UNUSED_OBJECT",
+                "message": "This object may be unused.",
+                "severity": 2,
+                "pointer": "/materials/3"
+              }
+            ],
+            "truncated": false
+          }
+        },
+        {
+          "name": "GLB contains one embedded buffer",
+          "passed": true
+        },
+        {
+          "name": "One default scene",
+          "passed": true
+        },
+        {
+          "name": "Draco required by the asset",
+          "passed": true
+        },
+        {
+          "name": "Every triangle primitive uses Draco",
+          "passed": true,
+          "details": {
+            "primitives": 57
+          }
+        },
+        {
+          "name": "No cameras, punctual lights, skins or animations",
+          "passed": true
+        },
+        {
+          "name": "Only core metallic-roughness material model",
+          "passed": true
+        },
+        {
+          "name": "Exactly the four required materials",
+          "passed": true,
+          "details": [
+            "MRT_Body",
+            "MRT_Glass",
+            "MRT_Light",
+            "MRT_Metal"
+          ]
+        },
+        {
+          "name": "Body uses albedo atlas",
+          "passed": true
+        },
+        {
+          "name": "Glass uses transparency",
+          "passed": true
+        },
+        {
+          "name": "Light material is emissive",
+          "passed": true
+        },
+        {
+          "name": "Exactly one embedded PNG albedo image",
+          "passed": true
+        },
+        {
+          "name": "Texture resolution is 1024 by 1024",
+          "passed": true,
+          "details": {
+            "width": 1024,
+            "height": 1024,
+            "depth": 8,
+            "colorType": 6,
+            "interlace": 0,
+            "swatchPixelCounts": {
+              "F2F4F7": 484024,
+              "D5202B": 54444,
+              "59606B": 57912
+            }
+          }
+        },
+        {
+          "name": "Exact requested paint swatches occur in texture",
+          "passed": true,
+          "details": {
+            "F2F4F7": 484024,
+            "D5202B": 54444,
+            "59606B": 57912
+          }
+        },
+        {
+          "name": "Required runtime names each occur exactly once",
+          "passed": true,
+          "details": {
+            "Body_Shell": 1,
+            "Bogie_Front": 1,
+            "Bogie_Rear": 1,
+            "Glass_Windows": 1,
+            "Roof_AC_1": 1,
+            "Roof_AC_2": 1,
+            "Door_L1": 1,
+            "Door_L2": 1,
+            "Door_L3": 1,
+            "Door_L4": 1,
+            "Door_R1": 1,
+            "Door_R2": 1,
+            "Door_R3": 1,
+            "Door_R4": 1
+          }
+        },
+        {
+          "name": "No duplicate nonempty node names",
+          "passed": true
+        },
+        {
+          "name": "No interior, seats, cab equipment, pantograph or roof cabling nodes",
+          "passed": true
+        },
+        {
+          "name": "Root transforms are identity",
+          "passed": true
+        },
+        {
+          "name": "Mesh rotations and scales are applied",
+          "passed": true
+        },
+        {
+          "name": "Only intentional door coordinate frames are rotated",
+          "passed": true,
+          "details": [
+            {
+              "name": "DoorTrack_L",
+              "rotation": [
+                0,
+                0.7071067811865476,
+                0,
+                0.7071067811865476
+              ]
+            },
+            {
+              "name": "DoorTrack_R",
+              "rotation": [
+                0,
+                0.7071067811865476,
+                0,
+                0.7071067811865476
+              ]
+            }
+          ]
+        },
+        {
+          "name": "No negative or nonunit scales anywhere",
+          "passed": true
+        },
+        {
+          "name": "Decoded triangles meet preferred 3000–6000 budget",
+          "passed": true,
+          "details": 5414
+        },
+        {
+          "name": "Decoded triangle winding agrees with vertex normals",
+          "passed": true,
+          "details": {
+            "faces": 5414,
+            "degenerateFaces": 0,
+            "minNormalAlignment": 0.9999625091173847
+          }
+        },
+        {
+          "name": "Roof AC sidewalls face outward",
+          "passed": true,
+          "details": {
+            "faces": 48,
+            "minOutwardDot": 0.8792965530107688
+          }
+        },
+        {
+          "name": "Both body end chamfers face outward",
+          "passed": true,
+          "details": {
+            "faces": 56,
+            "minOutwardDot": 1.2384088108879814
+          }
+        },
+        {
+          "name": "Decoded triangles are below hard 8000 ceiling",
+          "passed": true,
+          "details": 5414
+        },
+        {
+          "name": "World bounds are exact real-scale coupling extents",
+          "passed": true,
+          "details": {
+            "min": [
+              -1.600000023841858,
+              -7.152557379708213e-9,
+              0
+            ],
+            "max": [
+              1.600030541419983,
+              3.7000160121917727,
+              23
+            ],
+            "size": [
+              3.200030565261841,
+              3.70001601934433,
+              23
+            ],
+            "tolerance": 0.003
+          }
+        },
+        {
+          "name": "Door_L1 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_L1",
+            "pivot": [
+              -1.5879999999999996,
+              1.1,
+              4.448000000000001
+            ],
+            "leaves": [
+              {
+                "name": "Door_L1_Leaf_A",
+                "translation": [
+                  0.002000000000000668,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.002000000000000668,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_L1_Leaf_B",
+                "translation": [
+                  1.4940000000000002,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4940000000000002,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_L1 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_L1 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_L1_Leaf_A",
+              "localXBounds": [
+                -8.882902346666077e-18,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_L1_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.0000028610229492189728
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Door_L2 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_L2",
+            "pivot": [
+              -1.5879999999999985,
+              1.1,
+              9.448
+            ],
+            "leaves": [
+              {
+                "name": "Door_L2_Leaf_A",
+                "translation": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_L2_Leaf_B",
+                "translation": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_L2 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_L2 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_L2_Leaf_A",
+              "localXBounds": [
+                -8.882902346666077e-18,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_L2_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.0000028610229492189728
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Door_L3 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_L3",
+            "pivot": [
+              -1.5879999999999974,
+              1.1,
+              14.448000000000002
+            ],
+            "leaves": [
+              {
+                "name": "Door_L3_Leaf_A",
+                "translation": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_L3_Leaf_B",
+                "translation": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_L3 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_L3 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_L3_Leaf_A",
+              "localXBounds": [
+                -8.882902346666077e-18,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_L3_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.0000028610229492189728
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Door_L4 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_L4",
+            "pivot": [
+              -1.5879999999999963,
+              1.1,
+              19.448000000000004
+            ],
+            "leaves": [
+              {
+                "name": "Door_L4_Leaf_A",
+                "translation": [
+                  0.0020000000000024443,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.0020000000000024443,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_L4_Leaf_B",
+                "translation": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_L4 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_L4 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_L4_Leaf_A",
+              "localXBounds": [
+                -8.882902346666077e-18,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_L4_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.0000028610229492189728
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Four evenly spaced doors on L side",
+          "passed": true,
+          "details": {
+            "positions": [
+              4.448000000000001,
+              9.448,
+              14.448000000000002,
+              19.448000000000004
+            ],
+            "spacing": [
+              4.999999999999999,
+              5.000000000000002,
+              5.000000000000002
+            ]
+          }
+        },
+        {
+          "name": "Door_R1 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_R1",
+            "pivot": [
+              1.5880000000000014,
+              1.1,
+              4.448000000000001
+            ],
+            "leaves": [
+              {
+                "name": "Door_R1_Leaf_A",
+                "translation": [
+                  0.002000000000000668,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.002000000000000668,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_R1_Leaf_B",
+                "translation": [
+                  1.4940000000000002,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4940000000000002,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_R1 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_R1 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_R1_Leaf_A",
+              "localXBounds": [
+                -2.2473173754085677e-19,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_R1_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.000002861022949218529
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Door_R2 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_R2",
+            "pivot": [
+              1.5880000000000025,
+              1.1,
+              9.448
+            ],
+            "leaves": [
+              {
+                "name": "Door_R2_Leaf_A",
+                "translation": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_R2_Leaf_B",
+                "translation": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_R2 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_R2 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_R2_Leaf_A",
+              "localXBounds": [
+                -2.2473173754085677e-19,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_R2_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.000002861022949218529
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Door_R3 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_R3",
+            "pivot": [
+              1.5880000000000036,
+              1.1,
+              14.448000000000002
+            ],
+            "leaves": [
+              {
+                "name": "Door_R3_Leaf_A",
+                "translation": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.0019999999999988916,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_R3_Leaf_B",
+                "translation": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_R3 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_R3 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_R3_Leaf_A",
+              "localXBounds": [
+                -2.2473173754085677e-19,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_R3_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.000002861022949218529
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Door_R4 has two independently sliding leaves",
+          "passed": true,
+          "details": {
+            "name": "Door_R4",
+            "pivot": [
+              1.5880000000000047,
+              1.1,
+              19.448000000000004
+            ],
+            "leaves": [
+              {
+                "name": "Door_R4_Leaf_A",
+                "translation": [
+                  0.0020000000000024443,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  0.0020000000000024443,
+                  0,
+                  0
+                ],
+                "slideSign": -1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              },
+              {
+                "name": "Door_R4_Leaf_B",
+                "translation": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "closedPosition": [
+                  1.4939999999999998,
+                  0,
+                  0
+                ],
+                "slideSign": 1,
+                "slideAxis": "X",
+                "stroke": 0.77,
+                "outerEdgeOrigin": true
+              }
+            ]
+          }
+        },
+        {
+          "name": "Door_R4 local X follows carriage longitudinal axis",
+          "passed": true
+        },
+        {
+          "name": "Door_R4 leaf origins are at their outer edges",
+          "passed": true,
+          "details": [
+            {
+              "name": "Door_R4_Leaf_A",
+              "localXBounds": [
+                -2.2473173754085677e-19,
+                0.7429887056350709
+              ]
+            },
+            {
+              "name": "Door_R4_Leaf_B",
+              "localXBounds": [
+                -0.7429999709129335,
+                0.000002861022949218529
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Four evenly spaced doors on R side",
+          "passed": true,
+          "details": {
+            "positions": [
+              4.448000000000001,
+              9.448,
+              14.448000000000002,
+              19.448000000000004
+            ],
+            "spacing": [
+              4.999999999999999,
+              5.000000000000002,
+              5.000000000000002
+            ]
+          }
+        },
+        {
+          "name": "Bogie_Front has an independent rotation pivot",
+          "passed": true,
+          "details": [
+            0,
+            0.43,
+            19
+          ]
+        },
+        {
+          "name": "Bogie_Rear has an independent rotation pivot",
+          "passed": true,
+          "details": [
+            0,
+            0.43,
+            4
+          ]
+        },
+        {
+          "name": "Bogie names follow positive-Z forward direction",
+          "passed": true
+        },
+        {
+          "name": "Glass_Windows uses MRT_Glass",
+          "passed": true
+        },
+        {
+          "name": "Intermediate has no cab headlights",
+          "passed": true
+        },
+        {
+          "name": "Each body side has one editable planar UV strip",
+          "passed": true,
+          "details": [
+            {
+              "side": "L",
+              "samples": 242,
+              "uFromYZ": [
+                -5.069748800596522e-7,
+                0.04317075038959189,
+                0.003537203493084525
+              ],
+              "vFromYZ": [
+                -0.06510041216209553,
+                3.613606377062678e-8,
+                0.22525408322552895
+              ],
+              "maxResidual": 0.000035113357394497054,
+              "affineStrip": true
+            },
+            {
+              "side": "R",
+              "samples": 226,
+              "uFromYZ": [
+                -8.262177961086171e-7,
+                0.04317071979641955,
+                0.0035387802032031293
+              ],
+              "vFromYZ": [
+                -0.06510504006896156,
+                1.5437155057723695e-8,
+                0.3932350204603188
+              ],
+              "maxResidual": 0.00003565795545522636,
+              "affineStrip": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "assembly": {
+    "passed": true,
+    "carLength": 23,
+    "consistLength": 138,
+    "localRange": [
+      -23,
+      115
+    ],
+    "cars": [
+      {
+        "kind": "cab",
+        "z": 0,
+        "rotationY": 3.141592653589793,
+        "rearCouplerZ": 0,
+        "frontCouplerZ": -23,
+        "minZ": -23,
+        "maxZ": 0
+      },
+      {
+        "kind": "intermediate",
+        "z": 0,
+        "rotationY": 0,
+        "rearCouplerZ": 0,
+        "frontCouplerZ": 23,
+        "minZ": 0,
+        "maxZ": 23
+      },
+      {
+        "kind": "intermediate",
+        "z": 23,
+        "rotationY": 0,
+        "rearCouplerZ": 23,
+        "frontCouplerZ": 46,
+        "minZ": 23,
+        "maxZ": 46
+      },
+      {
+        "kind": "intermediate",
+        "z": 46,
+        "rotationY": 0,
+        "rearCouplerZ": 46,
+        "frontCouplerZ": 69,
+        "minZ": 46,
+        "maxZ": 69
+      },
+      {
+        "kind": "intermediate",
+        "z": 69,
+        "rotationY": 0,
+        "rearCouplerZ": 69,
+        "frontCouplerZ": 92,
+        "minZ": 69,
+        "maxZ": 92
+      },
+      {
+        "kind": "cab",
+        "z": 92,
+        "rotationY": 0,
+        "rearCouplerZ": 92,
+        "frontCouplerZ": 115,
+        "minZ": 92,
+        "maxZ": 115
+      }
+    ],
+    "couplingGaps": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "note": "Whole consist can be translated by +23 m to occupy Z=0…138. The rear-origin tail is reversed about the coupling at Z=0; no mesh offset or bounding-box correction is required."
+  },
+  "passed": true
+}

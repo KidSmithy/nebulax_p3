@@ -1,0 +1,6 @@
+# Local package-manager state. Recreate with `npm ci` when rebuilding.
+node_modules/
+.npm-cache/
+
+# Local preview server output. The representative checked render remains tracked.
+reports/renders/

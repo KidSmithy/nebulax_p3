@@ -1,0 +1,27 @@
+{
+  "name": "c151-delivery",
+  "version": "1.0.0",
+  "description": "C151 exterior GLB assets, editable atlas, reproducible geometry and offline preview",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "validate": "node scripts/validate.mjs",
+    "preview": "node scripts/serve.mjs",
+    "vendor": "node scripts/vendor.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "type": "module",
+  "dependencies": {
+    "@gltf-transform/core": "^4.5.0",
+    "@gltf-transform/extensions": "^4.5.0",
+    "@gltf-transform/functions": "^4.5.0",
+    "draco3d": "^1.5.7",
+    "gltf-validator": "^2.0.0-dev.3.10",
+    "sharp": "^0.35.4",
+    "three": "^0.186.0"
+  },
+  "private": true
+}

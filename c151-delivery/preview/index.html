@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#e7e9e9">
+  <title>Kawasaki C151 · Model preview</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="importmap">
+  {"imports":{"three":"/vendor/three/build/three.module.js","three/addons/":"/vendor/three/examples/jsm/"}}
+  </script>
+</head>
+<body>
+  <main id="viewport" aria-label="Interactive Kawasaki C151 train model">
+    <header class="masthead">
+      <div><div class="eyebrow">SINGAPORE · ELECTRIC MULTIPLE UNIT</div><h1>Kawasaki <strong>C151</strong></h1><p>Exterior asset study <span>1987 series</span></p></div>
+      <div class="asset-tag"><i></i><span id="model-label">DRIVING CAR</span><small>1 UNIT = 1 METRE</small></div>
+    </header>
+    <aside class="controls" aria-label="Model controls">
+      <div class="control-section"><div class="label">CONFIGURATION</div><div class="segmented" id="configuration"><button data-mode="cab" class="selected" aria-pressed="true">Cab</button><button data-mode="intermediate" aria-pressed="false">Intermediate</button><button data-mode="consist" aria-pressed="false">6-car consist</button></div></div>
+      <div class="control-section"><label for="doors"><span class="label">DOORS</span><output id="door-value">Closed</output></label><input id="doors" type="range" min="0" max="1" step="0.01" value="0" aria-label="Door opening amount"></div>
+      <div class="control-section view-row"><span class="label">VIEW</span><div class="view-buttons"><button data-view="perspective" class="selected" aria-label="Three-quarter view">3/4</button><button data-view="side">Side</button><button data-view="front">Front</button><button data-view="roof">Roof</button></div></div>
+      <div class="options"><label><input id="wireframe" type="checkbox"><span>Wireframe</span></label><label><input id="autorotate" type="checkbox"><span>Orbit</span></label><button id="download-png" title="Save a clean render in reports/renders when using the included server">Save PNG <span aria-hidden="true">↓</span></button></div>
+    </aside>
+    <div class="loading" id="loading"><span class="spinner"></span>Loading Draco-compressed geometry…</div>
+    <footer><div class="specs"><div><span id="dimension-label">23.0 × 3.2 × 3.7</span><small>METRES · L × W × H</small></div><div><span id="triangle-label">—</span><small>TRIANGLES</small></div><div><span id="material-label">4</span><small>PBR MATERIALS / CAR</small></div></div><p class="interaction-hint">Drag to orbit <span>·</span> Scroll to zoom <span>·</span> Right-drag to pan</p></footer>
+  </main>
+  <script type="module" src="./preview.js"></script>
+</body>
+</html>

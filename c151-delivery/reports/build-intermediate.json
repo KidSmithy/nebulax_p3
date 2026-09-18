@@ -1,0 +1,317 @@
+{
+  "kind": "intermediate",
+  "triangles": 5414,
+  "dimensions": [
+    3.2,
+    3.7,
+    23
+  ],
+  "origin": [
+    0,
+    0,
+    0
+  ],
+  "materials": [
+    "MRT_Body",
+    "MRT_Glass",
+    "MRT_Metal",
+    "MRT_Light"
+  ],
+  "nodes": [
+    {
+      "node": "Body_Shell",
+      "material": "Body",
+      "triangles": 482
+    },
+    {
+      "node": "Body_Shell",
+      "material": "Metal",
+      "triangles": 1132
+    },
+    {
+      "node": "Glass_Windows",
+      "material": "Glass",
+      "triangles": 180
+    },
+    {
+      "node": "Door_L1_Leaf_A",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_L1_Leaf_A",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_L1_Leaf_A",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_L1_Leaf_B",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_L1_Leaf_B",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_L1_Leaf_B",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_L2_Leaf_A",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_L2_Leaf_A",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_L2_Leaf_A",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_L2_Leaf_B",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_L2_Leaf_B",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_L2_Leaf_B",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_L3_Leaf_A",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_L3_Leaf_A",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_L3_Leaf_A",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_L3_Leaf_B",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_L3_Leaf_B",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_L3_Leaf_B",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_L4_Leaf_A",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_L4_Leaf_A",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_L4_Leaf_A",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_L4_Leaf_B",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_L4_Leaf_B",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_L4_Leaf_B",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_R1_Leaf_A",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_R1_Leaf_A",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_R1_Leaf_A",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_R1_Leaf_B",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_R1_Leaf_B",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_R1_Leaf_B",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_R2_Leaf_A",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_R2_Leaf_A",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_R2_Leaf_A",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_R2_Leaf_B",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_R2_Leaf_B",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_R2_Leaf_B",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_R3_Leaf_A",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_R3_Leaf_A",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_R3_Leaf_A",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_R3_Leaf_B",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_R3_Leaf_B",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_R3_Leaf_B",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_R4_Leaf_A",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_R4_Leaf_A",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_R4_Leaf_A",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Door_R4_Leaf_B",
+      "material": "Body",
+      "triangles": 24
+    },
+    {
+      "node": "Door_R4_Leaf_B",
+      "material": "Metal",
+      "triangles": 60
+    },
+    {
+      "node": "Door_R4_Leaf_B",
+      "material": "Glass",
+      "triangles": 10
+    },
+    {
+      "node": "Bogie_Rear",
+      "material": "Metal",
+      "triangles": 1012
+    },
+    {
+      "node": "Bogie_Front",
+      "material": "Metal",
+      "triangles": 1012
+    },
+    {
+      "node": "Roof_AC_1",
+      "material": "Body",
+      "triangles": 34
+    },
+    {
+      "node": "Roof_AC_1",
+      "material": "Metal",
+      "triangles": 12
+    },
+    {
+      "node": "Roof_AC_2",
+      "material": "Body",
+      "triangles": 34
+    },
+    {
+      "node": "Roof_AC_2",
+      "material": "Metal",
+      "triangles": 12
+    }
+  ],
+  "texture": [
+    1024,
+    1024
+  ],
+  "doorCenters": [
+    3.7,
+    8.7,
+    13.7,
+    18.7
+  ]
+}
