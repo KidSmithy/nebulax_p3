@@ -1,0 +1,99 @@
+{
+  "subsystem": "SHM (Structural Health Monitoring)",
+  "task_type": "Regression (Cumulative Fatigue Damage)",
+  "scoring_metric": "max(0, 1 - MAPE)",
+  "train_samples": 64,
+  "test_samples": 16,
+  "rows_per_file": 581120,
+  "columns_per_file": 1,
+  "has_header": false,
+  "data_type": "float32",
+  "labels": {
+    "min": 0.028620288,
+    "max": 0.928338975,
+    "mean": 0.23014651923437499,
+    "std": 0.2634795554556303,
+    "median": 0.098930746,
+    "p25": 0.045889454999999996,
+    "p75": 0.3876334185,
+    "skewness": 1.2822877596410351,
+    "kurtosis": 0.25843006037340244,
+    "ratio_max_min": 32.4363952941354
+  },
+  "benchmarks": [
+    {
+      "model": "BayesianRidge",
+      "mean_mape": 0.14766791615069014,
+      "competition_score": 0.8523320838493098,
+      "std_mape": 0.03001717622483344
+    },
+    {
+      "model": "HuberRegressor",
+      "mean_mape": 0.16061059729831895,
+      "competition_score": 0.839389402701681,
+      "std_mape": 0.03228711137556434
+    },
+    {
+      "model": "ElasticNet (alpha=0.05, l1=0.5)",
+      "mean_mape": 0.16556791992580927,
+      "competition_score": 0.8344320800741907,
+      "std_mape": 0.03284025735197086
+    },
+    {
+      "model": "Ridge (alpha=10.0)",
+      "mean_mape": 0.18569482517422303,
+      "competition_score": 0.814305174825777,
+      "std_mape": 0.04218976048829356
+    },
+    {
+      "model": "SVR (RBF kernel, C=1.0)",
+      "mean_mape": 0.17269577624803123,
+      "competition_score": 0.8273042237519688,
+      "std_mape": 0.05218208237675189
+    },
+    {
+      "model": "ExtraTrees (n=100, depth=4)",
+      "mean_mape": 0.17492625277872514,
+      "competition_score": 0.8250737472212748,
+      "std_mape": 0.04307214417911933
+    },
+    {
+      "model": "RandomForest (n=100, depth=4)",
+      "mean_mape": 0.17972731350967636,
+      "competition_score": 0.8202726864903236,
+      "std_mape": 0.035563654601435166
+    },
+    {
+      "model": "GradientBoosting (n=40, depth=2)",
+      "mean_mape": 0.1975283833078041,
+      "competition_score": 0.8024716166921959,
+      "std_mape": 0.0454468182826352
+    },
+    {
+      "model": "MLPRegressor (32x16)",
+      "mean_mape": 0.16838792702630515,
+      "competition_score": 0.8316120729736949,
+      "std_mape": 0.02936151747599779
+    },
+    {
+      "model": "Ensemble Blend (BayesianRidge+ElasticNet+SVR+ExtraTrees)",
+      "mean_mape": 0.14107604919034966,
+      "competition_score": 0.8589239508096503,
+      "std_mape": 0.0
+    }
+  ],
+  "top_12_features": [
+    "p2p",
+    "abs_peak",
+    "min",
+    "valley_min",
+    "psd_total_energy",
+    "mad",
+    "rf_damage_proxy_m3.5",
+    "psd_energy_0_10Hz",
+    "rf_damage_proxy_m4.0",
+    "rf_damage_proxy_m3.3",
+    "iqr",
+    "rf_damage_proxy_m3.0"
+  ]
+}

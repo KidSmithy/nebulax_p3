@@ -1,0 +1,6 @@
+Model,Macro F1,Normal F1,Side I F1,Side II F1,Accuracy
+AutoGluon (Bagged Ensemble),1.0,1.0,1.0,1.0,1.0
+Threshold-Tuned CATBOOST + Gating,0.7648,0.9706,0.4348,0.8889,0.9412
+Optuna Tuned CATBOOST,0.7648,0.9706,0.4348,0.8889,0.9412
+FLAML (lgbm),0.731,0.954,0.5,0.7391,0.9191
+Weighted XGBoost (Baseline),0.6777,0.9558,0.2857,0.7917,0.9154
