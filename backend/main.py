@@ -23,6 +23,7 @@ from backend.core.harmonizer import TelemetryHarmonizer
 from backend.services.whatif_engine import WhatIfEngine
 from backend.api.websocket_streamer import ConnectionManager
 from backend.api.routes import setup_routes
+from backend.services.demo_seed import NSL_DEMO_ENABLED, seed_nsl_findings
 
 
 harmonizer = TelemetryHarmonizer()
@@ -33,8 +34,12 @@ manager = ConnectionManager(harmonizer=harmonizer, whatif_engine=whatif_engine)
 async def lifespan(app: FastAPI):
     # Startup: launch background broadcast task
     stream_task = asyncio.create_task(manager.start_stream_loop())
+    # Scoring four files takes a few seconds; do it off the event loop so the server is up immediately.
+    seed_task = asyncio.create_task(asyncio.to_thread(seed_nsl_findings, harmonizer)) if NSL_DEMO_ENABLED else None
     yield
     # Shutdown: cancel task
+    if seed_task:
+        seed_task.cancel()
     stream_task.cancel()
     try:
         await stream_task

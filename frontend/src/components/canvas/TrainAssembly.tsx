@@ -143,7 +143,7 @@ export const TrainAssembly: React.FC = () => {
             document.body.style.cursor = 'auto';
           }}
         >
-          <InspectionTag type="door" position={[0.3, 1.1, 0]} beaconLabel="Door 3R System" />
+          <InspectionTag type="door" position={[0.3, 1.6, 0]} beaconLabel="Door 3R System" />
         </group>
       )}
 
@@ -182,7 +182,7 @@ export const TrainAssembly: React.FC = () => {
             document.body.style.cursor = 'auto';
           }}
         >
-          <InspectionTag type="shm" position={[0.9, 0.5, 0]} beaconLabel="Bogie SHM" />
+          <InspectionTag type="shm" position={[0.9, -0.5, 0.3]} beaconLabel="Bogie SHM" />
         </group>
       )}
       </group>

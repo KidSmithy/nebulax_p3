@@ -48,6 +48,25 @@ class DoorPredictor:
                             self.feature_cols = self.bundle['feature_cols']
                     else:
                         self.model = self.bundle
+                    # The shipped bundle was fitted on a different (210-feature) representation than
+                    # the 29 per-cycle features extracted below, so it can't score an upload. Fall
+                    # through and fit the baseline on the PS3 training data with this extractor.
+                    expected = getattr(self.model, 'n_features_in_', len(self.feature_cols))
+                    if expected != len(self.feature_cols):
+                        print(
+                            f"[DoorPredictor] Bundle at {path} expects {expected} features but the "
+                            f"extractor produces {len(self.feature_cols)}; retraining baseline instead."
+                        )
+                        self.bundle = self.model = None
+                        self.feature_cols = [
+                            'duration_s', 'n_rows', 'op_is_open',
+                            'cur_mean', 'cur_std', 'cur_min', 'cur_max', 'cur_median', 'cur_q75', 'cur_q90', 'cur_rms', 'cur_integral',
+                            'volt_mean', 'volt_std', 'volt_min', 'volt_max', 'volt_q75',
+                            'emf_mean', 'emf_std', 'emf_min', 'emf_max', 'emf_q75',
+                            'work_elec', 'power_max', 'speed_mean', 'speed_max', 'speed_std',
+                            'switch_dc_trans', 'switch_dl_trans'
+                        ]
+                        break
                     print(f"[DoorPredictor] Successfully loaded model bundle from {path}")
                     return
                 except Exception as e:
@@ -69,7 +88,7 @@ class DoorPredictor:
             dummy_y = np.random.randint(0, 2, size=20)
             self.model.fit(dummy_X, dummy_y)
 
-    def _train_and_save(self, train_path, ans_path):
+    def _train_and_save(self, train_path, ans_path):  # trains in memory; see note below
         df_train = pd.read_csv(train_path)
         df_ans = pd.read_csv(ans_path)
 
@@ -143,8 +162,8 @@ class DoorPredictor:
         self.model = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
         self.model.fit(X, y)
         self.bundle = {'model': self.model, 'feature_cols': self.feature_cols}
-        joblib.dump(self.bundle, BUNDLE_PATH)
-        print(f"[DoorPredictor] Model trained on {len(X)} cycles and saved to {BUNDLE_PATH}")
+        # Deliberately not saved: the shipped bundle is a different representation and must not be overwritten.
+        print(f"[DoorPredictor] Baseline model trained on {len(X)} labelled cycles from the PS3 training set")
 
     def evaluate_cycle(self, motor_current_amps: float, nominal_current_amps: float,
                        transit_time: float, is_opening: bool = False,

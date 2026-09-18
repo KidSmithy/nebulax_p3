@@ -5,10 +5,15 @@ import { useTwinStore } from '../../store/useTwinStore';
 import { CorrugationRibbonShaderMaterial } from './shaders/CorrugationRibbonShader';
 import { InspectionTag } from './InspectionTag';
 import { classifyMetric } from '../../lib/metricGlossary';
+import { carShiftZ } from './consist';
+
+/** Metres the rail beacon is shifted along the track from the reference point, so its bubble lands mid-car. */
+const RAIL_BEACON_Z_OFFSET = 2;
 
 export const TrackCorridor: React.FC = () => {
   const currentFrame = useTwinStore((state) => state.currentFrame);
   const setActiveInspection = useTwinStore((state) => state.setActiveInspection);
+  const monitoredCar = useTwinStore((state) => state.monitoredCar);
   const railData = currentFrame?.subsystems?.rail_corrugation;
   const trainSpeed = currentFrame?.train_speed_kmh || 68.0;
   const railStatus =
@@ -156,7 +161,9 @@ export const TrackCorridor: React.FC = () => {
       {/* 5. INTERACTIVE RAIL CORRUGATION INSPECTION BEACON          */}
       {/* ========================================================= */}
       <group
-        position={[1.9, 0.45, -1.8 - TRACK_Z]}
+        // Follows the monitored car so its bubble is beside whichever car is in view; sits
+        // mid-car so it stays clear of the door and bogie bubbles.
+        position={[1.9, 0.45, -1.8 - TRACK_Z + RAIL_BEACON_Z_OFFSET + carShiftZ(monitoredCar)]}
         onClick={(e) => {
           e.stopPropagation();
           setActiveInspection('rail');
