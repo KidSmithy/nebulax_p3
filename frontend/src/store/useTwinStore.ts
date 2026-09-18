@@ -23,6 +23,8 @@ const EMPTY_INTERVENTIONS: ActiveInterventions = {
 };
 
 export const CAR_COUNT = 8;
+/** Which ACV finding the monitored car was last synced to (see setFrame). */
+let syncedAcvKey = '';
 const ZOOM_FOR_MODE: Record<CameraPreset, number> = { micro: 0, meso: 0.5, macro: 1 };
 
 interface TwinState {
@@ -152,9 +154,22 @@ export const useTwinStore = create<TwinState>((set, get) => ({
   setFrame: (frame) =>
     set((state) => {
       const newHistory = [...state.history, frame].slice(-60); // keep last 60 frames (6s at 10Hz)
+
+      // The unresolved ACV finding names the car everything else hangs on. Follow it
+      // whenever a new one is seen - including right after a page reload, when the
+      // backend still holds the finding but the client has fallen back to the default car.
+      const acv = frame.latest_upload_results?.acv;
+      const acvKey = acv?.most_likely_faulty_car ? `${acv.file_name}|${acv.most_likely_faulty_car}` : '';
+      let monitoredCar = state.monitoredCar;
+      if (acvKey !== syncedAcvKey) {
+        syncedAcvKey = acvKey;
+        if (acvKey) monitoredCar = Math.min(CAR_COUNT, Math.max(1, Math.round(Number(acv!.most_likely_faulty_car))));
+      }
+
       return {
         currentFrame: frame,
         history: newHistory,
+        monitoredCar,
         // Trust the backend as the source of truth for which actions are live,
         // so the UI cannot drift out of sync with the simulation.
         activeInterventions: frame.active_interventions ?? state.activeInterventions,
@@ -230,7 +245,10 @@ export const useTwinStore = create<TwinState>((set, get) => ({
 
   setActiveInspection: (inspection) => {
     if (inspection) {
-      set({ activeInspection: inspection, selectedSubsystem: inspection });
+      // The card only exists for an unresolved uploaded finding, so clicking a
+      // bare part just selects the subsystem instead of opening a dead card.
+      const hasFinding = Boolean(get().currentFrame?.latest_upload_results?.[inspection]);
+      set({ activeInspection: hasFinding ? inspection : null, selectedSubsystem: inspection });
     } else {
       set({ activeInspection: null });
     }

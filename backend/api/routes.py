@@ -32,6 +32,10 @@ class InsightRequest(BaseModel):
     force: bool = False
 
 
+class IssueRequest(BaseModel):
+    subsystem: str
+
+
 class ResolveRequest(BaseModel):
     subsystem: str
     car: Optional[int] = None
@@ -96,6 +100,15 @@ def setup_routes(harmonizer, whatif_engine):
             "frame_id": frame["frame_id"],
             "chainage_km": frame["track_chainage_km"],
         }
+
+    @router.post("/ai/issue")
+    async def ai_issue(req: IssueRequest):
+        """Explanation + suggestion copy for one 3D bubble's card."""
+        frame = harmonizer.generate_next_frame(dt=0.0)
+        result = ai_service.explain_issue(req.subsystem.lower().strip(), frame)
+        if result.get("source") == "validation":
+            raise HTTPException(status_code=400, detail=result["error"])
+        return result
 
     @router.post("/ai/ask")
     async def ai_ask(req: AskRequest):

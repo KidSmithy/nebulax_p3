@@ -173,7 +173,7 @@ export const TrackCorridor: React.FC = () => {
           <boxGeometry args={[0.08, 0.6, 0.35]} />
           <meshStandardMaterial color="#ED1C24" metalness={0.5} roughness={0.3} />
         </mesh>
-        <InspectionTag type="rail" position={[0, 0.4, 0]} beaconLabel="Track Corrugation" status={railStatus} />
+        <InspectionTag type="rail" position={[0, 0.4, 0]} beaconLabel="Track Corrugation" />
       </group>
     </group>
   );
