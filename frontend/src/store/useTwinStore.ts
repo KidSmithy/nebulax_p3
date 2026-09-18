@@ -82,6 +82,8 @@ interface TwinState {
   isHudVisible: boolean;
   isLeftDrawerOpen: boolean;
   isRightDrawerOpen: boolean;
+  /** The docked panel that tabulates the active line's uploaded results. */
+  resultsPanelOpen: boolean;
   rightDrawerTab: 'telemetry' | 'whatif' | 'ai';
   activeInspection: 'door' | 'acv' | 'shm' | 'rail' | null;
 
@@ -119,6 +121,7 @@ interface TwinState {
   toggleHud: () => void;
   toggleLeftDrawer: () => void;
   toggleRightDrawer: () => void;
+  setResultsPanelOpen: (open: boolean) => void;
   setRightDrawerTab: (tab: 'telemetry' | 'whatif' | 'ai') => void;
   setUiMode: (mode: UiMode) => void;
   toggleUiMode: () => void;
@@ -176,6 +179,7 @@ export const useTwinStore = create<TwinState>((set, get) => {
   isHudVisible: true,
   isLeftDrawerOpen: true,
   isRightDrawerOpen: false,
+  resultsPanelOpen: false,
   rightDrawerTab: 'telemetry',
   activeInspection: null,
 
@@ -273,6 +277,7 @@ export const useTwinStore = create<TwinState>((set, get) => {
       }
       const finding = data as Finding;
       patchLine(line, { uploadResult: finding });
+      set({ resultsPanelOpen: true }); // a fresh upload's results are the thing to look at next
       // Establishes which car everything else gets tagged to, per the "ACV
       // resolves first" assumption - see useMonitoredItems/TrainAssembly.
       if (subsystem === 'acv' && finding.most_likely_faulty_car) {
@@ -335,6 +340,7 @@ export const useTwinStore = create<TwinState>((set, get) => {
   toggleHud: () => set((state) => ({ isHudVisible: !state.isHudVisible })),
   toggleLeftDrawer: () => set((state) => ({ isLeftDrawerOpen: !state.isLeftDrawerOpen })),
   toggleRightDrawer: () => set((state) => ({ isRightDrawerOpen: !state.isRightDrawerOpen })),
+  setResultsPanelOpen: (open) => set({ resultsPanelOpen: open }),
   setRightDrawerTab: (tab) => set({ rightDrawerTab: tab }),
 
   setUiMode: (mode) => set({ uiMode: mode }),

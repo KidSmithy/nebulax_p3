@@ -4,6 +4,7 @@ import { TwinCanvas } from './components/canvas/TwinCanvas';
 import { CockpitHeader } from './components/hud/CockpitHeader';
 import { ZoomSlider } from './components/hud/ZoomSlider';
 import { ResolvedLogPanel } from './components/hud/ResolvedLogPanel';
+import { ResultsPanel } from './components/hud/ResultsPanel';
 
 import { ConductorDock } from './components/hud/conductor/ConductorDock';
 import { ConductorPopup } from './components/hud/conductor/ConductorPopup';
@@ -56,6 +57,9 @@ export const App: React.FC = () => {
         {conductorEnabled && conductorState === 'docked' && <ConductorDock />}
         {conductorEnabled && conductorState === 'popup' && <ConductorPopup />}
       </div>
+
+      {/* Docked on the right at >=1280px (the scene reflows), an overlay below that. */}
+      <ResultsPanel />
     </div>
   );
 };

@@ -122,6 +122,27 @@ export interface UnifiedTelemetryFrame {
  * own extra fields. Never invent an explanation/suggestion on top of this;
  * conductor_summary and recommended_action are the real, model-produced text.
  */
+/** One row of the ACV per-car ranking. */
+export interface CarDiagnostic {
+  rank: number;
+  car: string;
+  health_index: number;
+  frac_elevated_pct: number;
+  persistence_pct: number;
+  assessable?: boolean;
+}
+
+/** One analysed door cycle (the backend returns at most the first 40). */
+export interface DoorSegment {
+  cycle: number;
+  operation: string;
+  duration_s: number;
+  current_rms_a: number;
+  peak_current_a: number;
+  status: string;
+  fault_probability: number;
+}
+
 export interface Finding {
   subsystem: string;
   file_name: string;
@@ -135,17 +156,28 @@ export interface Finding {
   confidence?: string;
   confidence_margin?: number;
   ranked_cars?: string[];
-  car_diagnostics?: Array<Record<string, unknown>>;
+  car_diagnostics?: CarDiagnostic[];
   fault_type?: string;
   total_cycles?: number;
   abnormal_cycles?: number;
+  normal_cycles?: number;
+  fault_rate_pct?: number;
+  mean_duration_s?: number;
+  mean_current_rms_a?: number;
+  max_current_peak_a?: number;
+  segments?: DoorSegment[];
   vibration_rms_g?: number;
   bearing_defect_prob?: number;
   fatigue_damage_index?: number;
   critical_weld_node?: string;
+  abs_peak_g?: number;
+  dominant_freq_hz?: number;
+  fft_spectrum?: FFTPoint[];
   depth_microns?: number;
   wavelength_class?: string;
   maintenance_urgency?: string;
+  grinding_priority_rank?: number;
+  mean_channel_rms?: number;
 }
 
 /** One receipt-style entry in the persistent resolved-issues log. */
