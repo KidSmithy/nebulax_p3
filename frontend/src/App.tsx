@@ -8,10 +8,12 @@ import { TimelineScrubber } from './components/hud/TimelineScrubber';
 
 export const App: React.FC = () => {
   const initWebSocket = useTwinStore((state) => state.initWebSocket);
+  const disconnectWebSocket = useTwinStore((state) => state.disconnectWebSocket);
 
   useEffect(() => {
     initWebSocket();
-  }, [initWebSocket]);
+    return () => disconnectWebSocket();
+  }, [initWebSocket, disconnectWebSocket]);
 
   const isHudVisible = useTwinStore((state) => state.isHudVisible);
 

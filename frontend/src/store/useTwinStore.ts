@@ -10,6 +10,9 @@ import {
   WhatIfResult,
 } from '../types/telemetry';
 
+/** Tagged onto each socket so its own onclose knows whether it was closed on purpose. */
+type TaggedSocket = WebSocket & { _manualClose?: boolean };
+
 const EMPTY_INTERVENTIONS: ActiveInterventions = {
   ACTION_GRIND_RAIL: false,
   ACTION_LUBRICATE_DOOR: false,
@@ -68,6 +71,7 @@ interface TwinState {
   setIntervention: (action: string, enabled: boolean) => void;
   setConnected: (connected: boolean) => void;
   initWebSocket: () => void;
+  disconnectWebSocket: () => void;
   sendSeek: (kp: number) => void;
   triggerWhatIf: (action: string, enabled: boolean) => void;
   resetWhatIf: () => void;
@@ -261,15 +265,24 @@ export const useTwinStore = create<TwinState>((set, get) => ({
   },
 
   initWebSocket: () => {
+    const existing = get().ws;
+    if (existing && (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname || 'localhost';
     const wsUrl = `${protocol}//${host}:8000/ws/telemetry`;
 
     try {
-      const socket = new WebSocket(wsUrl);
+      const socket = new WebSocket(wsUrl) as TaggedSocket;
+      // Tracked from creation (not just on open) so a second initWebSocket call -
+      // e.g. React StrictMode's mount->cleanup->mount in dev - sees this one
+      // as already CONNECTING instead of opening a duplicate.
+      set({ ws: socket });
 
       socket.onopen = () => {
-        set({ isConnected: true, ws: socket });
+        set({ isConnected: true });
         console.log('[WebSocket] Connected to digital twin telemetry stream');
       };
 
@@ -295,7 +308,8 @@ export const useTwinStore = create<TwinState>((set, get) => ({
       };
 
       socket.onclose = () => {
-        set({ isConnected: false, ws: null });
+        if (get().ws === socket) set({ isConnected: false, ws: null });
+        if (socket._manualClose) return;
         console.warn('[WebSocket] Stream disconnected. Retrying in 2s...');
         setTimeout(() => get().initWebSocket(), 2000);
       };
@@ -306,5 +320,12 @@ export const useTwinStore = create<TwinState>((set, get) => ({
     } catch (err) {
       console.error('[WebSocket] Initialization error:', err);
     }
+  },
+
+  disconnectWebSocket: () => {
+    const socket = get().ws as TaggedSocket | null;
+    if (!socket) return;
+    socket._manualClose = true;
+    socket.close();
   },
 }));

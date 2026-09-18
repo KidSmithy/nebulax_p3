@@ -1,16 +1,18 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  ChevronDown,
   Eye,
   GraduationCap,
   Layout,
   Radio,
   ShieldCheck,
+  SlidersHorizontal,
   Train,
   Wrench,
 } from 'lucide-react';
 import { useTwinStore } from '../../store/useTwinStore';
-import { CameraPreset } from '../../types/telemetry';
+import { CameraPreset, MetricStatus } from '../../types/telemetry';
 import { InfoTip } from './InfoTip';
 import { METRIC_GLOSSARY, STATUS_STYLES, classifyMetric } from '../../lib/metricGlossary';
 
@@ -19,6 +21,35 @@ const CAMERA_COPY: Record<CameraPreset, { plain: string; tip: string }> = {
   meso: { plain: 'Whole train', tip: 'Look at the carriage as a whole.' },
   micro: { plain: 'Close-up', tip: 'Zoom in on the selected component.' },
 };
+
+const SUBSYSTEM_HEADER_LABELS: Record<string, string> = {
+  door: 'Passenger doors',
+  acv: 'Air-conditioning',
+  shm: 'Wheels & frame',
+  rail_corrugation: 'Track condition',
+};
+
+const VERDICT_RANK: Record<MetricStatus, number> = {
+  ACTION_NEEDED: 3,
+  WATCH: 2,
+  GOOD: 1,
+  UNKNOWN: 0,
+};
+
+/** The single most urgent subsystem right now, so the header can name it directly. */
+function worstSubsystem(
+  status: Record<string, MetricStatus> | undefined
+): { label: string; verdict: MetricStatus } | null {
+  if (!status) return null;
+  let best: { label: string; verdict: MetricStatus; rank: number } | null = null;
+  for (const [path, verdict] of Object.entries(status)) {
+    const label = SUBSYSTEM_HEADER_LABELS[path.split('.')[0]];
+    if (!label) continue;
+    const rank = VERDICT_RANK[verdict] ?? 0;
+    if (!best || rank > best.rank) best = { label, verdict, rank };
+  }
+  return best && best.rank > VERDICT_RANK.GOOD ? { label: best.label, verdict: best.verdict } : null;
+}
 
 export const CockpitHeader: React.FC = () => {
   const currentFrame = useTwinStore((state) => state.currentFrame);
@@ -43,6 +74,30 @@ export const CockpitHeader: React.FC = () => {
     verdict === 'GOOD' ? 'Healthy' : verdict === 'WATCH' ? 'Monitor' : 'Needs work';
 
   const repairCount = Object.values(activeInterventions).filter(Boolean).length;
+  const worst = worstSubsystem(currentFrame?.plain_status);
+
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
+  const viewMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!viewMenuOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (viewMenuRef.current && !viewMenuRef.current.contains(e.target as Node)) {
+        setViewMenuOpen(false);
+      }
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setViewMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [viewMenuOpen]);
+
+  const viewMenuHasActiveToggle = xrayMode || !isHudVisible;
 
   return (
     <header className="absolute top-4 left-4 right-4 z-30 flex items-start justify-between pointer-events-none gap-2">
@@ -146,41 +201,13 @@ export const CockpitHeader: React.FC = () => {
             <div className={`text-sm font-mono font-bold leading-none ${styles.text}`}>
               {(healthIndex * 100).toFixed(0)}%
             </div>
+            {worst && (
+              <div className={`text-[9px] font-semibold leading-tight mt-0.5 ${styles.text}`}>
+                {worst.label}
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Beginner / Expert mode */}
-        <button
-          onClick={toggleUiMode}
-          aria-pressed={beginner}
-          className={`glass-panel px-2.5 py-1.5 rounded-xl flex items-center space-x-1.5 text-[11px] font-medium transition-all border ${
-            beginner
-              ? 'bg-sky-50 text-sky-700 border-sky-300'
-              : 'text-slate-600 border-slate-200 hover:bg-slate-100'
-          }`}
-          title={
-            beginner
-              ? 'Beginner mode: plain-language labels. Click for engineering terms.'
-              : 'Expert mode: engineering terms. Click for plain language.'
-          }
-        >
-          <GraduationCap className="w-3.5 h-3.5" />
-          <span>{beginner ? 'SIMPLE' : 'EXPERT'}</span>
-        </button>
-
-        {/* X-Ray */}
-        <button
-          onClick={toggleXray}
-          className={`glass-panel px-2.5 py-1.5 rounded-xl flex items-center space-x-1.5 text-xs font-medium transition-all ${
-            xrayMode
-              ? 'bg-red-50 text-red-700 border border-red-300'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-          title="See through the carriage shell to the equipment inside"
-        >
-          <Eye className="w-3.5 h-3.5" />
-          <span className="text-[11px]">{beginner ? 'SEE INSIDE' : 'X-RAY'}</span>
-        </button>
 
         {/* Camera presets */}
         <div className="glass-panel p-1 rounded-xl flex items-center space-x-1 text-xs font-mono">
@@ -200,19 +227,71 @@ export const CockpitHeader: React.FC = () => {
           ))}
         </div>
 
-        {/* Zen toggle */}
-        <button
-          onClick={toggleHud}
-          className={`glass-panel px-2.5 py-1.5 rounded-xl flex items-center space-x-1.5 text-[11px] font-medium transition-all ${
-            !isHudVisible
-              ? 'bg-amber-50 text-amber-700 border border-amber-300'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-          title={isHudVisible ? 'Hide all panels' : 'Show all panels'}
-        >
-          <Layout className="w-3.5 h-3.5" />
-          <span>{isHudVisible ? 'ZEN' : 'HUD'}</span>
-        </button>
+        {/* View options: display mode, x-ray, zen - grouped so they read as one
+            "settings" affordance instead of three same-weight header pills. */}
+        <div className="relative" ref={viewMenuRef}>
+          <button
+            onClick={() => setViewMenuOpen((o) => !o)}
+            aria-expanded={viewMenuOpen}
+            className={`glass-panel px-2.5 py-1.5 rounded-xl flex items-center space-x-1.5 text-[11px] font-medium transition-all border ${
+              viewMenuOpen
+                ? 'bg-slate-100 text-slate-800 border-slate-300'
+                : 'text-slate-600 border-transparent hover:bg-slate-100'
+            }`}
+            title="Display, x-ray and panel visibility options"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>VIEW</span>
+            {viewMenuHasActiveToggle && (
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500" aria-hidden="true" />
+            )}
+            <ChevronDown className={`w-3 h-3 transition-transform ${viewMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {viewMenuOpen && (
+            <div className="absolute right-0 top-full mt-1.5 w-52 glass-panel p-1.5 rounded-xl shadow-xl flex flex-col space-y-1 z-40">
+              <button
+                onClick={toggleUiMode}
+                aria-pressed={beginner}
+                className={`px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 text-[11px] font-medium transition-all ${
+                  beginner ? 'bg-sky-50 text-sky-700' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+                title={
+                  beginner
+                    ? 'Beginner mode: plain-language labels. Click for engineering terms.'
+                    : 'Expert mode: engineering terms. Click for plain language.'
+                }
+              >
+                <GraduationCap className="w-3.5 h-3.5" />
+                <span>{beginner ? 'SIMPLE labels' : 'EXPERT labels'}</span>
+              </button>
+
+              <button
+                onClick={toggleXray}
+                aria-pressed={xrayMode}
+                className={`px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 text-[11px] font-medium transition-all ${
+                  xrayMode ? 'bg-red-50 text-red-700' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+                title="See through the carriage shell to the equipment inside"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>{beginner ? 'SEE INSIDE' : 'X-RAY'}</span>
+              </button>
+
+              <button
+                onClick={toggleHud}
+                aria-pressed={!isHudVisible}
+                className={`px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 text-[11px] font-medium transition-all ${
+                  !isHudVisible ? 'bg-amber-50 text-amber-700' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+                title={isHudVisible ? 'Hide all panels' : 'Show all panels'}
+              >
+                <Layout className="w-3.5 h-3.5" />
+                <span>{isHudVisible ? 'ZEN mode' : 'Show panels'}</span>
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Connection status */}
         <div className="glass-panel px-2.5 py-1.5 rounded-xl flex items-center space-x-1.5 text-xs font-mono">
