@@ -54,6 +54,10 @@ interface TwinState {
   aiAnswers: AIAnswer[];
   aiAsking: boolean;
 
+  // Conductor assistant - new surface, gated behind conductorEnabled.
+  conductorEnabled: boolean;
+  conductorState: 'docked' | 'popup' | 'expanded';
+
   // Actions
   setFrame: (frame: UnifiedTelemetryFrame) => void;
   setCameraMode: (mode: CameraPreset) => void;
@@ -80,6 +84,8 @@ interface TwinState {
   fetchAiInsight: (force?: boolean) => Promise<void>;
   setAiAutoRefresh: (on: boolean) => void;
   askAi: (question: string) => Promise<void>;
+  setConductorState: (s: 'docked' | 'popup' | 'expanded') => void;
+  setConductorEnabled: (on: boolean) => void;
 }
 
 export const useTwinStore = create<TwinState>((set, get) => ({
@@ -113,6 +119,9 @@ export const useTwinStore = create<TwinState>((set, get) => ({
   aiModel: null,
   aiAnswers: [],
   aiAsking: false,
+
+  conductorEnabled: true,
+  conductorState: 'docked',
 
   setFrame: (frame) =>
     set((state) => {
@@ -263,6 +272,9 @@ export const useTwinStore = create<TwinState>((set, get) => ({
       set({ aiAsking: false });
     }
   },
+
+  setConductorState: (s) => set({ conductorState: s }),
+  setConductorEnabled: (on) => set({ conductorEnabled: on, conductorState: 'docked' }),
 
   initWebSocket: () => {
     const existing = get().ws;

@@ -9,6 +9,7 @@ import { TrackCorridor } from './TrackCorridor';
 const CameraController: React.FC = () => {
   const cameraMode = useTwinStore((state) => state.cameraMode);
   const selectedSubsystem = useTwinStore((state) => state.selectedSubsystem);
+  const conductorState = useTwinStore((state) => state.conductorState);
   const controlsRef = useRef<any>(null);
 
   const isTransitioning = useRef(false);
@@ -46,10 +47,18 @@ const CameraController: React.FC = () => {
       }
     }
 
+    // The Conductor popup docks bottom-left; pan the whole camera+target pair
+    // right by the same amount so the framing shifts without re-angling,
+    // and the car never sits behind the popup.
+    if (conductorState === 'popup') {
+      pos.x -= 2.5;
+      look.x -= 2.5;
+    }
+
     targetPos.current.copy(pos);
     targetLookAt.current.copy(look);
     isTransitioning.current = true;
-  }, [cameraMode, selectedSubsystem]);
+  }, [cameraMode, selectedSubsystem, conductorState]);
 
   // Listen to user interaction on OrbitControls
   useEffect(() => {

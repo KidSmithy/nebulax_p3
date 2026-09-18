@@ -14,7 +14,7 @@ import { InterventionAction } from '../../types/telemetry';
 import { plainTerm } from '../../lib/metricGlossary';
 import { InfoTip } from './InfoTip';
 
-interface ActionCopy {
+export interface ActionCopy {
   action: InterventionAction;
   plainTitle: string;
   technicalTitle: string;
@@ -24,7 +24,7 @@ interface ActionCopy {
   locationSensitive?: boolean;
 }
 
-const ACTIONS: ActionCopy[] = [
+export const ACTIONS: ActionCopy[] = [
   {
     action: 'ACTION_GRIND_RAIL',
     plainTitle: 'Grind the rail smooth',
