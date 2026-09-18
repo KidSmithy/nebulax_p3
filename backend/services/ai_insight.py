@@ -164,6 +164,18 @@ def build_frame_summary(frame: Dict[str, Any]) -> str:
                     f"{m['unit']} ({m['direction']})"
                 )
 
+    uploads = frame.get("latest_upload_results") or {}
+    if uploads:
+        lines.append("")
+        lines.append("RECENTLY UPLOADED CSV BATCH MODEL PREDICTIONS:")
+        for sub_id, up in uploads.items():
+            lines.append(f"- Subsystem [{sub_id.upper()}]: File '{up.get('file_name', 'data.csv')}' processed.")
+            lines.append(f"  Model Verdict: {up.get('verdict', 'UNKNOWN')} | Anomaly score: {up.get('anomaly_score', 0)}")
+            if up.get('conductor_summary'):
+                lines.append(f"  Model Output & Finding: {up.get('conductor_summary')}")
+            if up.get('recommended_action') and up.get('recommended_action') != 'NONE':
+                lines.append(f"  Recommended Action: {up.get('recommended_action')}")
+
     zone = frame.get("next_corrugation_zone") or {}
     if zone:
         if zone.get("is_inside_zone"):

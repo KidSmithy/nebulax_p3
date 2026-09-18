@@ -304,35 +304,53 @@ def _segment_ids(times: pd.Series | None, n: int) -> tuple[np.ndarray, float]:
 # ---------------------------------------------------------------------------
 # Feature extraction
 # ---------------------------------------------------------------------------
-def extract_features(path: str) -> dict:
-    df, colmap, all_ids, tcol = load_case(path)
+def features_from_frames(
+    indoor: pd.DataFrame,
+    cooling: pd.DataFrame,
+    setpts: pd.DataFrame | None = None,
+    median_dt_s: float = 30.0,
+    segments: pd.Series | None = None,
+) -> pd.DataFrame:
+    """
+    Compute the five physics features from aligned (timestamp x car) frames.
 
-    indoor = clean_indoor_temperatures(df, colmap, all_ids)
-    if indoor.empty:
-        raise ValueError(f"No usable cabin temperature telemetry in {path}")
+    Split out from the file reader so the identical scoring core can be driven
+    either by a case file on disk or by a live rolling telemetry buffer (see
+    backend/models/acv_model.py). Both paths must produce the same numbers.
 
-    idx = indoor.index
-    cooling = cooling_mask(df, colmap, all_ids, idx)
-    sp = setpoints(df, colmap, all_ids, idx)
-
-    # A car is assessable only if it actually reports cabin temperature.
+    indoor   cleaned cabin temperatures, NaN where untrustworthy
+    cooling  boolean, is this car in an active cooling regime
+    setpts   cooling setpoints; omitted -> the dT_set feature is 0 for all cars
+    segments contiguous-acquisition segment ids, so a rolling mean never
+             straddles an overnight gap; omitted -> one single segment
+    """
     active = [c for c in indoor.columns if indoor[c].notna().any()]
-    indoor, cooling, sp = indoor[active], cooling[active], sp[active]
+    if not active:
+        return pd.DataFrame(columns=list(PHYSICS_WEIGHTS) + ["n_cooling_samples", "mean_indoor_c"])
 
-    # --- cross-car baseline, restricted to cars that are cooling right now ---
-    # Comparing a cooling car against a ventilating one is not a like-for-like
-    # comparison, so peers are masked to the co-cooling set at each timestamp.
+    indoor = indoor[active]
+    cooling = cooling.reindex(columns=active, fill_value=True).reindex(indoor.index)
+    if setpts is None:
+        setpts = pd.DataFrame(np.nan, index=indoor.index, columns=active)
+    else:
+        setpts = setpts.reindex(columns=active).reindex(indoor.index)
+
+    if segments is None:
+        segments = pd.Series(0, index=indoor.index)
+    else:
+        segments = segments.reindex(indoor.index).fillna(0)
+
+    # Cross-car baseline restricted to cars cooling at this same timestamp.
+    # Comparing a cooling car against a ventilating one is not like-for-like.
     indoor_when_cooling = indoor.where(cooling)
     n_cooling = indoor_when_cooling.notna().sum(axis=1)
     enough_peers = n_cooling >= min(MIN_PEERS_COOLING, max(1, len(active)))
 
     peer_median = indoor_when_cooling.median(axis=1, skipna=True)
     rel = indoor_when_cooling.sub(peer_median, axis=0).where(enough_peers, np.nan)
-    t_minus_set = indoor_when_cooling.sub(sp).where(enough_peers, np.nan)
+    t_minus_set = indoor_when_cooling.sub(setpts).where(enough_peers, np.nan)
 
-    seg, median_dt = _segment_ids(df[tcol] if tcol else None, len(df))
-    seg = pd.Series(seg, index=df.index).loc[idx]
-    window = max(2, int(round(PERSISTENCE_MINUTES * 60.0 / median_dt)))
+    window = max(2, int(round(PERSISTENCE_MINUTES * 60.0 / max(median_dt_s, 1e-6))))
 
     rows = {}
     for c in active:
@@ -341,7 +359,7 @@ def extract_features(path: str) -> dict:
         tms = t_minus_set[c].dropna()
 
         # 15-minute rolling mean, restarted at every acquisition gap.
-        roll = r.groupby(seg).transform(
+        roll = r.groupby(segments).transform(
             lambda s: s.rolling(window, min_periods=max(2, window // 3)).mean()
         )
         roll_valid = roll.dropna()
@@ -356,13 +374,32 @@ def extract_features(path: str) -> dict:
             "mean_indoor_c":     float(indoor[c].mean()),
         }
 
-    feats = pd.DataFrame(rows).T.reindex(active)
+    return pd.DataFrame(rows).T.reindex(active)
+
+
+def extract_features(path: str) -> dict:
+    df, colmap, all_ids, tcol = load_case(path)
+
+    indoor = clean_indoor_temperatures(df, colmap, all_ids)
+    if indoor.empty:
+        raise ValueError(f"No usable cabin temperature telemetry in {path}")
+
+    idx = indoor.index
+    cooling = cooling_mask(df, colmap, all_ids, idx)
+    sp = setpoints(df, colmap, all_ids, idx)
+
+    seg_arr, median_dt = _segment_ids(df[tcol] if tcol else None, len(df))
+    seg = pd.Series(seg_arr, index=df.index).loc[idx]
+
+    feats = features_from_frames(indoor, cooling, sp, median_dt, seg)
+    active = list(feats.index)
+
     return {
         "features": feats,
         "active_cars": active,
         "all_cars": all_ids,
         "median_dt_s": median_dt,
-        "persistence_window_rows": window,
+        "persistence_window_rows": max(2, int(round(PERSISTENCE_MINUTES * 60.0 / median_dt))),
         "n_rows": int(len(idx)),
     }
 

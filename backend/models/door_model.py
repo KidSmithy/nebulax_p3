@@ -12,10 +12,14 @@ import os
 import joblib
 import numpy as np
 import pandas as pd
+import io
 from sklearn.ensemble import RandomForestClassifier
-from backend.core.config import ROOT_DIR, DOOR_DIR, DATASETS_DIR
+from backend.core.config import ROOT_DIR, DOOR_DIR, DATASETS_DIR, MODEL_DATA_DIR
 
-BUNDLE_PATH = DOOR_DIR / "door_model_bundle.joblib"
+BUNDLE_PATHS = [
+    MODEL_DATA_DIR / "door_model_bundle.joblib",
+    DOOR_DIR / "door_model_bundle.joblib",
+]
 
 class DoorPredictor:
     def __init__(self):
@@ -32,13 +36,17 @@ class DoorPredictor:
         self._load_or_train()
 
     def _load_or_train(self):
-        if BUNDLE_PATH.exists():
-            try:
-                self.bundle = joblib.load(BUNDLE_PATH)
-                self.model = self.bundle['model']
-                return
-            except Exception as e:
-                print(f"[DoorPredictor] Failed to load cached bundle: {e}. Retraining...")
+        for path in BUNDLE_PATHS:
+            if path.exists():
+                try:
+                    self.bundle = joblib.load(path)
+                    self.model = self.bundle['model']
+                    if 'feature_cols' in self.bundle:
+                        self.feature_cols = self.bundle['feature_cols']
+                    print(f"[DoorPredictor] Successfully loaded model bundle from {path}")
+                    return
+                except Exception as e:
+                    print(f"[DoorPredictor] Failed to load cached bundle from {path}: {e}")
 
         # Train baseline if bundle not found
         train_path = DATASETS_DIR / "Door" / "Train.csv"
@@ -200,3 +208,223 @@ class DoorPredictor:
             "ghost_deviation_mm": ghost_deviation_mm,
             "waveform_window": [round(float(w), 2) for w in waveform]
         }
+
+    def predict_from_csv(self, file_source, file_name: str = "door_data.csv") -> dict:
+        """
+        Runs batch/cycle-level inference on an uploaded Door CSV dataset.
+        Extracts electromechanical features per transit segment and predicts faults
+        (Normal vs. Abnormal resistance).
+        """
+        if isinstance(file_source, (bytes, bytearray)):
+            df = pd.read_csv(io.BytesIO(file_source))
+        elif isinstance(file_source, str) and "\n" in file_source:
+            df = pd.read_csv(io.StringIO(file_source))
+        else:
+            df = pd.read_csv(file_source)
+
+        # Standardize column naming if necessary
+        col_map = {c.strip(): c for c in df.columns}
+        for std, aliases in [
+            ('Datetime', ['datetime', 'time', 'timestamp', 'Timestamp']),
+            ('Motor current(mA)', ['motor_current', 'current_ma', 'motor current(mA)', 'Motor current']),
+            ('Motor Voltage(10mV)', ['motor_voltage', 'voltage', 'Motor voltage(10mV)', 'Motor Voltage']),
+            ('Motor electrodynamic force', ['emf', 'back_emf', 'Motor EMF']),
+            ('Door leaf position', ['position', 'door_position', 'Door Position']),
+            ('DCSR', ['dcsr', 'DCSR_switch']),
+            ('DLSR', ['dlsr', 'DLSR_switch']),
+        ]:
+            if std not in df.columns:
+                for a in aliases:
+                    if a in col_map:
+                        df[std] = df[col_map[a]]
+                        break
+
+        # Fallback columns if missing
+        if 'Motor current(mA)' not in df.columns:
+            # Check for numeric column with current
+            num_cols = df.select_dtypes(include=[np.number]).columns
+            if len(num_cols) > 0:
+                df['Motor current(mA)'] = df[num_cols[0]]
+            else:
+                raise ValueError("Uploaded CSV must contain numeric motor current measurements.")
+
+        for c, def_val in [
+            ('Motor Voltage(10mV)', 5000),
+            ('Motor electrodynamic force', 500),
+            ('Door leaf position', 350),
+            ('DCSR', 0),
+            ('DLSR', 0)
+        ]:
+            if c not in df.columns:
+                df[c] = def_val
+
+        # Detect cycle segments
+        segments = []
+        if 'Datetime' in df.columns:
+            try:
+                # Try custom dash parser first
+                sample_dt = str(df['Datetime'].dropna().iloc[0])
+                if '-' in sample_dt and sample_dt.count('-') >= 5:
+                    sp = df['Datetime'].astype(str).str.split('-', expand=True).astype(int)
+                    parsed_dt = pd.to_datetime({
+                        'year': sp[0], 'month': sp[1], 'day': sp[2],
+                        'hour': sp[3], 'minute': sp[4], 'second': sp[5],
+                        'microsecond': sp[6] * 1000 if sp.shape[1] > 6 else 0
+                    })
+                else:
+                    parsed_dt = pd.to_datetime(df['Datetime'])
+                df['parsed_dt'] = parsed_dt
+                gaps = np.where(df['parsed_dt'].diff().dt.total_seconds() > 0.1)[0]
+                starts = [0] + list(gaps)
+                ends = [g - 1 for g in gaps] + [len(df) - 1]
+                for s, e in zip(starts, ends):
+                    if e - s >= 5:  # at least 5 rows per cycle
+                        segments.append((s, e))
+            except Exception as dt_err:
+                print(f"[DoorPredictor] Timestamp parsing note: {dt_err}. Segmenting by stroke...")
+
+        if not segments:
+            # Fallback segmenting by stroke chunking
+            chunk_size = 150
+            for s in range(0, len(df), chunk_size):
+                e = min(s + chunk_size - 1, len(df) - 1)
+                if e - s >= 10:
+                    segments.append((s, e))
+
+        records = []
+        for i, (s, e) in enumerate(segments):
+            sub = df.iloc[s:e+1]
+            cur = sub['Motor current(mA)'].values.astype(float)
+            volt = sub['Motor Voltage(10mV)'].values.astype(float)
+            emf = sub['Motor electrodynamic force'].values.astype(float)
+            pos = sub['Door leaf position'].clip(0, 700).values.astype(float)
+
+            pos_diff = pos[-1] - pos[0]
+            inferred_op = 'Open' if pos_diff > 0 else 'Close'
+            speed = np.abs(np.diff(pos) / 0.02) if len(pos) > 1 else np.array([0.0])
+            power = (volt / 100.0) * (cur / 1000.0)
+            
+            if 'parsed_dt' in df.columns:
+                dur = (df['parsed_dt'].iloc[e] - df['parsed_dt'].iloc[s]).total_seconds()
+            else:
+                dur = round(len(sub) * 0.02, 2)
+
+            rec = {
+                'cycle_index': i + 1,
+                'duration_s': dur,
+                'n_rows': len(sub),
+                'op_is_open': 1 if inferred_op == 'Open' else 0,
+                'operation': inferred_op,
+                'cur_mean': float(np.mean(cur)),
+                'cur_std': float(np.std(cur)),
+                'cur_min': float(np.min(cur)),
+                'cur_max': float(np.max(cur)),
+                'cur_median': float(np.median(cur)),
+                'cur_q75': float(np.percentile(cur, 75)),
+                'cur_q90': float(np.percentile(cur, 90)),
+                'cur_rms': float(np.sqrt(np.mean(cur**2))),
+                'cur_integral': float(np.sum(np.abs(cur) * 0.02)),
+                'volt_mean': float(np.mean(volt)),
+                'volt_std': float(np.std(volt)),
+                'volt_min': float(np.min(volt)),
+                'volt_max': float(np.max(volt)),
+                'volt_q75': float(np.percentile(volt, 75)),
+                'emf_mean': float(np.mean(emf)),
+                'emf_std': float(np.std(emf)),
+                'emf_min': float(np.min(emf)),
+                'emf_max': float(np.max(emf)),
+                'emf_q75': float(np.percentile(emf, 75)),
+                'work_elec': float(np.sum(np.abs(power) * 0.02)),
+                'power_max': float(np.max(np.abs(power))),
+                'speed_mean': float(np.mean(speed)) if len(speed) > 0 else 0.0,
+                'speed_max': float(np.max(speed)) if len(speed) > 0 else 0.0,
+                'speed_std': float(np.std(speed)) if len(speed) > 0 else 0.0,
+                'switch_dc_trans': float(np.sum(np.abs(np.diff(sub['DCSR'].values)))) if 'DCSR' in sub else 0.0,
+                'switch_dl_trans': float(np.sum(np.abs(np.diff(sub['DLSR'].values)))) if 'DLSR' in sub else 0.0,
+            }
+            records.append(rec)
+
+        if not records:
+            raise ValueError("Could not extract valid door travel cycles from uploaded data.")
+
+        # Prepare feature matrix matching self.feature_cols
+        X = np.array([[r.get(c, 0.0) for c in self.feature_cols] for r in records])
+        preds = self.model.predict(X)
+        probs = self.model.predict_proba(X) if hasattr(self.model, 'predict_proba') else np.zeros((len(X), 2))
+
+        total_cycles = len(records)
+        abnormal_count = int(np.sum(preds == 1))
+        normal_count = total_cycles - abnormal_count
+        fault_rate = float(abnormal_count / total_cycles)
+
+        # Compute summary metrics
+        mean_duration = round(float(np.mean([r['duration_s'] for r in records])), 2)
+        mean_current_rms = round(float(np.mean([r['cur_rms'] for r in records])) / 1000.0, 2)  # Amps
+        max_current_peak = round(float(np.max([r['cur_max'] for r in records])) / 1000.0, 2)  # Amps
+
+        # Calibrated anomaly score (0.0 - 1.0)
+        anomaly_score = round(float(np.clip(fault_rate * 1.1 + (0.15 if abnormal_count > 0 else 0.0), 0.04, 0.98)), 2)
+
+        if abnormal_count == 0:
+            status = "GOOD"
+            fault_type = "NONE"
+            action = "NONE"
+            conductor_summary = (
+                f"Evaluated {total_cycles} door operating cycles in '{file_name}'. "
+                f"All {normal_count} cycles completed within nominal electromechanical parameters "
+                f"(average transit time {mean_duration}s, mean RMS current {mean_current_rms}A). "
+                f"No mechanical guide-rail obstruction or motor overload detected."
+            )
+        elif fault_rate <= 0.25:
+            status = "WATCH"
+            fault_type = "ROLLER_BEARING_WEAR"
+            action = "ACTION_LUBRICATE_DOOR"
+            conductor_summary = (
+                f"Evaluated {total_cycles} door operating cycles in '{file_name}'. "
+                f"Detected {abnormal_count} cycle(s) with elevated resistance ({fault_rate*100:.1f}% fault rate). "
+                f"Peak motor current reached {max_current_peak}A with cycle transit averaging {mean_duration}s. "
+                f"Early guide-rail friction or bearing wear developing. Recommend scheduling guide-rail lubrication."
+            )
+        else:
+            status = "ACTION_NEEDED"
+            fault_type = "GUIDE_RAIL_FRICTION"
+            action = "ACTION_LUBRICATE_DOOR"
+            conductor_summary = (
+                f"High-severity warning for '{file_name}': {abnormal_count} of {total_cycles} door cycles "
+                f"({fault_rate*100:.1f}%) exhibited abnormal mechanical resistance and motor overcurrent. "
+                f"Peak motor current spiked to {max_current_peak}A. "
+                f"Immediate maintenance required: lubricate guide rails and check door leaf alignment."
+            )
+
+        segment_details = []
+        for i, r in enumerate(records[:40]):  # Cap returned rows for performance
+            prob_abnormal = float(probs[i][1]) if probs.shape[1] > 1 else (1.0 if preds[i] == 1 else 0.0)
+            segment_details.append({
+                "cycle": r['cycle_index'],
+                "operation": r['operation'],
+                "duration_s": r['duration_s'],
+                "current_rms_a": round(r['cur_rms'] / 1000.0, 2),
+                "peak_current_a": round(r['cur_max'] / 1000.0, 2),
+                "status": "Abnormal resistance" if preds[i] == 1 else "Normal",
+                "fault_probability": round(prob_abnormal, 2),
+            })
+
+        return {
+            "subsystem": "door",
+            "file_name": file_name,
+            "status": status,
+            "verdict": status,
+            "total_cycles": total_cycles,
+            "normal_cycles": normal_count,
+            "abnormal_cycles": abnormal_count,
+            "fault_rate_pct": round(fault_rate * 100, 1),
+            "anomaly_score": anomaly_score,
+            "fault_type": fault_type,
+            "recommended_action": action,
+            "mean_duration_s": mean_duration,
+            "mean_current_rms_a": mean_current_rms,
+            "max_current_peak_a": max_current_peak,
+            "conductor_summary": conductor_summary,
+            "segments": segment_details,
+        }
+

@@ -7,7 +7,7 @@ REST API Endpoints for NebulaX P3 Rail Digital Twin.
 
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from backend.core.config import CORRUGATION_ZONES, INTERVENTION_ACTIONS, METRIC_THRESHOLDS
@@ -96,5 +96,35 @@ def setup_routes(harmonizer, whatif_engine):
     async def ai_ask(req: AskRequest):
         frame = harmonizer.generate_next_frame(dt=0.0)
         return ai_service.ask(req.question, frame)
+
+    # ------------------------------------------------------------------
+    # Batch / CSV Model Inference (Conductor Onboarding)
+    # ------------------------------------------------------------------
+    @router.post("/predict/upload")
+    async def upload_predict(file: UploadFile = File(...), subsystem: str = Form(...)):
+        content = await file.read()
+        sub = subsystem.lower().strip()
+        try:
+            if sub in ("door", "doors"):
+                result = harmonizer.broker.door_model.predict_from_csv(content, file.filename or "door_data.csv")
+            elif sub in ("shm", "bogie"):
+                result = harmonizer.broker.shm_model.predict_from_csv(content, file.filename or "shm_data.csv")
+            elif sub in ("acv", "aircon"):
+                result = harmonizer.broker.acv_model.predict_from_csv(content, file.filename or "acv_data.csv")
+            elif sub in ("rail", "rail_corrugation", "corrugation"):
+                result = harmonizer.broker.rail_model.predict_from_csv(content, file.filename or "rail_data.csv")
+            else:
+                raise HTTPException(status_code=400, detail=f"Unknown subsystem: {subsystem}")
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Inference error: {e}")
+
+        harmonizer.set_upload_result(sub, result)
+        return result
+
+    @router.get("/predict/latest")
+    async def get_latest_predictions():
+        return {"predictions": harmonizer.latest_upload_results}
 
     return router
