@@ -1,6 +1,9 @@
 Model,Macro F1,Normal F1,Side I F1,Side II F1,Accuracy
-AutoGluon (Bagged Ensemble),1.0,1.0,1.0,1.0,1.0
-Threshold-Tuned CATBOOST + Gating,0.7648,0.9706,0.4348,0.8889,0.9412
-Optuna Tuned CATBOOST,0.7648,0.9706,0.4348,0.8889,0.9412
-FLAML (lgbm),0.731,0.954,0.5,0.7391,0.9191
+Production Ensemble (92 Feats + Calibrated Thresholds + Gate),0.8298,0.9677,0.5882,0.9333,0.9412
+AutoGluon LightGBM (63 Feats + Calibrated Thresholds),0.8239,0.9726,0.6154,0.8837,0.9522
+AutoGluon LightGBM (92 Feats Argmax),0.8028,0.9657,0.5263,0.9130,0.9449
+AutoGluon LightGBMLarge (63 Feats Argmax),0.7842,0.9698,0.4706,0.9140,0.9449
+Repeated 5x5-Seed Ensemble Blend,0.7882,0.9567,0.5143,0.8936,0.9228
+Optuna Tuned CatBoost + Speed Gate,0.7648,0.9706,0.4348,0.8889,0.9412
+FLAML LightGBM,0.7310,0.9540,0.5000,0.7391,0.9191
 Weighted XGBoost (Baseline),0.6777,0.9558,0.2857,0.7917,0.9154

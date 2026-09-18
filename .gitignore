@@ -1,6 +1,24 @@
 # Large dataset and competition folders
 /PS3
 
+# Node / Frontend dependencies & builds
+node_modules/
+**/node_modules/
+.npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-debug.log*
+dist/
+dist-ssr/
+*.local
+.vite/
+.turbo/
+.next/
+out/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -41,7 +59,7 @@ venv.bak/
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 
-# Machine Learning model weights and large checkpoints (uncomment/comment as needed)
+# Machine Learning model weights, checkpoints, and training logs
 *.joblib
 *.pkl
 *.pickle
@@ -50,6 +68,15 @@ venv.bak/
 *.pt
 *.pth
 *.onnx
+catboost_info/
+**/catboost_info/
+AutogluonModels/
+autogluon_*/
+**/autogluon_*/
+lightning_logs/
+wandb/
+runs/
+events.out.tfevents.*
 
 # Large/generated data and prediction outputs (uncomment if you want to track code only)
 # *_predictions.csv

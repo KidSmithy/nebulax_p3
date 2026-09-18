@@ -1,0 +1,12 @@
+version: "1.0.0"
+project: "NebulaX P3 Unified Rail Digital Twin"
+services:
+  backend:
+    directory: "backend"
+    command: "..\\venv\\Scripts\\python.exe -m uvicorn backend.main:app --host 0.0.0.0 --port 8000"
+    health_endpoint: "http://localhost:8000/api/health"
+    ws_endpoint: "ws://localhost:8000/ws/telemetry"
+  frontend:
+    directory: "frontend"
+    command: "npm run dev"
+    dev_url: "http://localhost:3000"
