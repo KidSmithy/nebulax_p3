@@ -121,8 +121,7 @@ export const useTwinStore = create<TwinState>((set, get) => ({
   aiAsking: false,
 
   conductorEnabled: true,
-  // First thing a session sees: the guided setup, not the bare dashboard.
-  conductorState: 'onboarding',
+  conductorState: 'docked',
 
   setFrame: (frame) =>
     set((state) => {

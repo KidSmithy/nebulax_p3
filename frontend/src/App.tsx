@@ -2,9 +2,7 @@ import React, { useEffect } from 'react';
 import { useTwinStore } from './store/useTwinStore';
 import { TwinCanvas } from './components/canvas/TwinCanvas';
 import { CockpitHeader } from './components/hud/CockpitHeader';
-import { SubsystemSelector } from './components/hud/SubsystemSelector';
-import { RightDrawer } from './components/hud/RightDrawer';
-import { TimelineScrubber } from './components/hud/TimelineScrubber';
+
 import { ConductorDock } from './components/hud/conductor/ConductorDock';
 import { ConductorPopup } from './components/hud/conductor/ConductorPopup';
 import { ConductorExpanded } from './components/hud/conductor/ConductorExpanded';
@@ -13,7 +11,6 @@ import { ConductorOnboarding } from './components/hud/conductor/ConductorOnboard
 export const App: React.FC = () => {
   const initWebSocket = useTwinStore((state) => state.initWebSocket);
   const disconnectWebSocket = useTwinStore((state) => state.disconnectWebSocket);
-  const isHudVisible = useTwinStore((state) => state.isHudVisible);
   const conductorEnabled = useTwinStore((state) => state.conductorEnabled);
   const conductorState = useTwinStore((state) => state.conductorState);
   const setConductorState = useTwinStore((state) => state.setConductorState);
@@ -51,13 +48,6 @@ export const App: React.FC = () => {
 
         {/* Cockpit HUD Overlays */}
         <CockpitHeader />
-        {isHudVisible && (
-          <>
-            <SubsystemSelector />
-            <RightDrawer />
-            <TimelineScrubber />
-          </>
-        )}
 
         {conductorEnabled && conductorState === 'docked' && <ConductorDock />}
         {conductorEnabled && conductorState === 'popup' && <ConductorPopup />}

@@ -71,10 +71,29 @@ catboost_info/
 AutogluonModels/
 autogluon_*/
 **/autogluon_*/
+autogluon_output/
+**/autogluon_output/
 lightning_logs/
 wandb/
 runs/
 events.out.tfevents.*
+
+# Data caching and serialized binary data
+*.parquet
+*.feather
+*.arrow
+cache/
+**/cache/
+
+# Experiment databases
+*.sqlite3
+*.db
+!*.sqlite3.example
+
+# SHM AutoML local data, models, and logs
+/shm_automl/data/
+/shm_automl/artifacts/
+/shm_automl/logs/
 
 # Large/generated data and prediction outputs (uncomment if you want to track code only)
 # *_predictions.csv
@@ -125,3 +144,12 @@ Thumbs.db
 # Logs and runtime artifacts
 *.log
 /.playwright-mcp
+
+# Audit and inspection text dumps (preserves requirements.txt)
+_audit_*.txt
+**/_audit_*.txt
+_validation_report.txt
+**/_validation_report.txt
+**/reports/*.txt
+!requirements*.txt
+!**/requirements*.txt
