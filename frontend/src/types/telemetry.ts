@@ -172,6 +172,24 @@ export interface AIAnswer {
 }
 
 export type CameraPreset = 'macro' | 'meso' | 'micro';
+
+/** One car's row from the ACV ranker; rank 1 is the most likely faulty car. */
+export interface AcvCarRank {
+  rank: number;
+  car: string;
+  score: number | null;
+  diagnosable: boolean;
+  evidence: { feature: string; value: number | null }[];
+}
+
+export interface AcvResult {
+  file_id: string;
+  ranked_cars: string;
+  ranked_cars_list: string[];
+  most_likely_faulty_car: string;
+  verdict: string;
+  cars: AcvCarRank[];
+}
 export type SubsystemSelection = 'overview' | 'door' | 'acv' | 'shm' | 'rail';
 
 /** Beginner hides jargon and leads with plain words; Expert shows raw engineering units. */

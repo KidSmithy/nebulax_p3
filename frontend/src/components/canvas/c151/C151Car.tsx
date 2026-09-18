@@ -43,11 +43,13 @@ export interface C151Anchors {
 
 function resolveAnchors(car: THREE.Object3D): C151Anchors {
   car.updateMatrixWorld(true);
+  // Measured relative to the car root, so the result is the same whether or not the
+  // parent group (position/yaw of this car in the consist) has been matrix-updated yet.
+  const toCarLocal = new THREE.Matrix4().copy(car.matrixWorld).invert();
   const at = (name: string): [number, number, number] | null => {
     const node = car.getObjectByName(name);
     if (!node) return null;
-    const v = new THREE.Vector3();
-    node.getWorldPosition(v);
+    const v = new THREE.Vector3().setFromMatrixPosition(node.matrixWorld).applyMatrix4(toCarLocal);
     return [v.x, v.y, v.z];
   };
   return {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Html } from '@react-three/drei';
 import { useTwinStore } from '../../store/useTwinStore';
+import { CAR_PITCH, REFERENCE_CAR } from './consist';
 import { C151Car, C151Anchors } from './c151/C151Car';
 import { AirflowParticles } from './particles/AirflowParticles';
 import { InspectionTag } from './InspectionTag';
@@ -8,14 +9,12 @@ import { classifyMetric } from '../../lib/metricGlossary';
 
 /**
  * Eight-car consist (cab + 6 intermediates + cab, 23 m pitch, per
- * c151/MODEL_CONTRACT.md). The monitored car (Car 3, index 2) keeps the exact
- * world position the single car used to have, so the tuned cameras and
- * hotspot anchors still line up; the other cars extend either side of it.
+ * c151/MODEL_CONTRACT.md). Car 3 keeps the exact world position the single car
+ * used to have, so the tuned cameras and hotspot anchors are authored against
+ * it; the monitored car (any of the 8) just shifts those by whole car pitches.
  */
-const CAR_PITCH = 23;
 const CAR_COUNT = 8;
-const MONITORED_CAR = 2;
-const CAR_OFFSET: [number, number, number] = [0, 0, -11.5 - MONITORED_CAR * CAR_PITCH];
+const CAR_OFFSET: [number, number, number] = [0, 0, -11.5 - (REFERENCE_CAR - 1) * CAR_PITCH];
 
 const CARS = Array.from({ length: CAR_COUNT }, (_, i) => {
   if (i === 0) return { variant: 'cab' as const, z: CAR_PITCH, yaw: Math.PI };
@@ -31,10 +30,10 @@ const STATUS_RING: Record<string, string> = {
 };
 
 /** Car numbers over the roofs in the full-train view; the monitored car is filled and status-ringed. */
-const CarMarkers: React.FC<{ status: string }> = ({ status }) => (
+const CarMarkers: React.FC<{ status: string; monitoredIndex: number }> = ({ status, monitoredIndex }) => (
   <>
     {CARS.map((car, i) => {
-      const monitored = i === MONITORED_CAR;
+      const monitored = i === monitoredIndex;
       const ring = STATUS_RING[status] ?? STATUS_RING.UNKNOWN;
       return (
         <Html
@@ -60,6 +59,8 @@ const CarMarkers: React.FC<{ status: string }> = ({ status }) => (
 
 export const TrainAssembly: React.FC = () => {
   const fullTrainView = useTwinStore((state) => state.cameraMode) === 'macro';
+  const monitoredCar = useTwinStore((state) => state.monitoredCar);
+  const monitoredIndex = monitoredCar - 1;
   const xrayMode = useTwinStore((state) => state.xrayMode);
   const currentFrame = useTwinStore((state) => state.currentFrame);
   const setActiveInspection = useTwinStore((state) => state.setActiveInspection);
@@ -75,11 +76,22 @@ export const TrainAssembly: React.FC = () => {
   const shmStatus = status['shm.vibration_rms_g'] ?? classifyMetric('shm.vibration_rms_g', shm?.vibration_rms_g);
 
   const [anchors, setAnchors] = useState<C151Anchors | null>(null);
+  // Every car reports its own anchors; the cab lacks some nodes, so keep the first
+  // non-null value per node instead of whichever car happened to load first.
+  const mergeAnchors = (a: C151Anchors) =>
+    setAnchors((prev) => {
+      if (!prev) return a;
+      const merged = { ...prev };
+      (Object.keys(a) as (keyof C151Anchors)[]).forEach((k) => {
+        merged[k] = prev[k] ?? a[k];
+      });
+      return merged;
+    });
 
   return (
     <group position={CAR_OFFSET}>
       {CARS.map((car, i) =>
-        i === MONITORED_CAR ? (
+        i === monitoredIndex ? (
           <C151Car
             key={i}
             variant={car.variant}
@@ -90,18 +102,26 @@ export const TrainAssembly: React.FC = () => {
             bogieStressIntensity={stressIntensity}
             bogieXrayOpacity={xrayMode ? 0.85 : 1.0}
             xrayMode={xrayMode}
-            onReady={setAnchors}
+            onReady={mergeAnchors}
           />
         ) : (
-          <C151Car key={i} variant={car.variant} position={[0, 0, car.z]} yaw={car.yaw} xrayMode={xrayMode} />
+          <C151Car
+            key={i}
+            variant={car.variant}
+            position={[0, 0, car.z]}
+            yaw={car.yaw}
+            xrayMode={xrayMode}
+            onReady={mergeAnchors}
+          />
         )
       )}
 
-      {fullTrainView && <CarMarkers status={acvStatus} />}
+      {fullTrainView && <CarMarkers status={acvStatus} monitoredIndex={monitoredIndex} />}
 
       {/* --- Interactive hotspots, anchored to the real model's node positions.
-          Anchors are car-local, so lift them onto the monitored car's slot. --- */}
-      <group position={[0, 0, CARS[MONITORED_CAR].z]}>
+          Anchors are car-local, so lift them onto the monitored car's slot
+          (and turn them with it, for the reversed cab). --- */}
+      <group position={[0, 0, CARS[monitoredIndex].z]} rotation={[0, CARS[monitoredIndex].yaw, 0]}>
       {anchors?.doorR3 && (
         <group
           position={anchors.doorR3}

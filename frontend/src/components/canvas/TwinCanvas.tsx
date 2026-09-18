@@ -5,58 +5,76 @@ import * as THREE from 'three';
 import { useTwinStore } from '../../store/useTwinStore';
 import { TrainAssembly } from './TrainAssembly';
 import { TrackCorridor } from './TrackCorridor';
+import { carShiftZ } from './consist';
 
+type Pose = { pos: THREE.Vector3; look: THREE.Vector3 };
+
+/** Close-up on the selected component, authored against Car 3. */
+function microPose(subsystem: string): Pose {
+  if (subsystem === 'door') return { pos: new THREE.Vector3(5.1, 2.1, 5.4), look: new THREE.Vector3(1.59, 1.1, 2.95) };
+  if (subsystem === 'shm') return { pos: new THREE.Vector3(4.6, 1.4, 10.5), look: new THREE.Vector3(0, 0.43, 7.5) };
+  if (subsystem === 'acv') return { pos: new THREE.Vector3(3.5, 5.8, -3.0), look: new THREE.Vector3(0, 3.49, -4.95) };
+  return { pos: new THREE.Vector3(4.5, 1.8, 3.0), look: new THREE.Vector3(0, 1.2, 0) };
+}
+
+/** One whole car, authored against Car 3. */
+const MESO_POSE: Pose = { pos: new THREE.Vector3(15.0, 6.0, 13.0), look: new THREE.Vector3(0, 1.5, 2.2) };
+
+/**
+ * All 8 cars (world Z -57.5..126.5) from a 36-degree side elevation. Distance
+ * is solved from the aspect ratio so the ~184 m train fills the ~65% of the
+ * width the left rail leaves free; the look target is nudged past the
+ * train's midpoint so it sits in that free region.
+ */
+function macroPose(aspect: number): Pose {
+  const halfWidth = 145;
+  const dist = Math.min(260, Math.max(110, halfWidth / (Math.tan(THREE.MathUtils.degToRad(22.5)) * aspect)));
+  return {
+    pos: new THREE.Vector3(dist * Math.cos(Math.PI / 5), dist * Math.sin(Math.PI / 5), 70.0),
+    look: new THREE.Vector3(0, 0, 70.0),
+  };
+}
+
+/**
+ * The camera is locked to a single dolly axis driven by `cameraZoom`
+ * (0 = close on the component, 0.5 = one car, 1 = all 8 cars): no orbiting or
+ * panning, just zooming in and out along keyframed poses.
+ */
 const CameraController: React.FC = () => {
-  const cameraMode = useTwinStore((state) => state.cameraMode);
+  const cameraZoom = useTwinStore((state) => state.cameraZoom);
   const selectedSubsystem = useTwinStore((state) => state.selectedSubsystem);
+  const monitoredCar = useTwinStore((state) => state.monitoredCar);
   const conductorState = useTwinStore((state) => state.conductorState);
   const controlsRef = useRef<any>(null);
   const aspect = useThree((s) => s.size.width / s.size.height);
 
-  const isTransitioning = useRef(false);
-  const isUserInteracting = useRef(false);
   const targetPos = useRef(new THREE.Vector3(15.0, 6.0, 13.0));
   const targetLookAt = useRef(new THREE.Vector3(0, 1.2, 0));
 
-  // Real C151 scale: 23m-long car recentred on the origin (see TrainAssembly's
-  // CAR_OFFSET), so Bogie_Front/Rear and the roof AC units sit at these world Z's.
-  // Trigger camera transition ONLY when cameraMode or selectedSubsystem explicitly changes
   useEffect(() => {
-    const pos = new THREE.Vector3(15.0, 6.0, 13.0);
-    const look = new THREE.Vector3(0, 1.2, 0);
+    const shift = carShiftZ(monitoredCar);
+    const micro = microPose(selectedSubsystem);
+    const meso = MESO_POSE;
+    const macro = macroPose(aspect);
 
-    if (cameraMode === 'macro') {
-      // All 8 cars (world Z -57.5..126.5) from a 36-degree side elevation.
-      // Distance is solved from the aspect ratio so the ~184 m train fills the
-      // ~65% of the width the left rail leaves free; the look target is nudged
-      // past the train's midpoint so it sits in that free region.
-      const halfWidth = 145;
-      const dist = Math.min(260, Math.max(110, halfWidth / (Math.tan(THREE.MathUtils.degToRad(22.5)) * aspect)));
-      look.set(0, 0, 70.0);
-      pos.set(dist * Math.cos(Math.PI / 5), dist * Math.sin(Math.PI / 5), 70.0);
-    } else if (cameraMode === 'meso') {
-      pos.set(15.0, 6.0, 13.0);
-      look.set(0, 1.5, 2.2);
-    } else if (cameraMode === 'micro') {
-      // Anchored to the real C151 model's resolved node positions (see TrainAssembly).
-      if (selectedSubsystem === 'door') {
-        pos.set(5.1, 2.1, 5.4);
-        look.set(1.59, 1.1, 2.95);
-      } else if (selectedSubsystem === 'shm') {
-        pos.set(4.6, 1.4, 10.5);
-        look.set(0, 0.43, 7.5);
-      } else if (selectedSubsystem === 'acv') {
-        pos.set(3.5, 5.8, -3.0);
-        look.set(0, 3.49, -4.95);
-      } else {
-        pos.set(4.5, 1.8, 3.0);
-        look.set(0, 1.2, 0);
-      }
+    const pos = new THREE.Vector3();
+    const look = new THREE.Vector3();
+    if (cameraZoom <= 0.5) {
+      const t = cameraZoom / 0.5;
+      pos.copy(micro.pos).lerp(meso.pos, t);
+      look.copy(micro.look).lerp(meso.look, t);
+      pos.z += shift;
+      look.z += shift;
+    } else {
+      const t = (cameraZoom - 0.5) / 0.5;
+      const mesoPos = meso.pos.clone().setZ(meso.pos.z + shift);
+      const mesoLook = meso.look.clone().setZ(meso.look.z + shift);
+      pos.copy(mesoPos).lerp(macro.pos, t);
+      look.copy(mesoLook).lerp(macro.look, t);
     }
 
-    // The Conductor popup docks bottom-left; pan the whole camera+target pair
-    // right by the same amount so the framing shifts without re-angling,
-    // and the car never sits behind the popup.
+    // The Conductor popup docks bottom-left; pan the camera+target pair right
+    // by the same amount so the framing shifts without re-angling.
     if (conductorState === 'popup') {
       pos.x -= 2.5;
       look.x -= 2.5;
@@ -64,30 +82,7 @@ const CameraController: React.FC = () => {
 
     targetPos.current.copy(pos);
     targetLookAt.current.copy(look);
-    isTransitioning.current = true;
-  }, [cameraMode, selectedSubsystem, conductorState, aspect]);
-
-  // Listen to user interaction on OrbitControls
-  useEffect(() => {
-    const controls = controlsRef.current;
-    if (!controls) return;
-
-    const onStart = () => {
-      // User is touching/dragging camera -> immediately surrender control to user!
-      isUserInteracting.current = true;
-      isTransitioning.current = false;
-    };
-    const onEnd = () => {
-      isUserInteracting.current = false;
-    };
-
-    controls.addEventListener('start', onStart);
-    controls.addEventListener('end', onEnd);
-    return () => {
-      controls.removeEventListener('start', onStart);
-      controls.removeEventListener('end', onEnd);
-    };
-  }, []);
+  }, [cameraZoom, selectedSubsystem, monitoredCar, conductorState, aspect]);
 
   useFrame((state, delta) => {
     // Fog rides with the camera so zooming out never whites the train away.
@@ -95,17 +90,6 @@ const CameraController: React.FC = () => {
       const d = state.camera.position.length();
       state.scene.fog.near = Math.max(45, d + 60);
       state.scene.fog.far = Math.max(130, d + 220);
-    }
-
-    if (!isTransitioning.current || isUserInteracting.current) return;
-
-    const posDist = state.camera.position.distanceTo(targetPos.current);
-    const lookDist = controlsRef.current ? controlsRef.current.target.distanceTo(targetLookAt.current) : 0;
-
-    // Arrived at target: complete transition and release camera to user
-    if (posDist < 0.05 && lookDist < 0.05) {
-      isTransitioning.current = false;
-      return;
     }
 
     const t = Math.min(delta * 4.0, 1.0);
@@ -116,23 +100,18 @@ const CameraController: React.FC = () => {
     }
   });
 
-  return (
-    <OrbitControls
-      ref={controlsRef}
-      enableDamping
-      dampingFactor={0.08}
-      maxPolarAngle={Math.PI / 2 - 0.01}
-      minDistance={1.5}
-      maxDistance={260.0}
-    />
-  );
+  return <OrbitControls ref={controlsRef} enableRotate={false} enablePan={false} enableZoom={false} />;
 };
 
 export const TwinCanvas: React.FC = () => {
   const setActiveInspection = useTwinStore((state) => state.setActiveInspection);
+  const setCameraZoom = useTwinStore((state) => state.setCameraZoom);
 
   return (
-    <div className="w-full h-full relative">
+    <div
+      className="w-full h-full relative"
+      onWheel={(e) => setCameraZoom(useTwinStore.getState().cameraZoom + e.deltaY * 0.0006)}
+    >
       <Canvas dpr={[1, 1.5]} onPointerMissed={() => setActiveInspection(null)}>
         <PerspectiveCamera makeDefault position={[15.0, 6.0, 13.0]} fov={45} />
         <CameraController />

@@ -7,16 +7,18 @@ REST API Endpoints for NebulaX P3 Rail Digital Twin.
 
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from backend.core.config import CORRUGATION_ZONES, INTERVENTION_ACTIONS, METRIC_THRESHOLDS
+from backend.services.acv_service import ACVService, UploadError
 from backend.services.ai_insight import AIInsightService
 from backend.services.whatif_engine import ACTION_CATALOG
 
 router = APIRouter(prefix="/api")
 
 ai_service = AIInsightService()
+acv_service = ACVService()
 
 
 class WhatIfRequest(BaseModel):
@@ -96,5 +98,21 @@ def setup_routes(harmonizer, whatif_engine):
     async def ai_ask(req: AskRequest):
         frame = harmonizer.generate_next_frame(dt=0.0)
         return ai_service.ask(req.question, frame)
+
+    # ------------------------------------------------------------------
+    # ACV: rank which car most likely has the refrigerant leak
+    # ------------------------------------------------------------------
+    @router.post("/acv/predict")
+    def acv_predict(file: UploadFile = File(...)):
+        # Sync on purpose: ranking a workbook is CPU-bound, so FastAPI runs it in its threadpool.
+        try:
+            return acv_service.predict(file.filename or "upload.xlsx", file.file.read())
+        except UploadError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except Exception:
+            raise HTTPException(
+                status_code=422,
+                detail="Could not read that file as an ACV case. Check it is an ACV test workbook.",
+            )
 
     return router

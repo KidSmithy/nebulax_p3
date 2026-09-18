@@ -5,7 +5,7 @@ import { CameraPreset } from '../../types/telemetry';
 
 const CAMERA_COPY: Record<CameraPreset, { plain: string; tip: string }> = {
   macro: { plain: 'All 8 cars', tip: 'Pull back to see every car and which one needs attention.' },
-  meso: { plain: 'One car', tip: 'Look at Car 3 as a whole.' },
+  meso: { plain: 'One car', tip: 'Look at the monitored car as a whole.' },
   micro: { plain: 'Close-up', tip: 'Zoom in on the selected component.' },
 };
 
@@ -15,6 +15,7 @@ export const CockpitHeader: React.FC = () => {
   const repairCount = Object.values(activeInterventions).filter(Boolean).length;
   const cameraMode = useTwinStore((state) => state.cameraMode);
   const setCameraMode = useTwinStore((state) => state.setCameraMode);
+  const monitoredCar = useTwinStore((state) => state.monitoredCar);
 
   return (
     <header className="absolute top-4 left-4 right-4 z-30 flex items-start pointer-events-none gap-2">
@@ -36,7 +37,7 @@ export const CockpitHeader: React.FC = () => {
               </span>
             </div>
             <p className="text-label text-slate-500 font-mono whitespace-nowrap">
-              C151B-SET-402 • CAR 3 • NORTH-SOUTH LINE
+              C151B-SET-402 • CAR {monitoredCar} • NORTH-SOUTH LINE
             </p>
           </div>
         </div>

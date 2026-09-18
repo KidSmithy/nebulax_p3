@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { Html, Line } from '@react-three/drei';
 import { Activity, DoorOpen, Wind, GitCommit, X, ExternalLink } from 'lucide-react';
 import { useTwinStore } from '../../store/useTwinStore';
+import { carShiftZ } from './consist';
 import { MetricStatus } from '../../types/telemetry';
 import { STATUS_SHORT, STATUS_STYLES } from '../../lib/metricGlossary';
 
@@ -38,10 +39,12 @@ export const InspectionTag: React.FC<InspectionTagProps> = ({
   const currentFrame = useTwinStore((state) => state.currentFrame);
   const isHudVisible = useTwinStore((state) => state.isHudVisible);
   // Tags are sized for close inspection; zoomed far out they stack into an
-  // unreadable pile, so they step aside (car 3 sits near the world origin).
+  // unreadable pile, so they step aside (measured from the monitored car).
+  const monitoredCar = useTwinStore((state) => state.monitoredCar);
   const [farAway, setFarAway] = useState(false);
   useFrame(({ camera }) => {
-    const far = camera.position.length() > 70;
+    const { x, y, z } = camera.position;
+    const far = Math.hypot(x, y, z - carShiftZ(monitoredCar)) > 70;
     if (far !== farAway) setFarAway(far);
   });
 

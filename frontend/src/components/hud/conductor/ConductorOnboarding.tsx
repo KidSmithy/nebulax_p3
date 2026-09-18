@@ -3,7 +3,7 @@ import { CheckCircle2, HardHat, Loader2, UploadCloud, X } from 'lucide-react';
 import { useTwinStore } from '../../../store/useTwinStore';
 import { useMonitoredItems, MonitoredItem } from '../../../lib/useMonitoredItems';
 import { STATUS_SHORT, STATUS_STYLES } from '../../../lib/metricGlossary';
-import { SubsystemSelection } from '../../../types/telemetry';
+import { AcvResult, SubsystemSelection } from '../../../types/telemetry';
 
 type Step = 'subsystem' | 'upload' | 'results';
 const STEP_ORDER: Step[] = ['subsystem', 'upload', 'results'];
@@ -29,6 +29,45 @@ const UserReply: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     {children}
   </div>
 );
+
+const AcvResultsCard: React.FC<{ result: AcvResult; onDone: () => void }> = ({ result, onDone }) => {
+  const top = Number(result.most_likely_faulty_car);
+  return (
+    <>
+      <Prompt>
+        Car {top} is the most likely to have the fault. Here is how I ranked all {result.ranked_cars_list.length} cars,
+        most likely first.
+      </Prompt>
+      <div className="border border-slate-200 p-3 space-y-2.5">
+        <div className="text-label font-mono text-slate-400 truncate">{result.file_id}</div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {result.ranked_cars_list.map((car, i) => (
+            <span key={car} className="flex items-center gap-1.5">
+              <span
+                className={`w-7 h-7 flex items-center justify-center text-xs font-bold border ${
+                  i === 0
+                    ? 'bg-ink-900 text-white border-ink-900'
+                    : 'bg-white text-slate-600 border-slate-200'
+                }`}
+              >
+                {car}
+              </span>
+              {i < result.ranked_cars_list.length - 1 && <span className="text-slate-300 text-xs">›</span>}
+            </span>
+          ))}
+        </div>
+        <p className="text-label text-slate-500 leading-relaxed">{result.verdict}</p>
+      </div>
+      <button
+        onClick={onDone}
+        className="w-full flex items-center justify-center gap-1.5 bg-ink-900 text-white text-xs font-semibold py-2.5 hover:bg-ink-700 transition-colors duration-150"
+      >
+        <CheckCircle2 className="w-3.5 h-3.5" />
+        Zoom to Car {top}
+      </button>
+    </>
+  );
+};
 
 const ResultsCard: React.FC<{ item: MonitoredItem; beginner: boolean; onDone: () => void }> = ({
   item,
@@ -82,15 +121,22 @@ const ResultsCard: React.FC<{ item: MonitoredItem; beginner: boolean; onDone: ()
 };
 
 /**
- * Full-screen takeover shown first: pick a subsystem, "upload" a file (no
- * backend to send it to yet, so this is a scripted beat that hands off to
- * the live feed), then see that subsystem's live reading. Reusable from the
+ * Full-screen takeover: pick a subsystem, upload a data file, see the result.
+ * ACV is real: the file goes to /api/acv/predict and comes back as a car
+ * ranking. The other subsystems have no upload endpoint yet, so their upload
+ * step is a scripted beat that hands off to the live feed. Reusable from the
  * composer's "Upload new data" action, which unmounts and remounts this so
  * every run starts clean at step one.
  */
 export const ConductorOnboarding: React.FC = () => {
   const setConductorState = useTwinStore((s) => s.setConductorState);
   const setSelectedSubsystem = useTwinStore((s) => s.setSelectedSubsystem);
+  const setMonitoredCar = useTwinStore((s) => s.setMonitoredCar);
+  const setCameraMode = useTwinStore((s) => s.setCameraMode);
+  const uploadAcv = useTwinStore((s) => s.uploadAcv);
+  const acvUploading = useTwinStore((s) => s.acvUploading);
+  const acvError = useTwinStore((s) => s.acvError);
+  const acvResult = useTwinStore((s) => s.acvResult);
   const beginner = useTwinStore((s) => s.uiMode) === 'beginner';
   const { orderedItems } = useMonitoredItems();
   const subsystemOptions = ONBOARDING_SUBSYSTEMS.map((o) => orderedItems.find((i) => i.id === o.id)!);
@@ -102,6 +148,12 @@ export const ConductorOnboarding: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const finish = () => setConductorState('docked');
+
+  const finishAcv = (result: AcvResult) => {
+    setMonitoredCar(Number(result.most_likely_faulty_car));
+    setCameraMode('meso');
+    finish();
+  };
 
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => {
@@ -116,6 +168,15 @@ export const ConductorOnboarding: React.FC = () => {
     setSubsystem(id);
     setSelectedSubsystem(id);
     setStep('upload');
+  };
+
+  const handleFile = async (file: File) => {
+    setFileName(file.name);
+    if (subsystem === 'acv') {
+      if (await uploadAcv(file)) setStep('results');
+      return;
+    }
+    runProcessing(file.name);
   };
 
   const runProcessing = (name: string | null) => {
@@ -142,7 +203,7 @@ export const ConductorOnboarding: React.FC = () => {
             </span>
             <div className="min-w-0">
               <div className="text-sm font-bold text-slate-900 leading-tight">Conductor</div>
-              <div className="text-label text-slate-500 leading-tight truncate">Car 3 setup</div>
+              <div className="text-label text-slate-500 leading-tight truncate">Setup</div>
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
@@ -201,7 +262,7 @@ export const ConductorOnboarding: React.FC = () => {
                 , or skip it and I'll keep watching the live feed.
               </Prompt>
 
-              {!processing ? (
+              {!processing && !(subsystem === 'acv' && acvUploading) ? (
                 <>
                   <button
                     onClick={() => fileInputRef.current?.click()}
@@ -209,17 +270,24 @@ export const ConductorOnboarding: React.FC = () => {
                   >
                     <UploadCloud className="w-5 h-5 text-slate-400" />
                     <span className="text-xs font-medium text-slate-600">Click to choose a file</span>
-                    <span className="text-label text-slate-400">CSV, JSON, or log export</span>
+                    <span className="text-label text-slate-400">
+                      {subsystem === 'acv' ? 'ACV case workbook (.xlsx)' : 'CSV, JSON, or log export'}
+                    </span>
                   </button>
                   <input
                     ref={fileInputRef}
                     type="file"
+                    accept={subsystem === 'acv' ? '.xlsx,.csv' : undefined}
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
-                      if (f) runProcessing(f.name);
+                      if (f) handleFile(f);
+                      e.target.value = '';
                     }}
                   />
+                  {subsystem === 'acv' && acvError && (
+                    <p className="text-label text-status-fault leading-relaxed">{acvError}</p>
+                  )}
                   <button
                     onClick={() => runProcessing(null)}
                     className="w-full text-center text-label font-semibold text-slate-500 hover:text-ink-900 py-1.5 transition-colors duration-150"
@@ -230,14 +298,22 @@ export const ConductorOnboarding: React.FC = () => {
               ) : (
                 <div className="flex items-center gap-2 text-label text-slate-500 py-3">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  {fileName ? `Reading ${fileName}…` : 'Connecting to the live feed…'}
+                  {subsystem === 'acv' && fileName
+                    ? `Ranking the cars in ${fileName}…`
+                    : fileName
+                    ? `Reading ${fileName}…`
+                    : 'Connecting to the live feed…'}
                 </div>
               )}
             </>
           )}
 
           {step === 'results' && selected && (
-            <ResultsCard item={selected} beginner={beginner} onDone={finish} />
+            subsystem === 'acv' && acvResult && fileName ? (
+              <AcvResultsCard result={acvResult} onDone={() => finishAcv(acvResult)} />
+            ) : (
+              <ResultsCard item={selected} beginner={beginner} onDone={finish} />
+            )
           )}
         </div>
       </div>
