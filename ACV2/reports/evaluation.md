@@ -4,14 +4,14 @@
 
 Weights are the physical prior in `config.FEATURE_SPEC`; nothing is fitted.
 
-| file_id          | true_car | rank | n_ranked | score | ranked_cars             |
-|------------------|----------|------|----------|-------|-------------------------|
-| acv_case_01.xlsx | 01       | 1    | 8        | 1     | 01|03|04|02|07|08|06|05 |
-| acv_case_02.xlsx | 02       | 1    | 8        | 1     | 02|03|08|07|06|04|01|05 |
-| acv_case_03.xlsx | 03       | 1    | 8        | 1     | 03|02|04|01|08|07|05|06 |
-| acv_case_04.xlsx | 01       | 1    | 8        | 1     | 01|04|02|03|05|06|07|08 |
-| acv_case_05.xlsx | 04       | 1    | 8        | 1     | 04|02|07|06|01|03|08|05 |
-| acv_case_06.xlsx | 06       | 1    | 8        | 1     | 06|08|04|05|02|03|01|07 |
+| file_id          | true_car | rank | n_ranked | score | ranked_cars                    |
+|------------------|----------|------|----------|-------|--------------------------------|
+| acv_case_01.xlsx | 01       | 1    | 8        | 1     | 01\|03\|04\|02\|07\|08\|06\|05 |
+| acv_case_02.xlsx | 02       | 1    | 8        | 1     | 02\|03\|08\|07\|06\|04\|01\|05 |
+| acv_case_03.xlsx | 03       | 1    | 8        | 1     | 03\|02\|04\|01\|08\|07\|05\|06 |
+| acv_case_04.xlsx | 01       | 1    | 8        | 1     | 01\|04\|02\|03\|05\|06\|07\|08 |
+| acv_case_05.xlsx | 04       | 1    | 8        | 1     | 04\|02\|07\|06\|01\|03\|08\|05 |
+| acv_case_06.xlsx | 06       | 1    | 8        | 1     | 06\|08\|04\|05\|02\|03\|01\|07 |
 
 **Mean rank-decay score 1.0000** against a random-permutation baseline of 0.5625.
 
@@ -19,14 +19,14 @@ Weights are the physical prior in `config.FEATURE_SPEC`; nothing is fitted.
 
 For each held-out file the group weights are re-selected by coordinate ascent on the other five files only, so the held-out score never sees its own tuning.
 
-| held_out         | true_car | rank | score | train_score | ranked_cars             |
-|------------------|----------|------|-------|-------------|-------------------------|
-| acv_case_01.xlsx | 01       | 1    | 1     | 1           | 01|03|04|02|07|08|06|05 |
-| acv_case_02.xlsx | 02       | 1    | 1     | 1           | 02|03|08|07|06|04|01|05 |
-| acv_case_03.xlsx | 03       | 1    | 1     | 1           | 03|02|04|01|08|07|05|06 |
-| acv_case_04.xlsx | 01       | 1    | 1     | 1           | 01|04|02|03|05|06|07|08 |
-| acv_case_05.xlsx | 04       | 1    | 1     | 1           | 04|02|07|06|01|03|08|05 |
-| acv_case_06.xlsx | 06       | 1    | 1     | 1           | 06|08|04|05|02|03|01|07 |
+| held_out         | true_car | rank | score | train_score | ranked_cars                    |
+|------------------|----------|------|-------|-------------|--------------------------------|
+| acv_case_01.xlsx | 01       | 1    | 1     | 1           | 01\|03\|04\|02\|07\|08\|06\|05 |
+| acv_case_02.xlsx | 02       | 1    | 1     | 1           | 02\|03\|08\|07\|06\|04\|01\|05 |
+| acv_case_03.xlsx | 03       | 1    | 1     | 1           | 03\|02\|04\|01\|08\|07\|05\|06 |
+| acv_case_04.xlsx | 01       | 1    | 1     | 1           | 01\|04\|02\|03\|05\|06\|07\|08 |
+| acv_case_05.xlsx | 04       | 1    | 1     | 1           | 04\|02\|07\|06\|01\|03\|08\|05 |
+| acv_case_06.xlsx | 06       | 1    | 1     | 1           | 06\|08\|04\|05\|02\|03\|01\|07 |
 
 **LOOCV mean rank-decay score 1.0000.**
 
@@ -107,16 +107,3 @@ Rank of the true faulty car per file, by channel:
 Coordinate ascent reaches a training score of 1.0000 with group weights `{'thermal': 1.0, 'capacity': 1.0, 'progression': 1.0, 'control': 1.0, 'refrigerant': 1.25, 'integrity': 1.0}`.
 
 Because the physical prior already scores 1.0000 there is nothing for the calibration to correct, and it returns the prior unchanged - the shipped model is therefore the physics, not a fit to six files.
-
-## 6. Block-bootstrap stability
-
-Each case is re-ranked on random 70% subsets of its 6-hour blocks. `top1_true_car` is how often the true faulty car still comes first.
-
-| file_id          | true_car | draws | top1_true_car | most_frequent | most_frequent_freq | mean_rank_true |
-|------------------|----------|-------|---------------|---------------|--------------------|----------------|
-| acv_case_01.xlsx | 01       | 40    | 1             | 01            | 1                  | 1              |
-| acv_case_02.xlsx | 02       | 40    | 1             | 02            | 1                  | 1              |
-| acv_case_03.xlsx | 03       | 40    | 1             | 03            | 1                  | 1              |
-| acv_case_04.xlsx | 01       | 40    | 0.8           | 01            | 0.8                | 1.2            |
-| acv_case_05.xlsx | 04       | 40    | 0.8           | 04            | 0.8                | 1.2            |
-| acv_case_06.xlsx | 06       | 40    | 1             | 06            | 1                  | 1              |

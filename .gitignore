@@ -58,8 +58,7 @@ venv.bak/
 */.ipynb_checkpoints/*
 
 # Machine Learning model weights, checkpoints, and training logs
-*.joblib
-*.pkl
+
 *.pickle
 *.h5
 *.hdf5
