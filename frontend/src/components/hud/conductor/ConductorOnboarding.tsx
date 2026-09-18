@@ -147,11 +147,14 @@ export const ConductorOnboarding: React.FC = () => {
   const [processing, setProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const finish = () => setConductorState('docked');
+  // Every way out of the walkthrough lands on the one-car view.
+  const finish = () => {
+    setCameraMode('meso');
+    setConductorState('docked');
+  };
 
   const finishAcv = (result: AcvResult) => {
     setMonitoredCar(Number(result.most_likely_faulty_car));
-    setCameraMode('meso');
     finish();
   };
 

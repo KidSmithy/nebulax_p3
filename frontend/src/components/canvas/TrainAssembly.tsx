@@ -88,6 +88,9 @@ export const TrainAssembly: React.FC = () => {
       return merged;
     });
 
+  // On the reversed cab the viewer-facing door is the car's left one.
+  const doorAnchor = CARS[monitoredIndex].yaw ? anchors?.doorL3 : anchors?.doorR3;
+
   return (
     <group position={CAR_OFFSET}>
       {CARS.map((car, i) =>
@@ -122,9 +125,9 @@ export const TrainAssembly: React.FC = () => {
           Anchors are car-local, so lift them onto the monitored car's slot
           (and turn them with it, for the reversed cab). --- */}
       <group position={[0, 0, CARS[monitoredIndex].z]} rotation={[0, CARS[monitoredIndex].yaw, 0]}>
-      {anchors?.doorR3 && (
+      {doorAnchor && (
         <group
-          position={anchors.doorR3}
+          position={doorAnchor}
           onClick={(e) => {
             e.stopPropagation();
             setActiveInspection('door');

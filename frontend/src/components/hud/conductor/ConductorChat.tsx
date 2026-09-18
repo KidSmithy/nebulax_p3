@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, CornerDownLeft, Loader2, UploadCloud, Wrench } from 'lucide-react';
+import { ArrowRight, CornerDownLeft, HardHat, Loader2, UploadCloud, Wrench } from 'lucide-react';
 import { useTwinStore } from '../../../store/useTwinStore';
 import { ACTIONS, ActionCopy } from '../WhatIfPanel';
 import { InterventionAction } from '../../../types/telemetry';
@@ -153,39 +153,43 @@ export const ConductorChat: React.FC<ConductorChatProps> = ({ compact = true }) 
           const { intro, steps } = parseAnswer(a.answer);
           const repair = findRepairMention(a.answer);
           return (
-            <div key={i} className="space-y-1.5">
-              {/* User turn: soft selected card, never a chat bubble */}
-              <div className="bg-slate-100 rounded px-2.5 py-1.5 text-xs text-slate-800 font-medium">
-                {a.question}
+            <div key={i} className="space-y-2">
+              {/* User bubble, right-aligned */}
+              <div className="flex justify-end">
+                <div className="max-w-[85%] bg-ink-900 text-white rounded-2xl rounded-br-md px-3 py-2 text-xs font-medium">
+                  {a.question}
+                </div>
               </div>
 
-              {/* Assistant turn: plain prose under a micro-caps label */}
-              <div>
-                <div className="text-[9px] font-bold text-slate-400 tracking-[0.18em] mb-1">
-                  CONDUCTOR
+              {/* Conductor bubble, left-aligned with its avatar */}
+              <div className="flex items-start gap-1.5">
+                <span className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
+                  <HardHat className="w-3 h-3 text-slate-600" />
+                </span>
+                <div className="max-w-[85%] bg-slate-100 rounded-2xl rounded-tl-md px-3 py-2">
+                  <p className={`${compact ? 'text-[11px]' : 'text-xs'} text-slate-800 leading-relaxed`}>
+                    {intro}
+                  </p>
+                  {steps && (
+                    <ol className="mt-1.5 space-y-1.5">
+                      {steps.map((step, si) => (
+                        <li key={si} className="flex items-start gap-1.5">
+                          <span className="shrink-0 w-4 h-4 rounded-full bg-white text-slate-700 text-[9px] font-bold flex items-center justify-center mt-0.5">
+                            {si + 1}
+                          </span>
+                          <span className={`${compact ? 'text-[11px]' : 'text-xs'} text-slate-800 leading-relaxed`}>
+                            {step}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                  {repair && (
+                    <div className="mt-1.5">
+                      <RepairReference action={repair} />
+                    </div>
+                  )}
                 </div>
-                <p className={`${compact ? 'text-[11px]' : 'text-xs'} text-slate-700 leading-relaxed`}>
-                  {intro}
-                </p>
-                {steps && (
-                  <ol className="mt-1.5 space-y-1.5">
-                    {steps.map((step, si) => (
-                      <li key={si} className="flex items-start gap-1.5">
-                        <span className="shrink-0 w-4 h-4 rounded-full bg-slate-200 text-slate-700 text-[9px] font-bold flex items-center justify-center mt-0.5">
-                          {si + 1}
-                        </span>
-                        <span className={`${compact ? 'text-[11px]' : 'text-xs'} text-slate-700 leading-relaxed`}>
-                          {step}
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-                {repair && (
-                  <div className="mt-1.5">
-                    <RepairReference action={repair} />
-                  </div>
-                )}
               </div>
             </div>
           );
@@ -200,12 +204,12 @@ export const ConductorChat: React.FC<ConductorChatProps> = ({ compact = true }) 
         <div ref={endRef} />
       </div>
 
-      <div className="shrink-0 px-2 pt-2 border-t border-slate-200">
+      <div className="shrink-0 px-2 pt-2 border-t border-slate-200 flex justify-center">
         <button
           onClick={() => setConfirmRestart(true)}
-          className="inline-flex items-center gap-1.5 text-label font-semibold px-2 py-1 rounded bg-white border border-slate-200 text-slate-600 hover:border-ink-500 hover:text-ink-900 transition-colors duration-150"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 border border-slate-300 text-slate-700 hover:bg-ink-900 hover:border-ink-900 hover:text-white transition-colors duration-150"
         >
-          <UploadCloud className="w-3 h-3" />
+          <UploadCloud className="w-3.5 h-3.5" />
           Upload new data
         </button>
       </div>

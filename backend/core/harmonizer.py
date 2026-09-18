@@ -54,6 +54,11 @@ class TelemetryHarmonizer:
         self.broker = InferenceBroker()
         self.interventions = dict(NO_INTERVENTIONS)
         self.latest_upload_results = {}
+        # In-memory only: survives frontend reloads (it's server state), not a
+        # backend restart. No DB exists anywhere else in this app either, so
+        # this matches the project's own pattern rather than adding one.
+        self.resolved_log = []
+        self._next_log_id = 1
 
     def set_upload_result(self, subsystem: str, result: dict):
         """Stores the most recent CSV batch prediction for a subsystem."""
@@ -69,6 +74,35 @@ class TelemetryHarmonizer:
                 self.generator.bearing_wear = min(0.85, float(result["bearing_defect_prob"]))
             elif result.get("status") == "GOOD":
                 self.generator.bearing_wear = 0.04
+
+    def resolve_upload(self, subsystem: str, car: int = None, measured_impact: dict = None) -> dict:
+        """
+        Clears the active finding for a subsystem (the bubble disappears) and
+        appends one receipt-style entry to the persistent log. The measured
+        delta, if any, comes from the SAME whatif_engine.simulate_action() the
+        Repairs tab uses - never invented here.
+        """
+        finding = self.latest_upload_results.pop(subsystem, None)
+        if finding is None:
+            return None
+
+        raw = self.generator.step(dt=0.0)
+        entry = {
+            "id": self._next_log_id,
+            "subsystem": subsystem,
+            "car": car,
+            "file_name": finding.get("file_name"),
+            "status": finding.get("status"),
+            "anomaly_score": finding.get("anomaly_score"),
+            "recommended_action": finding.get("recommended_action"),
+            "conductor_summary": finding.get("conductor_summary"),
+            "measured_impact": measured_impact,
+            "resolved_at_kp": raw["track_chainage_km"],
+            "resolved_at_timestamp": raw["timestamp"],
+        }
+        self._next_log_id += 1
+        self.resolved_log.append(entry)
+        return entry
 
     # ------------------------------------------------------------------
     # Intervention state

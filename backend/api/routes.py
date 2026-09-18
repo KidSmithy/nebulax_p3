@@ -32,6 +32,11 @@ class InsightRequest(BaseModel):
     force: bool = False
 
 
+class ResolveRequest(BaseModel):
+    subsystem: str
+    car: Optional[int] = None
+
+
 def setup_routes(harmonizer, whatif_engine):
     @router.get("/health")
     async def health_check():
@@ -126,5 +131,28 @@ def setup_routes(harmonizer, whatif_engine):
     @router.get("/predict/latest")
     async def get_latest_predictions():
         return {"predictions": harmonizer.latest_upload_results}
+
+    # ------------------------------------------------------------------
+    # Resolve an uploaded finding: apply its recommended repair for a real
+    # measured delta (same engine the Repairs tab uses), then log it.
+    # ------------------------------------------------------------------
+    @router.post("/predict/resolve")
+    async def resolve_prediction(req: ResolveRequest):
+        finding = harmonizer.latest_upload_results.get(req.subsystem)
+        if finding is None:
+            raise HTTPException(status_code=404, detail=f"No active finding for '{req.subsystem}'.")
+
+        action = finding.get("recommended_action")
+        measured_impact = None
+        if action and action != "NONE":
+            whatif_result = whatif_engine.simulate_action(action, True)
+            measured_impact = whatif_result.get("measured_impact")
+
+        entry = harmonizer.resolve_upload(req.subsystem, car=req.car, measured_impact=measured_impact)
+        return entry
+
+    @router.get("/log")
+    async def get_resolved_log():
+        return {"log": harmonizer.resolved_log}
 
     return router

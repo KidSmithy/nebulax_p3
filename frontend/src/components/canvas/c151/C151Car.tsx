@@ -85,15 +85,40 @@ const xrayMaterial = new THREE.MeshStandardMaterial({
   wireframe: true,
 });
 
-const ghostMaterial = new THREE.MeshBasicMaterial({
+/** The healthy-baseline door is drawn as a clean outline, not a wireframe of every triangle. */
+const ghostLineMaterial = new THREE.LineBasicMaterial({
   color: '#009645',
-  wireframe: true,
   transparent: true,
-  opacity: 0.45,
+  opacity: 0.8,
+  depthTest: true,
 });
+const ghostHiddenMaterial = new THREE.MeshBasicMaterial({ visible: false });
 
-/** The Door_R3 / Door_L3 pair is the one the HUD tracks; its ghost shows the healthy baseline. */
-const MONITORED_DOOR_PREFIXES = ['Door_R3_Leaf_', 'Door_L3_Leaf_'];
+/** One flat rectangle around a leaf: its bounding box with the thin (thickness) axis collapsed. */
+function silhouetteRect(geometry: THREE.BufferGeometry): THREE.BufferGeometry {
+  geometry.computeBoundingBox();
+  const { min, max } = geometry.boundingBox!;
+  const size = new THREE.Vector3().subVectors(max, min);
+  const centre = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
+  const dims = [size.x, size.y, size.z];
+  const thin = dims.indexOf(Math.min(...dims));
+  const [a, b] = [0, 1, 2].filter((i) => i !== thin);
+  // Sit just outside the leaf's outer face so the body doesn't swallow the line,
+  // while still letting the body hide it from the far side of the car.
+  const outer = max.getComponent(thin) + 0.02;
+  const corner = (ua: number, ub: number) => {
+    const v = centre.toArray();
+    v[thin] = outer;
+    v[a] = ua < 0 ? min.getComponent(a) : max.getComponent(a);
+    v[b] = ub < 0 ? min.getComponent(b) : max.getComponent(b);
+    return v;
+  };
+  const points = [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)].flat();
+  return new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+}
+
+/** Door 3 is the door the HUD tracks; its ghost shows the healthy baseline. Only the side facing the viewer (R, or L on a reversed car), or the far door's outline would show through the windows. */
+const monitoredDoorPrefix = (yaw: number) => (Math.abs(yaw) > Math.PI / 2 ? 'Door_L3_Leaf_' : 'Door_R3_Leaf_');
 
 const feaUniforms = () => ({
   u_stress_intensity: { value: 0.2 },
@@ -195,12 +220,19 @@ export const C151Car: React.FC<C151CarProps> = ({
     // recolour them as translucent wireframe, and drive them at the healthy (nominal) fraction.
     const ghosts: DoorLeaf[] = [];
     for (const leaf of doors) {
-      if (!MONITORED_DOOR_PREFIXES.some((p) => leaf.name.startsWith(p))) continue;
+      if (!leaf.name.startsWith(monitoredDoorPrefix(yaw))) continue;
       if (!leaf.node.parent) continue;
       const clone = leaf.node.clone(true);
+      const meshes: THREE.Mesh[] = [];
       clone.traverse((n) => {
-        if ((n as THREE.Mesh).isMesh) (n as THREE.Mesh).material = ghostMaterial;
+        if ((n as THREE.Mesh).isMesh) meshes.push(n as THREE.Mesh);
       });
+      for (const mesh of meshes) {
+        const outline = new THREE.LineLoop(silhouetteRect(mesh.geometry), ghostLineMaterial);
+        outline.renderOrder = 10;
+        mesh.material = ghostHiddenMaterial;
+        mesh.add(outline);
+      }
       clone.visible = false;
       leaf.node.parent.add(clone);
       ghosts.push({ node: clone, name: `${leaf.name}_ghost`, closedX: leaf.closedX, slideSign: leaf.slideSign });
