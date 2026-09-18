@@ -5,6 +5,7 @@ import { CAR_PITCH, REFERENCE_CAR } from './consist';
 import { C151Car, C151Anchors } from './c151/C151Car';
 import { AirflowParticles } from './particles/AirflowParticles';
 import { InspectionTag } from './InspectionTag';
+import { FindingBubble } from './FindingBubble';
 import { classifyMetric } from '../../lib/metricGlossary';
 
 /**
@@ -141,6 +142,7 @@ export const TrainAssembly: React.FC = () => {
           }}
         >
           <InspectionTag type="door" position={[0.3, 1.1, 0]} beaconLabel="Door 3R System" status={doorStatus} />
+          <FindingBubble subsystem="door" position={[0.3, 1.1, 0]} label="Passenger doors" />
         </group>
       )}
 
@@ -161,6 +163,7 @@ export const TrainAssembly: React.FC = () => {
         >
           <AirflowParticles position={[0, 0.3, 0]} count={120} />
           <InspectionTag type="acv" position={[0, 0.55, 0]} beaconLabel="ACV Climate Pack" status={acvStatus} />
+          <FindingBubble subsystem="acv" position={[0, 0.55, 0]} label="Air-conditioning" />
         </group>
       )}
 
@@ -180,6 +183,7 @@ export const TrainAssembly: React.FC = () => {
           }}
         >
           <InspectionTag type="shm" position={[0.9, 0.5, 0]} beaconLabel="Bogie SHM" status={shmStatus} />
+          <FindingBubble subsystem="shm" position={[0.9, 0.5, 0]} label="Wheels & frame" />
         </group>
       )}
       </group>

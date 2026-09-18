@@ -3,7 +3,7 @@ import { Archive, ArrowRight, CheckCircle2, FileText, HardHat, Loader2, UploadCl
 import { useTwinStore } from '../../../store/useTwinStore';
 import { useMonitoredItems, MonitoredItem } from '../../../lib/useMonitoredItems';
 import { STATUS_SHORT, STATUS_STYLES } from '../../../lib/metricGlossary';
-import { AcvResult, SubsystemSelection } from '../../../types/telemetry';
+import { Finding, SubsystemSelection } from '../../../types/telemetry';
 
 type Step = 'subsystem' | 'upload' | 'results';
 const STEP_ORDER: Step[] = ['subsystem', 'upload', 'results'];
@@ -297,18 +297,19 @@ const ModelResultsCard: React.FC<{
   );
 };
 
-const AcvResultsCard: React.FC<{ result: AcvResult; onDone: () => void }> = ({ result, onDone }) => {
+const AcvResultsCard: React.FC<{ result: Finding; onDone: () => void }> = ({ result, onDone }) => {
   const top = Number(result.most_likely_faulty_car);
+  const ranked = result.ranked_cars ?? [];
   return (
     <>
       <Prompt>
-        Car {top} is the most likely to have the fault. Here is how I ranked all {result.ranked_cars_list.length} cars,
+        Car {top} is the most likely to have the fault. Here is how I ranked all {ranked.length} cars,
         most likely first.
       </Prompt>
       <div className="border border-slate-200 p-3 space-y-2.5">
-        <div className="text-label font-mono text-slate-400 truncate">{result.file_id}</div>
+        <div className="text-label font-mono text-slate-400 truncate">{result.file_name}</div>
         <div className="flex flex-wrap items-center gap-1.5">
-          {result.ranked_cars_list.map((car, i) => (
+          {ranked.map((car, i) => (
             <span key={car} className="flex items-center gap-1.5">
               <span
                 className={`w-7 h-7 flex items-center justify-center text-xs font-bold border ${
@@ -319,11 +320,11 @@ const AcvResultsCard: React.FC<{ result: AcvResult; onDone: () => void }> = ({ r
               >
                 {car}
               </span>
-              {i < result.ranked_cars_list.length - 1 && <span className="text-slate-300 text-xs">›</span>}
+              {i < ranked.length - 1 && <span className="text-slate-300 text-xs">›</span>}
             </span>
           ))}
         </div>
-        <p className="text-label text-slate-500 leading-relaxed">{result.verdict}</p>
+        <p className="text-label text-slate-500 leading-relaxed">{result.conductor_summary}</p>
       </div>
       <button
         onClick={onDone}
@@ -389,21 +390,22 @@ const ResultsCard: React.FC<{ item: MonitoredItem; beginner: boolean; onDone: ()
 
 /**
  * Full-screen takeover: pick a subsystem, upload a data file, see the result.
- * ACV is real: the file goes to /api/acv/predict and comes back as a car
- * ranking. The other subsystems have no upload endpoint yet, so their upload
- * step is a scripted beat that hands off to the live feed. Reusable from the
- * composer's "Upload new data" action, which unmounts and remounts this so
- * every run starts clean at step one.
+ * Every subsystem goes through the same real /api/predict/upload endpoint -
+ * door and rail are known to still be blocked on missing feature-engineering
+ * code server-side, so their upload can genuinely fail here, and that failure
+ * is shown honestly rather than papered over with a fake "processing" delay.
+ * Reusable from the composer's "Upload new data" action, which unmounts and
+ * remounts this so every run starts clean at step one.
  */
 export const ConductorOnboarding: React.FC = () => {
   const setConductorState = useTwinStore((s) => s.setConductorState);
   const setSelectedSubsystem = useTwinStore((s) => s.setSelectedSubsystem);
   const setMonitoredCar = useTwinStore((s) => s.setMonitoredCar);
   const setCameraMode = useTwinStore((s) => s.setCameraMode);
-  const uploadAcv = useTwinStore((s) => s.uploadAcv);
-  const acvUploading = useTwinStore((s) => s.acvUploading);
-  const acvError = useTwinStore((s) => s.acvError);
-  const acvResult = useTwinStore((s) => s.acvResult);
+  const uploadSubsystemData = useTwinStore((s) => s.uploadSubsystemData);
+  const uploading = useTwinStore((s) => s.uploading);
+  const uploadError = useTwinStore((s) => s.uploadError);
+  const uploadResult = useTwinStore((s) => s.uploadResult);
   const beginner = useTwinStore((s) => s.uiMode) === 'beginner';
   const { orderedItems } = useMonitoredItems();
   const subsystemOptions = ONBOARDING_SUBSYSTEMS.map((o) => orderedItems.find((i) => i.id === o.id)!);
@@ -411,9 +413,6 @@ export const ConductorOnboarding: React.FC = () => {
   const [step, setStep] = useState<Step>('subsystem');
   const [subsystem, setSubsystem] = useState<SubsystemSelection | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [processing, setProcessing] = useState(false);
-  const [uploadResult, setUploadResult] = useState<any | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Every way out of the walkthrough lands on the one-car view.
@@ -426,8 +425,9 @@ export const ConductorOnboarding: React.FC = () => {
   };
   const openChat = () => setConductorState('popup');
 
-  const finishAcv = (result: AcvResult) => {
-    finish(Number(result.most_likely_faulty_car));
+  const finishAcv = (result: Finding) => {
+    if (result.most_likely_faulty_car) setMonitoredCar(Number(result.most_likely_faulty_car));
+    finish();
   };
 
   useEffect(() => {
@@ -442,69 +442,33 @@ export const ConductorOnboarding: React.FC = () => {
   const chooseSubsystem = (id: SubsystemSelection) => {
     setSubsystem(id);
     setSelectedSubsystem(id);
-    setUploadResult(null);
-    setUploadError(null);
     setStep('upload');
   };
 
-  const handleFileUpload = async (file: File) => {
+  const handleFile = async (file: File) => {
     if (!subsystem) return;
     setFileName(file.name);
-    setProcessing(true);
-    setUploadError(null);
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('subsystem', subsystem);
-
-    try {
-      const res = await fetch('/api/predict/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || `Upload failed with status ${res.status}`);
-      }
-      const data = await res.json();
-      setUploadResult(data);
-
-      if (subsystem === 'acv' || data.subsystem === 'acv') {
-        useTwinStore.setState({ acvResult: data });
-        if (data.most_likely_faulty_car) {
-          setMonitoredCar(Number(data.most_likely_faulty_car));
-        }
-      }
-
+    const finding = await uploadSubsystemData(subsystem, file);
+    if (finding) {
       // Seed conductor chat with the findings from this upload
       useTwinStore.setState((state) => ({
         aiAnswers: [
           ...state.aiAnswers,
           {
             question: `Diagnose uploaded file (${file.name})`,
-            answer: data.conductor_summary,
+            answer: finding.conductor_summary,
             source: 'model',
           },
         ].slice(-8),
       }));
-
-      setProcessing(false);
       setStep('results');
-    } catch (err: any) {
-      console.error('[Upload] Error processing file:', err);
-      setUploadError(err.message || 'Error processing model inference on uploaded file.');
-      setProcessing(false);
     }
   };
 
-  const skipToLive = () => {
+  // No file chosen: skip straight to showing the current live reading.
+  const skipToLiveFeed = () => {
     setFileName(null);
-    setUploadResult(null);
-    setProcessing(true);
-    window.setTimeout(() => {
-      setProcessing(false);
-      setStep('results');
-    }, 800);
+    setStep('results');
   };
 
   const selected = subsystemOptions.find((i) => i.id === subsystem);
@@ -591,7 +555,7 @@ export const ConductorOnboarding: React.FC = () => {
                 </div>
               )}
 
-              {!processing && !(subsystem === 'acv' && acvUploading) ? (
+              {!uploading ? (
                 <>
                   <button
                     onClick={() => fileInputRef.current?.click()}
@@ -612,15 +576,15 @@ export const ConductorOnboarding: React.FC = () => {
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
-                      if (f) handleFileUpload(f);
+                      if (f) handleFile(f);
                       e.target.value = '';
                     }}
                   />
-                  {subsystem === 'acv' && acvError && (
-                    <p className="text-label text-status-fault leading-relaxed">{acvError}</p>
+                  {uploadError && (
+                    <p className="text-label text-status-fault leading-relaxed">{uploadError}</p>
                   )}
                   <button
-                    onClick={skipToLive}
+                    onClick={skipToLiveFeed}
                     className="w-full text-center text-label font-semibold text-slate-500 hover:text-ink-900 py-1.5 transition-colors duration-150"
                   >
                     Skip — use the live feed
@@ -647,8 +611,6 @@ export const ConductorOnboarding: React.FC = () => {
                 onDone={() => finish(uploadResult.most_likely_faulty_car ? Number(uploadResult.most_likely_faulty_car) : undefined)}
                 onOpenChat={openChat}
               />
-            ) : subsystem === 'acv' && acvResult && fileName ? (
-              <AcvResultsCard result={acvResult} onDone={() => finishAcv(acvResult)} />
             ) : (
               <ResultsCard item={selected} beginner={beginner} onDone={() => finish()} />
             )

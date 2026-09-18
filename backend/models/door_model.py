@@ -155,8 +155,10 @@ class DoorPredictor:
         self.model = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
         self.model.fit(X, y)
         self.bundle = {'model': self.model, 'feature_cols': self.feature_cols}
-        joblib.dump(self.bundle, BUNDLE_PATH)
-        print(f"[DoorPredictor] Model trained on {len(X)} cycles and saved to {BUNDLE_PATH}")
+        target_path = MODEL_DATA_DIR / "door_model_bundle.joblib"
+        joblib.dump(self.bundle, target_path)
+        print(f"[DoorPredictor] Model trained on {len(X)} cycles and saved to {target_path}")
+
 
     def evaluate_cycle(self, motor_current_amps: float, nominal_current_amps: float,
                        transit_time: float, is_opening: bool = False,
