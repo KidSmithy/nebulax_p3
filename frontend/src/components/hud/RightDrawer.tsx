@@ -247,7 +247,7 @@ export const RightDrawer: React.FC = () => {
                 {/* Aircon */}
                 <section className="space-y-1.5">
                   <h3 className="text-[9.5px] font-bold text-slate-500 ">
-                    {beginner ? 'Air-conditioning' : 'ACV climate pack'}
+                    {beginner ? 'Air conditioning' : 'ACV climate pack'}
                   </h3>
                   <div className="grid grid-cols-2 gap-1.5">
                     <MetricReadout
@@ -283,7 +283,7 @@ export const RightDrawer: React.FC = () => {
                 {/* Wheels */}
                 <section className="space-y-1.5">
                   <h3 className="text-[9.5px] font-bold text-slate-500 ">
-                    {beginner ? 'Wheels & frame' : 'Bogie structural health'}
+                    {beginner ? 'Structural health monitoring (SHM)' : 'Bogie structural health'}
                   </h3>
                   <div className="grid grid-cols-2 gap-1.5">
                     <MetricReadout
@@ -330,7 +330,7 @@ export const RightDrawer: React.FC = () => {
                 {/* Track */}
                 <section className="space-y-1.5">
                   <h3 className="text-[9.5px] font-bold text-slate-500 ">
-                    {beginner ? 'Track under the train' : 'Rail corrugation'}
+                    {beginner ? 'Rail corrugation' : 'Rail corrugation'}
                   </h3>
                   <div className="grid grid-cols-2 gap-1.5">
                     <MetricReadout

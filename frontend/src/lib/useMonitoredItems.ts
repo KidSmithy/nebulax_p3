@@ -71,7 +71,7 @@ export function useMonitoredItems() {
     },
     {
       id: 'acv',
-      plainLabel: 'Air-conditioning',
+      plainLabel: 'Air conditioning',
       technicalLabel: 'ACV Climate Pack',
       plainSub: subsystems
         ? `cools by ${subsystems.acv.delta_temp_c.toFixed(1)}°C`
@@ -86,11 +86,11 @@ export function useMonitoredItems() {
     },
     {
       id: 'shm',
-      plainLabel: 'Wheels & frame',
+      plainLabel: 'Structural health monitoring (SHM)',
       technicalLabel: 'Bogie SHM',
       plainSub: subsystems
         ? `shaking ${subsystems.shm.vibration_rms_g.toFixed(2)} g`
-        : 'Wheel assembly condition',
+        : 'Structural health',
       technicalSub: subsystems
         ? `${subsystems.shm.vibration_rms_g}g RMS • ${subsystems.shm.peak_frequency_hz}Hz`
         : 'Fatigue Dynamics',
@@ -101,7 +101,7 @@ export function useMonitoredItems() {
     },
     {
       id: 'rail',
-      plainLabel: 'Track condition',
+      plainLabel: 'Rail corrugation',
       technicalLabel: 'LTA Rail Infrastructure',
       plainSub: subsystems
         ? `ripples ${subsystems.rail_corrugation.depth_microns.toFixed(0)} μm deep`

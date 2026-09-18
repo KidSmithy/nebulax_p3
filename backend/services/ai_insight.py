@@ -74,9 +74,9 @@ Respond in plain prose, not JSON, not markdown headings."""
 
 SUBSYSTEM_LABELS = {
     "door": "Passenger door (Door 3R)",
-    "acv": "Air-conditioning pack",
-    "shm": "Bogie / wheel assembly",
-    "rail_corrugation": "Track surface under the train",
+    "acv": "Air conditioning pack",
+    "shm": "Structural health monitoring (SHM) - bogie",
+    "rail_corrugation": "Rail corrugation",
 }
 
 # Which metrics to include in the model's context, with plain names.

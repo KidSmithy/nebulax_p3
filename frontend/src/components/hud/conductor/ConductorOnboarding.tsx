@@ -8,6 +8,15 @@ import { SubsystemSelection } from '../../../types/telemetry';
 type Step = 'subsystem' | 'upload' | 'results';
 const STEP_ORDER: Step[] = ['subsystem', 'upload', 'results'];
 
+const ONBOARDING_SUBSYSTEMS: { id: SubsystemSelection; label: string }[] = [
+  { id: 'acv', label: 'Air conditioning' },
+  { id: 'door', label: 'Passenger doors' },
+  { id: 'rail', label: 'Rail corrugation' },
+  { id: 'shm', label: 'Structural health monitoring (SHM)' },
+];
+const labelFor = (id: SubsystemSelection) =>
+  ONBOARDING_SUBSYSTEMS.find((o) => o.id === id)?.label ?? id;
+
 const Prompt: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div>
     <div className="text-[9px] font-bold text-slate-400 tracking-[0.18em] mb-1">CONDUCTOR</div>
@@ -45,7 +54,7 @@ const ResultsCard: React.FC<{ item: MonitoredItem; beginner: boolean; onDone: ()
             </div>
             <div className="min-w-0">
               <div className="text-xs font-semibold text-slate-800 truncate">
-                {beginner ? item.plainLabel : item.technicalLabel}
+                {labelFor(item.id)}
               </div>
               <div className="text-label text-slate-500 font-mono truncate">
                 {beginner ? item.plainSub : item.technicalSub}
@@ -84,7 +93,7 @@ export const ConductorOnboarding: React.FC = () => {
   const setSelectedSubsystem = useTwinStore((s) => s.setSelectedSubsystem);
   const beginner = useTwinStore((s) => s.uiMode) === 'beginner';
   const { orderedItems } = useMonitoredItems();
-  const subsystemOptions = orderedItems.filter((i) => i.id !== 'overview');
+  const subsystemOptions = ONBOARDING_SUBSYSTEMS.map((o) => orderedItems.find((i) => i.id === o.id)!);
 
   const [step, setStep] = useState<Step>('subsystem');
   const [subsystem, setSubsystem] = useState<SubsystemSelection | null>(null);
@@ -172,7 +181,7 @@ export const ConductorOnboarding: React.FC = () => {
                     >
                       <Icon className="w-4 h-4 text-slate-500 mb-1.5" />
                       <div className="text-xs font-semibold text-slate-800">
-                        {beginner ? item.plainLabel : item.technicalLabel}
+                        {labelFor(item.id)}
                       </div>
                     </button>
                   );
@@ -182,13 +191,13 @@ export const ConductorOnboarding: React.FC = () => {
           )}
 
           {step !== 'subsystem' && selected && (
-            <UserReply>{beginner ? selected.plainLabel : selected.technicalLabel}</UserReply>
+            <UserReply>{labelFor(selected.id)}</UserReply>
           )}
 
           {step === 'upload' && (
             <>
               <Prompt>
-                Upload a data file for {selected ? (beginner ? selected.plainLabel : selected.technicalLabel) : 'this subsystem'}
+                Upload a data file for {selected ? labelFor(selected.id) : 'this subsystem'}
                 , or skip it and I'll keep watching the live feed.
               </Prompt>
 

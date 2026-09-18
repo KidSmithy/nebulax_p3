@@ -39,10 +39,10 @@ const URGENCY_TEXT: Record<string, string> = {
 
 const SUBSYSTEM_TEXT: Record<string, string> = {
   door: 'Doors',
-  acv: 'Air-conditioning',
-  shm: 'Wheels & frame',
-  rail: 'Track',
-  rail_corrugation: 'Track',
+  acv: 'Air conditioning',
+  shm: 'Structural health monitoring (SHM)',
+  rail: 'Rail corrugation',
+  rail_corrugation: 'Rail corrugation',
   fleet: 'Whole train',
 };
 

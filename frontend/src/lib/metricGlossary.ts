@@ -117,7 +117,7 @@ export const METRIC_GLOSSARY: Record<string, MetricDefinition> = {
     decimals: 2,
   },
   'shm.vibration_rms_g': {
-    plainName: 'Wheel assembly shaking',
+    plainName: 'Structural vibration',
     technicalName: 'Axle-box vibration RMS',
     whatItIs: 'The average intensity of shaking measured at the axle box, in units of gravity (g).',
     whyItMatters: 'Sustained high vibration accelerates metal fatigue in the bogie frame and welds.',
@@ -177,8 +177,8 @@ export const METRIC_GLOSSARY: Record<string, MetricDefinition> = {
     decimals: 0,
   },
   'rail_corrugation.severity_score': {
-    plainName: 'Track condition severity',
-    shortName: 'Track severity',
+    plainName: 'Rail corrugation severity',
+    shortName: 'Corrugation severity',
     technicalName: 'Severity score',
     whatItIs: 'A combined 0-1 score for how badly this stretch of rail needs maintenance.',
     whyItMatters: 'Used to prioritise which sections get ground first across the whole line.',

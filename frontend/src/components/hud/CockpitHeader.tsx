@@ -23,9 +23,9 @@ const CAMERA_COPY: Record<CameraPreset, { plain: string; tip: string }> = {
 
 const SUBSYSTEM_HEADER_LABELS: Record<string, string> = {
   door: 'Passenger doors',
-  acv: 'Air-conditioning',
-  shm: 'Wheels & frame',
-  rail_corrugation: 'Track condition',
+  acv: 'Air conditioning',
+  shm: 'Structural health monitoring (SHM)',
+  rail_corrugation: 'Rail corrugation',
 };
 
 const VERDICT_RANK: Record<MetricStatus, number> = {
