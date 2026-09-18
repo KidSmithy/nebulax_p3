@@ -103,31 +103,31 @@ export const CockpitHeader: React.FC = () => {
     <header className="absolute top-4 left-4 right-4 z-30 flex items-start justify-between pointer-events-none gap-2">
       {/* Left branding and fleet info */}
       <div className="flex items-center space-x-3 pointer-events-auto">
-        <div className="glass-panel-glow px-3.5 py-2 rounded-xl flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-lg bg-red-600 border border-red-500/60 flex items-center justify-center text-white shadow-md shadow-red-600/40">
+        <div className="glass-panel-glow px-3.5 py-2 rounded flex items-center space-x-3">
+          <div className="w-8 h-8 rounded bg-ink-900 border border-ink-700 flex items-center justify-center text-white shadow-md shadow-red-600/40">
             <Train className="w-4 h-4 stroke-[2.5]" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h1 className="text-xs font-black tracking-wider text-slate-900 uppercase flex items-center space-x-1.5">
-                <span className="text-red-600 font-extrabold">SMRT</span>
+              <h1 className="text-xs font-black text-slate-900 flex items-center space-x-1.5">
+                <span className="text-ink-900 font-extrabold">SMRT</span>
                 <span>•</span>
                 <span>LTA Digital Twin</span>
               </h1>
-              <span className="text-[9px] bg-red-50 text-red-600 font-mono px-1 py-0.5 rounded border border-red-200 font-bold">
+              <span className="text-label bg-slate-100 text-ink-700 font-mono px-1 py-0.5 rounded border border-red-200 font-bold">
                 NSL
               </span>
             </div>
-            <p className="text-[10px] text-slate-500 font-mono">
+            <p className="text-label text-slate-500 font-mono">
               C151B-SET-402 • CAR 3 • NORTH-SOUTH LINE
             </p>
           </div>
         </div>
 
         {/* Real-time telemetry badges */}
-        <div className="glass-panel px-3 py-1.5 rounded-xl flex items-center space-x-4 text-xs font-mono">
+        <div className="glass-panel px-3 py-1.5 rounded flex items-center space-x-4 text-xs font-mono">
           <div>
-            <div className="text-[9px] text-slate-500 uppercase flex items-center gap-1">
+            <div className="text-label text-slate-500 flex items-center gap-1">
               {beginner ? 'Position' : 'Chainage'}
               <InfoTip
                 title={METRIC_GLOSSARY.track_chainage_km.plainName}
@@ -142,15 +142,15 @@ export const CockpitHeader: React.FC = () => {
           </div>
           <div className="h-5 w-[1px] bg-slate-200" />
           <div>
-            <div className="text-[9px] text-slate-500 uppercase">Speed</div>
-            <div className="text-red-600 font-semibold text-xs">
+            <div className="text-label text-slate-500">Speed</div>
+            <div className="text-ink-900 font-semibold text-xs">
               {currentFrame ? currentFrame.train_speed_kmh.toFixed(1) : '68.4'}{' '}
-              <span className="text-[9px] text-slate-400">km/h</span>
+              <span className="text-label text-slate-400">km/h</span>
             </div>
           </div>
           <div className="h-5 w-[1px] bg-slate-200" />
           <div>
-            <div className="text-[9px] text-slate-500 uppercase">Time</div>
+            <div className="text-label text-slate-500">Time</div>
             <div className="text-slate-600 text-xs">
               {currentFrame ? currentFrame.timestamp.slice(11, 19) : '10:00:00'}
             </div>
@@ -162,13 +162,13 @@ export const CockpitHeader: React.FC = () => {
       <div className="flex items-center space-x-2 pointer-events-auto">
         {/* Simulated repairs indicator */}
         {repairCount > 0 && (
-          <div className="glass-panel border border-emerald-300 bg-emerald-50/80 px-2.5 py-1.5 rounded-xl flex items-center space-x-1.5">
+          <div className="glass-panel border border-emerald-300 bg-emerald-50/80 px-2.5 py-1.5 rounded flex items-center space-x-1.5">
             <Wrench className="w-3.5 h-3.5 text-emerald-700" />
             <div>
-              <div className="text-[8px] uppercase tracking-wider font-mono text-emerald-700 opacity-80">
+              <div className="text-[8px] font-mono text-emerald-700 opacity-80">
                 Simulated
               </div>
-              <div className="text-[11px] font-mono font-bold leading-none text-emerald-800">
+              <div className="text-label font-mono font-bold leading-none text-emerald-800">
                 {repairCount} repair{repairCount > 1 ? 's' : ''}
               </div>
             </div>
@@ -177,7 +177,7 @@ export const CockpitHeader: React.FC = () => {
 
         {/* Health index with plain-language verdict */}
         <div
-          className={`glass-panel border px-3 py-1.5 rounded-xl flex items-center space-x-2 ${styles.border} ${styles.bg}`}
+          className={`glass-panel border px-3 py-1.5 rounded flex items-center space-x-2 ${styles.border} ${styles.bg}`}
         >
           {verdict === 'GOOD' ? (
             <ShieldCheck className={`w-4 h-4 ${styles.text}`} />
@@ -186,7 +186,7 @@ export const CockpitHeader: React.FC = () => {
           )}
           <div>
             <div
-              className={`text-[8px] uppercase tracking-wider font-mono opacity-80 flex items-center gap-1 ${styles.text}`}
+              className={`text-[8px] font-mono opacity-80 flex items-center gap-1 ${styles.text}`}
             >
               {beginner ? healthWord : 'Health'}
               <InfoTip
@@ -202,7 +202,7 @@ export const CockpitHeader: React.FC = () => {
               {(healthIndex * 100).toFixed(0)}%
             </div>
             {worst && (
-              <div className={`text-[9px] font-semibold leading-tight mt-0.5 ${styles.text}`}>
+              <div className={`text-label font-semibold leading-tight mt-0.5 ${styles.text}`}>
                 {worst.label}
               </div>
             )}
@@ -210,15 +210,15 @@ export const CockpitHeader: React.FC = () => {
         </div>
 
         {/* Camera presets */}
-        <div className="glass-panel p-1 rounded-xl flex items-center space-x-1 text-xs font-mono">
+        <div className="glass-panel p-1 rounded flex items-center space-x-1 text-xs font-mono">
           {(['macro', 'meso', 'micro'] as CameraPreset[]).map((preset) => (
             <button
               key={preset}
               onClick={() => setCameraMode(preset)}
               title={CAMERA_COPY[preset].tip}
-              className={`px-2 py-1 rounded-lg uppercase tracking-wide text-[10px] transition-all font-bold ${
+              className={`px-2 py-1 rounded text-label transition-colors duration-150 font-bold ${
                 cameraMode === preset
-                  ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
+                  ? 'bg-ink-900 text-white'
                   : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
               }`}
             >
@@ -233,7 +233,7 @@ export const CockpitHeader: React.FC = () => {
           <button
             onClick={() => setViewMenuOpen((o) => !o)}
             aria-expanded={viewMenuOpen}
-            className={`glass-panel px-2.5 py-1.5 rounded-xl flex items-center space-x-1.5 text-[11px] font-medium transition-all border ${
+            className={`glass-panel px-2.5 py-1.5 rounded flex items-center space-x-1.5 text-label font-medium transition-colors duration-150 border ${
               viewMenuOpen
                 ? 'bg-slate-100 text-slate-800 border-slate-300'
                 : 'text-slate-600 border-transparent hover:bg-slate-100'
@@ -249,11 +249,11 @@ export const CockpitHeader: React.FC = () => {
           </button>
 
           {viewMenuOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-52 glass-panel p-1.5 rounded-xl shadow-xl flex flex-col space-y-1 z-40">
+            <div className="absolute right-0 top-full mt-1.5 w-52 glass-panel p-1.5 rounded shadow-xl flex flex-col space-y-1 z-40">
               <button
                 onClick={toggleUiMode}
                 aria-pressed={beginner}
-                className={`px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 text-[11px] font-medium transition-all ${
+                className={`px-2.5 py-1.5 rounded flex items-center space-x-1.5 text-label font-medium transition-colors duration-150 ${
                   beginner ? 'bg-sky-50 text-sky-700' : 'text-slate-600 hover:bg-slate-100'
                 }`}
                 title={
@@ -269,8 +269,8 @@ export const CockpitHeader: React.FC = () => {
               <button
                 onClick={toggleXray}
                 aria-pressed={xrayMode}
-                className={`px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 text-[11px] font-medium transition-all ${
-                  xrayMode ? 'bg-red-50 text-red-700' : 'text-slate-600 hover:bg-slate-100'
+                className={`px-2.5 py-1.5 rounded flex items-center space-x-1.5 text-label font-medium transition-colors duration-150 ${
+                  xrayMode ? 'bg-slate-200 text-ink-900' : 'text-slate-600 hover:bg-slate-100'
                 }`}
                 title="See through the carriage shell to the equipment inside"
               >
@@ -281,7 +281,7 @@ export const CockpitHeader: React.FC = () => {
               <button
                 onClick={toggleHud}
                 aria-pressed={!isHudVisible}
-                className={`px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 text-[11px] font-medium transition-all ${
+                className={`px-2.5 py-1.5 rounded flex items-center space-x-1.5 text-label font-medium transition-colors duration-150 ${
                   !isHudVisible ? 'bg-amber-50 text-amber-700' : 'text-slate-600 hover:bg-slate-100'
                 }`}
                 title={isHudVisible ? 'Hide all panels' : 'Show all panels'}
@@ -294,9 +294,9 @@ export const CockpitHeader: React.FC = () => {
         </div>
 
         {/* Connection status */}
-        <div className="glass-panel px-2.5 py-1.5 rounded-xl flex items-center space-x-1.5 text-xs font-mono">
-          <Radio className={`w-3 h-3 ${isConnected ? 'text-emerald-500 animate-pulse' : 'text-red-500'}`} />
-          <span className={`text-[10px] ${isConnected ? 'text-emerald-600' : 'text-red-600'}`}>
+        <div className="glass-panel px-2.5 py-1.5 rounded flex items-center space-x-1.5 text-xs font-mono">
+          <Radio className={`w-3 h-3 ${isConnected ? 'text-status-nominal' : 'text-status-fault animate-pulse'}`} />
+          <span className={`text-label ${isConnected ? 'text-status-nominal' : 'text-status-fault'}`}>
             {isConnected ? 'LIVE' : 'OFFLINE'}
           </span>
         </div>

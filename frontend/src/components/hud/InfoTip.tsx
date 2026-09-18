@@ -72,7 +72,7 @@ export const InfoTip: React.FC<InfoTipProps> = ({
           e.stopPropagation();
           setPinned((p) => !p);
         }}
-        className="inline-flex items-center text-slate-400 hover:text-red-600 focus:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded transition-colors"
+        className="inline-flex items-center text-slate-400 hover:text-ink-900 focus:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded transition-colors"
       >
         {children ?? <HelpCircle className="w-3 h-3" />}
       </button>
@@ -80,13 +80,13 @@ export const InfoTip: React.FC<InfoTipProps> = ({
       {visible && (
         <span
           role="tooltip"
-          className={`absolute z-50 top-full mt-1.5 w-64 p-2.5 rounded-xl bg-white border border-slate-200 shadow-xl text-left normal-case tracking-normal ${
+          className={`absolute z-50 top-full mt-1.5 w-64 p-2.5 rounded bg-white border border-slate-200 shadow-xl text-left normal-case tracking-normal ${
             side === 'left' ? 'left-0' : 'right-0'
           }`}
         >
           <span className="flex items-start space-x-1.5">
-            <Info className="w-3 h-3 text-red-500 shrink-0 mt-0.5" />
-            <span className="text-[11px] font-bold text-slate-900 leading-snug font-sans">
+            <Info className="w-3 h-3 text-ink-500 shrink-0 mt-0.5" />
+            <span className="text-label font-bold text-slate-900 leading-snug font-sans">
               {title}
             </span>
           </span>
@@ -109,7 +109,7 @@ export const InfoTip: React.FC<InfoTipProps> = ({
           )}
 
           {range && (
-            <span className="block mt-1.5 text-[10px] text-slate-500 font-mono">{range}</span>
+            <span className="block mt-1.5 text-label text-slate-500 font-mono">{range}</span>
           )}
         </span>
       )}

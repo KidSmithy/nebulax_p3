@@ -58,10 +58,10 @@ export const MetricReadout: React.FC<MetricReadoutProps> = ({
     : `Healthy at or below ${formatMetric(path, def.good)}`;
 
   return (
-    <div className={`rounded-lg border ${styles.border} ${styles.bg} ${compact ? 'p-1.5' : 'p-2'}`}>
+    <div className={`rounded border ${styles.border} ${styles.bg} ${compact ? 'p-1.5' : 'p-2'}`}>
       <div className="flex items-start justify-between gap-1">
         <div className="flex items-center gap-1 min-w-0">
-          <span className="text-[9.5px] font-semibold text-slate-600 uppercase tracking-wide leading-tight">
+          <span className="text-[9.5px] font-semibold text-slate-600 leading-tight">
             {label}
           </span>
           <InfoTip
@@ -85,7 +85,7 @@ export const MetricReadout: React.FC<MetricReadoutProps> = ({
           {formatMetric(path, value)}
         </span>
         {beginner && (
-          <span className="text-[9px] text-slate-500 truncate">
+          <span className="text-label text-slate-500 truncate">
             {verdict === 'GOOD'
               ? 'normal'
               : verdict === 'WATCH'
@@ -126,7 +126,7 @@ export const MetricReadout: React.FC<MetricReadoutProps> = ({
       )}
 
       {footnote && (
-        <div className="mt-1 text-[9px] text-slate-500 font-mono truncate">{footnote}</div>
+        <div className="mt-1 text-label text-slate-500 font-mono truncate">{footnote}</div>
       )}
     </div>
   );

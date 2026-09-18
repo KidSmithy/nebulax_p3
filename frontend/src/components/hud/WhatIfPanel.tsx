@@ -128,10 +128,10 @@ export const WhatIfPanel: React.FC = () => {
       {/* Live measured impact banner                                      */}
       {/* ---------------------------------------------------------------- */}
       {anyActive && cf?.active && health && (
-        <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-300">
+        <div className="p-2.5 rounded bg-emerald-50 border border-emerald-300">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-[8.5px] font-bold uppercase tracking-wider text-emerald-700">
+              <div className="text-[8.5px] font-bold text-emerald-700">
                 Measured effect of your changes
               </div>
               <div className="flex items-baseline gap-1.5 mt-0.5">
@@ -142,12 +142,12 @@ export const WhatIfPanel: React.FC = () => {
                 <span className="font-mono text-lg font-bold text-emerald-700">
                   {(health.after * 100).toFixed(0)}%
                 </span>
-                <span className="text-[9px] text-slate-500">overall health</span>
+                <span className="text-label text-slate-500">overall health</span>
               </div>
             </div>
             <button
               onClick={resetWhatIf}
-              className="shrink-0 flex items-center gap-1 text-[9px] font-mono px-1.5 py-1 rounded-md bg-white border border-slate-300 text-slate-600 hover:text-red-700 hover:border-red-300 transition-colors"
+              className="shrink-0 flex items-center gap-1 text-label font-mono px-1.5 py-1 rounded bg-white border border-slate-300 text-slate-600 hover:text-red-700 hover:border-red-300 transition-colors"
               title="Undo all simulated maintenance"
             >
               <RotateCcw className="w-2.5 h-2.5" />
@@ -168,16 +168,16 @@ export const WhatIfPanel: React.FC = () => {
 
       {/* Nothing changed yet, explain why rather than looking broken */}
       {anyActive && cf?.active && !health && (
-        <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-[10px] text-slate-600">
+        <div className="p-2 rounded bg-slate-50 border border-slate-200 text-label text-slate-600">
           Maintenance applied, but nothing measurable changed at this location.
         </div>
       )}
 
       {lastResult?.measured_impact?.has_measurable_effect === false &&
         lastResult.measured_impact.note && (
-          <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-1.5">
+          <div className="p-2 rounded bg-amber-50 border border-amber-200 flex items-start gap-1.5">
             <Info className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
-            <div className="text-[10px] text-amber-900 leading-relaxed">
+            <div className="text-label text-amber-900 leading-relaxed">
               {lastResult.measured_impact.note}
             </div>
           </div>
@@ -189,10 +189,10 @@ export const WhatIfPanel: React.FC = () => {
       {zone && !zone.is_inside_zone && (
         <button
           onClick={() => sendSeek(zone.kp_centre)}
-          className="w-full p-2 rounded-lg bg-sky-50 border border-sky-200 hover:border-sky-400 transition-colors text-left flex items-start gap-1.5"
+          className="w-full p-2 rounded bg-sky-50 border border-sky-200 hover:border-sky-400 transition-colors text-left flex items-start gap-1.5"
         >
           <MapPin className="w-3 h-3 text-sky-600 shrink-0 mt-0.5" />
-          <span className="text-[10px] text-sky-900 leading-relaxed">
+          <span className="text-label text-sky-900 leading-relaxed">
             The track here is already smooth, so grinding will barely register.{' '}
             <strong>Jump to the rough section at KP {zone.kp_start.toFixed(3)}</strong> (
             {zone.distance_km.toFixed(1)} km ahead) to see the real effect.
@@ -201,9 +201,9 @@ export const WhatIfPanel: React.FC = () => {
       )}
 
       {zone?.is_inside_zone && (
-        <div className="p-2 rounded-lg bg-red-50 border border-red-200 flex items-start gap-1.5">
+        <div className="p-2 rounded bg-red-50 border border-red-200 flex items-start gap-1.5">
           <MapPin className="w-3 h-3 text-red-600 shrink-0 mt-0.5" />
-          <span className="text-[10px] text-red-900 leading-relaxed">
+          <span className="text-label text-red-900 leading-relaxed">
             Train is on a <strong>known rough section</strong> (KP {zone.kp_start.toFixed(3)}–
             {zone.kp_end.toFixed(3)}). Rail grinding will have a large effect here.
           </span>
@@ -213,8 +213,8 @@ export const WhatIfPanel: React.FC = () => {
       {/* ---------------------------------------------------------------- */}
       {/* Action cards                                                      */}
       {/* ---------------------------------------------------------------- */}
-      <div className="flex items-center justify-between text-[10px] px-0.5 pt-1">
-        <span className="font-bold text-slate-600 uppercase tracking-wide flex items-center gap-1">
+      <div className="flex items-center justify-between text-label px-0.5 pt-1">
+        <span className="font-bold text-slate-600 flex items-center gap-1">
           <Wrench className="w-3 h-3 text-red-600" />
           Try a repair
         </span>
@@ -245,16 +245,16 @@ export const WhatIfPanel: React.FC = () => {
         return (
           <div
             key={item.action}
-            className={`p-2 rounded-xl border transition-all ${
+            className={`p-2 rounded border transition-colors duration-150 ${
               isActive ? 'bg-emerald-50/70 border-emerald-300' : 'bg-white border-slate-200 hover:border-slate-300'
             }`}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="text-[11px] font-bold text-slate-800 leading-snug">
+                <div className="text-label font-bold text-slate-800 leading-snug">
                   {beginner ? item.plainTitle : item.technicalTitle}
                 </div>
-                <div className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                <div className="text-label text-slate-500 mt-0.5 leading-relaxed">
                   {beginner ? item.plainDescription : item.technicalDescription}
                 </div>
               </div>
@@ -262,7 +262,7 @@ export const WhatIfPanel: React.FC = () => {
               <button
                 onClick={() => triggerWhatIf(item.action, !isActive)}
                 aria-pressed={isActive}
-                className={`text-[9px] font-mono font-bold px-2 py-1 rounded-md transition-all flex items-center gap-1 shrink-0 ${
+                className={`text-label font-mono font-bold px-2 py-1 rounded transition-colors duration-150 flex items-center gap-1 shrink-0 ${
                   isActive
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'bg-slate-100 text-slate-700 hover:bg-red-600 hover:text-white'
@@ -286,7 +286,7 @@ export const WhatIfPanel: React.FC = () => {
                         <DeltaRow key={m.path} m={m} />
                       ))}
                     {ownResult.note && (
-                      <div className="text-[9px] text-slate-500 italic leading-relaxed">
+                      <div className="text-label text-slate-500 italic leading-relaxed">
                         {ownResult.note}
                       </div>
                     )}

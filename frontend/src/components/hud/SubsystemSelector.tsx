@@ -109,24 +109,24 @@ export const SubsystemSelector: React.FC = () => {
 
   return (
     <div
-      className={`absolute top-20 left-4 z-20 transition-all duration-300 pointer-events-none ${
+      className={`absolute top-20 left-4 z-20 transition-colors duration-150 duration-300 pointer-events-none ${
         isLeftDrawerOpen ? 'w-64' : 'w-12'
       }`}
     >
-      <div className="glass-panel p-2 rounded-2xl pointer-events-auto flex flex-col space-y-1.5 shadow-2xl">
+      <div className="glass-panel p-2 rounded pointer-events-auto flex flex-col space-y-1.5 shadow-2xl">
         <div
           className={`flex items-center justify-between px-1 py-1 border-b border-slate-200 mb-1 ${
             !isLeftDrawerOpen && 'justify-center'
           }`}
         >
           {isLeftDrawerOpen && (
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <span className="text-label font-bold text-slate-500">
               {beginner ? "What's monitored" : 'SMRT Subsystems'}
             </span>
           )}
           <button
             onClick={toggleLeftDrawer}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+            className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
             title={isLeftDrawerOpen ? 'Collapse panel' : 'Expand panel'}
           >
             {isLeftDrawerOpen ? (
@@ -150,19 +150,19 @@ export const SubsystemSelector: React.FC = () => {
               key={item.id}
               onClick={() => setSelectedSubsystem(item.id)}
               title={!isLeftDrawerOpen ? label : undefined}
-              className={`text-left transition-all rounded-xl border flex items-center ${
+              className={`text-left transition-colors duration-150 rounded border flex items-center ${
                 isLeftDrawerOpen ? 'p-2.5 justify-between' : 'p-2 justify-center'
               } ${
                 isSelected
-                  ? 'border-red-300 bg-red-50 text-red-900 shadow-sm'
+                  ? 'border-ink-200 bg-slate-100 text-ink-900'
                   : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700'
               }`}
             >
               <div className="flex items-center space-x-2.5 min-w-0">
                 <div
-                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors shrink-0 ${
+                  className={`w-7 h-7 rounded flex items-center justify-center transition-colors shrink-0 ${
                     isSelected
-                      ? 'bg-red-600 text-white shadow-sm'
+                      ? 'bg-ink-900 text-white'
                       : item.verdict
                       ? `${styles.bg} ${styles.text}`
                       : 'bg-slate-100 text-slate-500'
@@ -173,7 +173,7 @@ export const SubsystemSelector: React.FC = () => {
                 {isLeftDrawerOpen && (
                   <div className="min-w-0">
                     <div className="text-xs font-semibold text-slate-800 truncate">{label}</div>
-                    <div className="text-[10px] text-slate-500 font-mono truncate max-w-[130px]">
+                    <div className="text-label text-slate-500 font-mono truncate max-w-[130px]">
                       {sub}
                     </div>
                   </div>
@@ -182,7 +182,7 @@ export const SubsystemSelector: React.FC = () => {
 
               {isLeftDrawerOpen && item.verdict && (
                 <div
-                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${styles.bg} ${styles.text} ${styles.border}`}
+                  className={`text-label font-bold px-1.5 py-0.5 rounded border shrink-0 ${styles.bg} ${styles.text} ${styles.border}`}
                 >
                   {STATUS_SHORT[verdict]}
                 </div>
