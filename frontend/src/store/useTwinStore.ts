@@ -56,7 +56,7 @@ interface TwinState {
 
   // Conductor assistant - new surface, gated behind conductorEnabled.
   conductorEnabled: boolean;
-  conductorState: 'docked' | 'popup' | 'expanded';
+  conductorState: 'docked' | 'popup' | 'expanded' | 'onboarding';
 
   // Actions
   setFrame: (frame: UnifiedTelemetryFrame) => void;
@@ -84,7 +84,7 @@ interface TwinState {
   fetchAiInsight: (force?: boolean) => Promise<void>;
   setAiAutoRefresh: (on: boolean) => void;
   askAi: (question: string) => Promise<void>;
-  setConductorState: (s: 'docked' | 'popup' | 'expanded') => void;
+  setConductorState: (s: 'docked' | 'popup' | 'expanded' | 'onboarding') => void;
   setConductorEnabled: (on: boolean) => void;
 }
 
@@ -121,7 +121,8 @@ export const useTwinStore = create<TwinState>((set, get) => ({
   aiAsking: false,
 
   conductorEnabled: true,
-  conductorState: 'docked',
+  // First thing a session sees: the guided setup, not the bare dashboard.
+  conductorState: 'onboarding',
 
   setFrame: (frame) =>
     set((state) => {

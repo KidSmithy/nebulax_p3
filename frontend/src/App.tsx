@@ -8,6 +8,7 @@ import { TimelineScrubber } from './components/hud/TimelineScrubber';
 import { ConductorDock } from './components/hud/conductor/ConductorDock';
 import { ConductorPopup } from './components/hud/conductor/ConductorPopup';
 import { ConductorExpanded } from './components/hud/conductor/ConductorExpanded';
+import { ConductorOnboarding } from './components/hud/conductor/ConductorOnboarding';
 
 export const App: React.FC = () => {
   const initWebSocket = useTwinStore((state) => state.initWebSocket);
@@ -37,6 +38,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="w-screen h-screen relative bg-slate-100 overflow-hidden font-sans select-none xl:flex">
+      {conductorEnabled && conductorState === 'onboarding' && <ConductorOnboarding />}
       {conductorEnabled && conductorState === 'expanded' && <ConductorExpanded />}
 
       {/* Everything below reflows into the remaining width when the

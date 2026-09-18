@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, CornerDownLeft, Loader2, Wrench } from 'lucide-react';
+import { ArrowRight, CornerDownLeft, Loader2, UploadCloud, Wrench } from 'lucide-react';
 import { useTwinStore } from '../../../store/useTwinStore';
 import { ACTIONS, ActionCopy } from '../WhatIfPanel';
 import { InterventionAction } from '../../../types/telemetry';
@@ -75,7 +75,9 @@ export const ConductorChat: React.FC<ConductorChatProps> = ({ compact = true }) 
   const answers = useTwinStore((s) => s.aiAnswers);
   const asking = useTwinStore((s) => s.aiAsking);
   const askAi = useTwinStore((s) => s.askAi);
+  const setConductorState = useTwinStore((s) => s.setConductorState);
   const [question, setQuestion] = useState('');
+  const [confirmRestart, setConfirmRestart] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -89,7 +91,35 @@ export const ConductorChat: React.FC<ConductorChatProps> = ({ compact = true }) 
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="relative flex flex-col h-full min-h-0">
+      {confirmRestart && (
+        <div className="absolute inset-0 z-10 bg-white/95 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-[260px] text-center space-y-3">
+            <p className="text-xs text-slate-700 leading-relaxed">
+              Restart the setup walkthrough? This takes over the screen to pick a subsystem and upload
+              data again.
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={() => setConfirmRestart(false)}
+                className="px-3 py-1.5 rounded text-label font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition-colors duration-150"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmRestart(false);
+                  setConductorState('onboarding');
+                }}
+                className="px-3 py-1.5 rounded text-label font-semibold text-white bg-ink-900 hover:bg-ink-700 transition-colors duration-150"
+              >
+                Restart
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 py-2 space-y-2.5">
         {answers.length === 0 && (
           <div className="flex flex-col gap-1.5">
@@ -160,12 +190,22 @@ export const ConductorChat: React.FC<ConductorChatProps> = ({ compact = true }) 
         <div ref={endRef} />
       </div>
 
+      <div className="shrink-0 px-2 pt-2 border-t border-slate-200">
+        <button
+          onClick={() => setConfirmRestart(true)}
+          className="inline-flex items-center gap-1.5 text-label font-semibold px-2 py-1 rounded bg-white border border-slate-200 text-slate-600 hover:border-ink-500 hover:text-ink-900 transition-colors duration-150"
+        >
+          <UploadCloud className="w-3 h-3" />
+          Upload new data
+        </button>
+      </div>
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
           submit(question);
         }}
-        className="relative shrink-0 p-2 border-t border-slate-200"
+        className="relative shrink-0 p-2"
       >
         <label htmlFor="conductor-question" className="sr-only">
           Ask the Conductor about this car
