@@ -1,0 +1,7 @@
+{
+  "abnormal": 30,
+  "normal": 80,
+  "oof_official_score": 1.0,
+  "segments": 110,
+  "threshold": 0.15
+}
