@@ -75,6 +75,12 @@ lightning_logs/
 wandb/
 runs/
 events.out.tfevents.*
+shm_automl/data/
+shm_automl/artifacts/
+shm_automl/logs/
+**/_audit_*.txt
+*.sqlite3
+*.db
 
 # Large/generated data and prediction outputs (uncomment if you want to track code only)
 # *_predictions.csv
