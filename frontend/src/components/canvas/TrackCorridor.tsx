@@ -4,12 +4,16 @@ import * as THREE from 'three';
 import { useTwinStore } from '../../store/useTwinStore';
 import { CorrugationRibbonShaderMaterial } from './shaders/CorrugationRibbonShader';
 import { InspectionTag } from './InspectionTag';
+import { classifyMetric } from '../../lib/metricGlossary';
 
 export const TrackCorridor: React.FC = () => {
   const currentFrame = useTwinStore((state) => state.currentFrame);
   const setActiveInspection = useTwinStore((state) => state.setActiveInspection);
   const railData = currentFrame?.subsystems?.rail_corrugation;
   const trainSpeed = currentFrame?.train_speed_kmh || 68.0;
+  const railStatus =
+    currentFrame?.plain_status?.['rail_corrugation.severity_score'] ??
+    classifyMetric('rail_corrugation.severity_score', railData?.severity_score);
 
   const severity = railData?.severity_score || 0.15;
   const depthMicrons = railData?.depth_microns || 12.0;
@@ -166,7 +170,7 @@ export const TrackCorridor: React.FC = () => {
           <boxGeometry args={[0.08, 0.6, 0.35]} />
           <meshStandardMaterial color="#ED1C24" metalness={0.5} roughness={0.3} />
         </mesh>
-        <InspectionTag type="rail" position={[0, 0.4, 0]} beaconLabel="Track Corrugation" />
+        <InspectionTag type="rail" position={[0, 0.4, 0]} beaconLabel="Track Corrugation" status={railStatus} />
       </group>
     </group>
   );

@@ -21,14 +21,14 @@ export const TimelineScrubber: React.FC = () => {
 
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none w-full max-w-xl px-4">
-      <div className="glass-panel px-4 py-2.5 rounded pointer-events-auto border-black/5 flex items-center space-x-4 shadow-xl">
+      <div className="glass-panel-floating px-4 py-2.5 rounded pointer-events-auto flex items-center space-x-4">
         {/* SMRT Red Play / Pause Toggle */}
         <button
           onClick={() => setPlaying(!isPlaying)}
           className={`w-8 h-8 rounded flex items-center justify-center transition-colors duration-150 shrink-0 ${
             isPlaying
               ? 'bg-ink-900 text-white font-bold hover:bg-ink-700'
-              : 'bg-amber-500 text-white font-bold shadow-md shadow-amber-500/30 hover:bg-amber-400'
+              : 'bg-amber-500 text-white font-bold hover:bg-amber-400'
           }`}
           title={isPlaying ? 'Pause Simulation' : 'Resume Simulation'}
         >

@@ -80,7 +80,7 @@ export const InfoTip: React.FC<InfoTipProps> = ({
       {visible && (
         <span
           role="tooltip"
-          className={`absolute z-50 top-full mt-1.5 w-64 p-2.5 rounded bg-white border border-slate-200 shadow-xl text-left normal-case tracking-normal ${
+          className={`absolute z-50 top-full mt-1.5 w-64 p-2.5 rounded glass-panel-floating text-left normal-case tracking-normal ${
             side === 'left' ? 'left-0' : 'right-0'
           }`}
         >

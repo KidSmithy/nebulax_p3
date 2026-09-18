@@ -3,6 +3,7 @@ import { useTwinStore } from '../../store/useTwinStore';
 import { C151Car, C151Anchors } from './c151/C151Car';
 import { AirflowParticles } from './particles/AirflowParticles';
 import { InspectionTag } from './InspectionTag';
+import { classifyMetric } from '../../lib/metricGlossary';
 
 /**
  * Recentres the 23m-long real-scale car so its midpoint sits near the scene
@@ -17,8 +18,14 @@ export const TrainAssembly: React.FC = () => {
   const setActiveInspection = useTwinStore((state) => state.setActiveInspection);
 
   const door = currentFrame?.subsystems?.door;
+  const acv = currentFrame?.subsystems?.acv;
   const shm = currentFrame?.subsystems?.shm;
   const stressIntensity = shm?.anomaly_score || 0.2;
+  const status = currentFrame?.plain_status ?? {};
+
+  const doorStatus = status['door.anomaly_score'] ?? classifyMetric('door.anomaly_score', door?.anomaly_score);
+  const acvStatus = status['acv.efficiency_rating'] ?? classifyMetric('acv.efficiency_rating', acv?.efficiency_rating);
+  const shmStatus = status['shm.vibration_rms_g'] ?? classifyMetric('shm.vibration_rms_g', shm?.vibration_rms_g);
 
   const [anchors, setAnchors] = useState<C151Anchors | null>(null);
 
@@ -50,7 +57,7 @@ export const TrainAssembly: React.FC = () => {
             document.body.style.cursor = 'auto';
           }}
         >
-          <InspectionTag type="door" position={[0.3, 1.1, 0]} beaconLabel="Door 3R System" />
+          <InspectionTag type="door" position={[0.3, 1.1, 0]} beaconLabel="Door 3R System" status={doorStatus} />
         </group>
       )}
 
@@ -70,7 +77,7 @@ export const TrainAssembly: React.FC = () => {
           }}
         >
           <AirflowParticles position={[0, 0.3, 0]} count={120} />
-          <InspectionTag type="acv" position={[0, 0.55, 0]} beaconLabel="ACV Climate Pack" />
+          <InspectionTag type="acv" position={[0, 0.55, 0]} beaconLabel="ACV Climate Pack" status={acvStatus} />
         </group>
       )}
 
@@ -89,7 +96,7 @@ export const TrainAssembly: React.FC = () => {
             document.body.style.cursor = 'auto';
           }}
         >
-          <InspectionTag type="shm" position={[0.9, 0.5, 0]} beaconLabel="Bogie SHM" />
+          <InspectionTag type="shm" position={[0.9, 0.5, 0]} beaconLabel="Bogie SHM" status={shmStatus} />
         </group>
       )}
     </group>

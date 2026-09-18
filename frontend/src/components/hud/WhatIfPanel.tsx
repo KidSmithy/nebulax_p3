@@ -264,7 +264,7 @@ export const WhatIfPanel: React.FC = () => {
                 aria-pressed={isActive}
                 className={`text-label font-mono font-bold px-2 py-1 rounded transition-colors duration-150 flex items-center gap-1 shrink-0 ${
                   isActive
-                    ? 'bg-emerald-600 text-white shadow-sm'
+                    ? 'bg-emerald-600 text-white'
                     : 'bg-slate-100 text-slate-700 hover:bg-red-600 hover:text-white'
                 }`}
               >

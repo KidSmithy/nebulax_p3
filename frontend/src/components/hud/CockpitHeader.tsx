@@ -100,32 +100,32 @@ export const CockpitHeader: React.FC = () => {
   const viewMenuHasActiveToggle = xrayMode || !isHudVisible;
 
   return (
-    <header className="absolute top-4 left-4 right-4 z-30 flex items-start justify-between pointer-events-none gap-2">
+    <header className="absolute top-4 left-4 right-4 z-30 flex items-start pointer-events-none gap-2">
       {/* Left branding and fleet info */}
-      <div className="flex items-center space-x-3 pointer-events-auto">
-        <div className="glass-panel-glow px-3.5 py-2 rounded flex items-center space-x-3">
-          <div className="w-8 h-8 rounded bg-ink-900 border border-ink-700 flex items-center justify-center text-white shadow-md shadow-red-600/40">
+      <div className="flex items-center space-x-3 pointer-events-auto shrink-0">
+        <div className="glass-panel-glow px-3.5 py-2 rounded flex items-center space-x-3 shrink-0 whitespace-nowrap">
+          <div className="w-8 h-8 rounded bg-ink-900 border border-ink-700 flex items-center justify-center text-white shrink-0">
             <Train className="w-4 h-4 stroke-[2.5]" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h1 className="text-xs font-black text-slate-900 flex items-center space-x-1.5">
+              <h1 className="text-xs font-black text-slate-900 flex items-center space-x-1.5 whitespace-nowrap">
                 <span className="text-ink-900 font-extrabold">SMRT</span>
                 <span>•</span>
                 <span>LTA Digital Twin</span>
               </h1>
-              <span className="text-label bg-slate-100 text-ink-700 font-mono px-1 py-0.5 rounded border border-red-200 font-bold">
+              <span className="text-label bg-slate-100 text-ink-700 font-mono px-1 py-0.5 rounded border border-red-200 font-bold whitespace-nowrap">
                 NSL
               </span>
             </div>
-            <p className="text-label text-slate-500 font-mono">
+            <p className="text-label text-slate-500 font-mono whitespace-nowrap">
               C151B-SET-402 • CAR 3 • NORTH-SOUTH LINE
             </p>
           </div>
         </div>
 
         {/* Real-time telemetry badges */}
-        <div className="glass-panel px-3 py-1.5 rounded flex items-center space-x-4 text-xs font-mono">
+        <div className="glass-panel px-3 py-1.5 rounded flex items-center space-x-4 text-xs font-mono shrink-0 whitespace-nowrap">
           <div>
             <div className="text-label text-slate-500 flex items-center gap-1">
               {beginner ? 'Position' : 'Chainage'}
@@ -159,7 +159,7 @@ export const CockpitHeader: React.FC = () => {
       </div>
 
       {/* Right controls */}
-      <div className="flex items-center space-x-2 pointer-events-auto">
+      <div className="flex items-center gap-2 pointer-events-auto min-w-0 flex-1 flex-wrap justify-end">
         {/* Simulated repairs indicator */}
         {repairCount > 0 && (
           <div className="glass-panel border border-emerald-300 bg-emerald-50/80 px-2.5 py-1.5 rounded flex items-center space-x-1.5">
@@ -249,7 +249,7 @@ export const CockpitHeader: React.FC = () => {
           </button>
 
           {viewMenuOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-52 glass-panel p-1.5 rounded shadow-xl flex flex-col space-y-1 z-40">
+            <div className="absolute right-0 top-full mt-1.5 w-52 glass-panel-floating p-1.5 rounded flex flex-col space-y-1 z-40">
               <button
                 onClick={toggleUiMode}
                 aria-pressed={beginner}

@@ -212,11 +212,14 @@ export const METRIC_GLOSSARY: Record<string, MetricDefinition> = {
   },
 };
 
+/** Status is unfilled by design: white/card background, colour carried only by
+ *  the border and label text. `bar` is the one exception - a gauge position
+ *  dot is a data marker, not a status tag, so it stays a solid fill. */
 export const STATUS_STYLES: Record<MetricStatus, { bg: string; text: string; border: string; bar: string }> = {
-  GOOD: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', bar: 'bg-emerald-500' },
-  WATCH: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', bar: 'bg-amber-500' },
-  ACTION_NEEDED: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', bar: 'bg-red-500' },
-  UNKNOWN: { bg: 'bg-slate-50', text: 'text-slate-500', border: 'border-slate-200', bar: 'bg-slate-400' },
+  GOOD: { bg: 'bg-white', text: 'text-status-nominal', border: 'border-status-nominal', bar: 'bg-status-nominal' },
+  WATCH: { bg: 'bg-white', text: 'text-status-watch', border: 'border-status-watch', bar: 'bg-status-watch' },
+  ACTION_NEEDED: { bg: 'bg-white', text: 'text-status-fault', border: 'border-status-fault', bar: 'bg-status-fault' },
+  UNKNOWN: { bg: 'bg-white', text: 'text-slate-500', border: 'border-slate-200', bar: 'bg-slate-400' },
 };
 
 export const STATUS_SHORT: Record<MetricStatus, string> = {

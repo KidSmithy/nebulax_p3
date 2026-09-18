@@ -2,28 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
+@import '@fontsource-variable/manrope';
+@import '@fontsource-variable/jetbrains-mono';
+
 :root {
-  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-family: 'Manrope Variable', 'Manrope', system-ui, -apple-system, sans-serif;
 }
 
 code, pre, .font-mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace;
 }
 
-/* SMRT & LTA Transit Glassmorphic Panels (Light Mode) */
+/* Flat chrome, hairline borders, no blur. The one floating elevation is
+   reserved for things that genuinely hover over the canvas (menus, the
+   Conductor popup) - everything docked in a rail or column stays flat. */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+  background: #ffffff;
+  border: 1px solid theme('colors.slate.200');
 }
 
 .glass-panel-glow {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(237, 28, 36, 0.35);
-  box-shadow: 0 8px 24px -4px rgba(237, 28, 36, 0.15), 0 2px 8px rgba(0, 0, 0, 0.04);
+  background: #ffffff;
+  border: 1px solid theme('colors.slate.200');
+}
+
+.glass-panel-floating {
+  background: #ffffff;
+  border: 1px solid theme('colors.slate.200');
+  box-shadow: 0 3px 9px rgba(26, 26, 30, 0.08);
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -31,12 +37,12 @@ code, pre, .font-mono {
   height: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: theme('colors.slate.300');
   border-radius: 2px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(237, 28, 36, 0.6);
+  background: theme('colors.slate.400');
 }
