@@ -1,0 +1,106 @@
+{
+  "prior_mean": 1.0,
+  "calibrated_train_mean": 1.0,
+  "loocv_mean": 1.0,
+  "random_baseline_8car": 0.5625,
+  "per_file": [
+    {
+      "file_id": "acv_case_01.xlsx",
+      "true_car": "01",
+      "rank": 1,
+      "n_ranked": 8,
+      "score": 1.0,
+      "ranked_cars": "01|03|04|02|07|08|06|05"
+    },
+    {
+      "file_id": "acv_case_02.xlsx",
+      "true_car": "02",
+      "rank": 1,
+      "n_ranked": 8,
+      "score": 1.0,
+      "ranked_cars": "02|03|08|07|06|04|01|05"
+    },
+    {
+      "file_id": "acv_case_03.xlsx",
+      "true_car": "03",
+      "rank": 1,
+      "n_ranked": 8,
+      "score": 1.0,
+      "ranked_cars": "03|02|04|01|08|07|05|06"
+    },
+    {
+      "file_id": "acv_case_04.xlsx",
+      "true_car": "01",
+      "rank": 1,
+      "n_ranked": 8,
+      "score": 1.0,
+      "ranked_cars": "01|04|02|03|05|06|07|08"
+    },
+    {
+      "file_id": "acv_case_05.xlsx",
+      "true_car": "04",
+      "rank": 1,
+      "n_ranked": 8,
+      "score": 1.0,
+      "ranked_cars": "04|02|07|06|01|03|08|05"
+    },
+    {
+      "file_id": "acv_case_06.xlsx",
+      "true_car": "06",
+      "rank": 1,
+      "n_ranked": 8,
+      "score": 1.0,
+      "ranked_cars": "06|08|04|05|02|03|01|07"
+    }
+  ],
+  "loocv_per_file": [
+    {
+      "held_out": "acv_case_01.xlsx",
+      "true_car": "01",
+      "rank": 1,
+      "score": 1.0,
+      "ranked_cars": "01|03|04|02|07|08|06|05",
+      "train_score": 1.0
+    },
+    {
+      "held_out": "acv_case_02.xlsx",
+      "true_car": "02",
+      "rank": 1,
+      "score": 1.0,
+      "ranked_cars": "02|03|08|07|06|04|01|05",
+      "train_score": 1.0
+    },
+    {
+      "held_out": "acv_case_03.xlsx",
+      "true_car": "03",
+      "rank": 1,
+      "score": 1.0,
+      "ranked_cars": "03|02|04|01|08|07|05|06",
+      "train_score": 1.0
+    },
+    {
+      "held_out": "acv_case_04.xlsx",
+      "true_car": "01",
+      "rank": 1,
+      "score": 1.0,
+      "ranked_cars": "01|04|02|03|05|06|07|08",
+      "train_score": 1.0
+    },
+    {
+      "held_out": "acv_case_05.xlsx",
+      "true_car": "04",
+      "rank": 1,
+      "score": 1.0,
+      "ranked_cars": "04|02|07|06|01|03|08|05",
+      "train_score": 1.0
+    },
+    {
+      "held_out": "acv_case_06.xlsx",
+      "true_car": "06",
+      "rank": 1,
+      "score": 1.0,
+      "ranked_cars": "06|08|04|05|02|03|01|07",
+      "train_score": 1.0
+    }
+  ]
+}

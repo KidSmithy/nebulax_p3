@@ -1,210 +1,350 @@
-﻿# ACV Refrigerant Leakage Fault Diagnosis: Step-by-Step Training & Methodology Dossier
+﻿# ACV Refrigerant Leakage Localisation — Method, Implementation & Honest Results
 
-**Target Audience / Purpose**: Comprehensive technical dossier for external AI model review, methodology vetting, and engineering validation.  
-**Subsystem**: Train Air Conditioning & Ventilation (ACV)  
-**Task**: Consist-Level Refrigerant Leakage Detection & Faulty Car Localization  
-**Code Repository Location**: `ACV/` and `PS3/models/`  
-**Primary Artifacts**: [`acv_pipeline.py`](file:///c:/Users/Rald999/Documents/GitHub/nebulax_p3/ACV/acv_pipeline.py), [`export_acv_model_bundle.py`](file:///c:/Users/Rald999/Documents/GitHub/nebulax_p3/ACV/export_acv_model_bundle.py), [`acv_model_bundle.joblib`](file:///c:/Users/Rald999/Documents/GitHub/nebulax_p3/ACV/acv_model_bundle.joblib)
+**Subsystem**: Train Air Conditioning & Ventilation (ACV)
+**Task**: locate the single refrigerant-leaking car in an 8-car consist, and rank every car from most to least likely faulty
+**Primary artefacts**: [`acv_physics_ranker.py`](./acv_physics_ranker.py) (method), [`predict.py`](./predict.py) (submission CLI), [`validate_physics_ranker.py`](./validate_physics_ranker.py) (checks)
+**Model artefact**: none. The ranker has no fitted parameters and loads no pickle.
 
----
-
-## 1. Problem Formulation & Constraints
-
-### 1.1 Objective & Output Format
-- A train consist operates with $N$ passenger cars (typically $N=8$, with 4-car variants such as Case 04).
-- Exactly **one** car per train journey exhibits an early-to-moderate refrigerant leak.
-- The objective is not binary classification, but **complete vehicle ranking** in descending order of fault probability:
-  $$\text{ranked\_cars} = c_{(1)} \mid c_{(2)} \mid \dots \mid c_{(N)} \quad \text{(e.g., '01|04|03|08|07|06|02|05')}$$
-- The evaluation metric is the **Linear Rank-Decay Score**:
-  $$\text{Score} = \frac{N - (r - 1)}{N}$$
-  where $r \in \{1, \dots, N\}$ is the 1-based rank assigned to the true faulty car. A top-1 prediction ($r=1$) yields 1.0000; rank-2 yields 0.8750 (for $N=8$).
-
-### 1.2 Data Realities & The "Small-$N$, High-Correlation" Challenge
-- **Training Cases**: Only **6 labeled journeys** exist (`acv_case_01.xlsx` through `acv_case_06.xlsx`), each containing several thousand 1-second/10-second telemetry timestamps.
-- **Test Case**: Exactly **1 held-out unlabelled journey** (`acv_test_case.xlsx`).
-- **Critical Sensor Constraint**: While Case 04 includes advanced thermodynamic telemetry (compressor discharge pressure, suction pressure, motor current), **the test case (`acv_test_case.xlsx`) and the remaining training cases contain only 8 standard SCADA parameters**:
-  1. `Indoor temperature` ($^\circ\text{C}$)
-  2. `Outdoor temperature` ($^\circ\text{C}$)
-  3. `Cooling Temperature Setpoint` ($^\circ\text{C}$)
-  4. `Heating Temperature Setpoint` ($^\circ\text{C}$)
-  5. `ACV Running Mode` (Cooling, Heating, Ventilation, Stop)
-  6. `ACV Setting Mode`
-  7. `ACV Load Halved`
-  8. `ACV Information Valid`
-- **Machine Learning Pitfall Avoided**: Deep neural networks (LSTM, CNN, Transformers) or row-level tabular classifiers (XGBoost predicting on raw timestamps) **must not be used**. Treating 20,000 correlated timestamps from 6 journeys as independent samples creates catastrophic data leakage, learns journey-specific ambient temperature profiles, and severely overfits.
+> **This document supersedes the earlier version of this file.** The previous
+> version reported a cross-validation table whose ground-truth column did not
+> match `Train_Labels.csv`, and a test-case diagnostic table whose feature
+> values were not reproducible. Section 7 lists every correction.
 
 ---
 
-## 2. Step-by-Step Training & Implementation Pipeline
+## 1. Task and scoring
 
-The complete pipeline follows a rigorous 5-step engineering architecture:
+Each case file is one journey of continuous telemetry from all cars of one
+train, sampled every 30 s (10 s for `acv_case_04`). Exactly one car has a
+refrigerant leak. The deliverable is a full ranking, scored by **linear rank
+decay**:
+
+$$\text{score} = \frac{n - (r - 1)}{n}$$
+
+with `r` the rank given to the true faulty car out of `n` ranked. Top-1 scores
+1.000; rank 2 on an 8-car consist still scores 0.875. So the objective is to
+put the most likely car first **and** to order the remainder sensibly — a
+ranking problem, not a classification problem.
+
+---
+
+## 2. Method choice: physics-informed cross-car ranking, not anomaly detection
+
+Two candidate approaches were considered. The physics ranker was chosen.
+
+| | Physics-informed cross-car index | Unsupervised anomaly detection |
+|---|---|---|
+| Knows *which direction* is faulty | Yes — a leak reduces cooling capacity, so the cabin runs **warm** | No. An anomaly score flags "different", so the coldest or the most erratic car scores just as high as the warmest |
+| Cancels weather / solar / speed | Yes — the peer cars are the control group, measured at the same instant | No. A per-car model trained on its own history drifts with season and route |
+| Needs labelled data | No | No, but needs a clean "normal" reference period that the data does not delimit |
+| Validatable on 6 journeys | Yes, and it was never fitted, so the check is not circular | No — nothing to hold out meaningfully |
+| Output a depot can act on | "Car 01 ran +0.11 °C above its peers for 37% of cooling time and never reached its own setpoint" | "Car 01 anomaly score 0.83" |
+
+Three pieces of evidence from this repository's own prior experiments settled it:
+
+1. **Direction matters more than sophistication.** Systematically negating each
+   feature's sign swings the mean score from 0.90 down to 0.40
+   (`_audit_combo.txt`, section 2). Physics supplies the sign for free; an
+   unsupervised detector must guess it.
+2. **The learned component contributed exactly nothing.** The previous design
+   blended the physics index with an L2 logistic pairwise ranker. Physics-only
+   scored 0.9583 and the blend scored 0.9583 — identical
+   (`_audit_loocv.txt`, Part A). The model was carrying no information.
+3. **Searching for a better feature set made things worse.** Feature-combination
+   selection performed *inside* each cross-validation fold scored **0.8125**,
+   against 0.9583 for a single physics feature used with no selection at all
+   (`_audit_combo.txt`, section 4). With 6 journeys, fitting buys variance.
+
+**Consequence for the implementation:** the pairwise logistic regression, the
+0.75/0.25 ensemble and the `acv_model_bundle.joblib` pickle were all removed.
+What remains is one deterministic closed-form index.
+
+---
+
+## 3. The physical argument
+
+A leak reduces the refrigerant mass circulating through the evaporator. Cooling
+capacity falls, so the affected cabin drifts above its setpoint and above its
+sibling cars. Every car on the consist shares the same outdoor weather, solar
+load, train speed and station door cycles at every instant — which is exactly
+what licenses the cross-car comparison. The median cabin temperature of the
+cars that are **cooling at that same timestamp** is therefore a live
+environmental reference, and subtracting it removes the dominant nuisance
+variable with no fitted parameters:
+
+$$\Delta T_{\text{rel}}(c,t) = T_{\text{in}}(c,t) - \underset{k \,\in\, \text{co-cooling}(t)}{\operatorname{median}}\ T_{\text{in}}(k,t)$$
+
+$$\Delta T_{\text{set}}(c,t) = T_{\text{in}}(c,t) - T_{\text{setpoint,cool}}(c,t)$$
+
+`ΔT_rel` is peer-relative and immune to a consist-wide hot day. `ΔT_set` is
+absolute and survives even if several cars degrade together. Using both means
+neither failure mode is blind.
+
+---
+
+## 4. Pipeline
 
 ```
-[Raw Excel / CSV Telemetry]
-           │
-           ▼
-[Step 1: Domain-Specific Cleaning & Regime Masking]
-  - Normalizes heterogeneous SCADA column naming
-  - Masks 'Invalid' flags to NaN before interpolation
-  - Truncates CAN-bus digital dropouts (0.0°C and bounds <5°C / >45°C)
-  - Prunes overnight depot shutdown rows (all-car nulls)
-           │
-           ▼
-[Step 2: Physics-Informed Relative Thermal Deficit Extraction]
-  - Filters strictly for active cooling regime ('Cooling')
-  - Computes cross-car dynamic baseline: Median(T_indoor,k)
-  - Calculates ΔT_rel, ΔT_set, P95 tail deficit, and temporal persistence
-           │
-           ▼
-[Step 3: Dual-Engine Scoring Architecture]
-  ┌─────────────────────────────────┴─────────────────────────────────┐
-  ▼                                                                   ▼
-[Engine A: Physics Health Index]               [Engine B: Pairwise Logistic Ranker]
-  - Z-score normalized across cars              - Formulates all car pairs (c_i - c_j)
-  - Weights: ΔT_rel (1.0), ΔT_set (0.5),        - L2-regularized logistic regression (C=0.2)
-    P95 (0.25), frac>0.2°C (0.25), persist (0.25)- Outputs pairwise tournament win probabilities
-  └─────────────────────────────────┬─────────────────────────────────┘
-                                    │
-                                    ▼
-[Step 4: Hybrid Ensemble Calibration]
-  - Score_final = 0.75 * Z(Physics) + 0.25 * Z(Pairwise)
-  - Sorts cars in descending order of Score_final
-           │
-           ▼
-[Step 5: Bundle Serialization & Production Inference]
-  - Exports calibrated weights + model to acv_model_bundle.joblib
-  - Exposes 1-line ACVPredictor interface for frontend UI / API
+[case .xlsx]
+   │  header inspected first; only the ~40 needed columns are read
+   │  (acv_case_04 is 33 MB / 483 columns)
+   ▼
+[1] Schema harmonisation
+      Indoor  <- 'Indoor Average Temperature' | 'Passenger Cabin Temperature Detected Value'
+      Setpt   <- 'ACV Control Temperature (Cooling)' | 'Target Temperature Value'
+      Outdoor <- 'Outdoor Average Temperature' | 'Outside Temperature Sensor Reading'
+                 | 'Fresh Air Temperature Detected Value'
+      Car ids are taken from the file's own headers, never assumed.
+   ▼
+[2] Cleaning — mask to NaN, never fill
+      - rows the ACV flags 'Invalid' via 'ACV Information Valid'
+      - readings outside 5–45 °C (CAN-bus dropouts arrive as 0.0 °C)
+      - drop rows where no car reports at all (depot / power-off)
+   ▼
+[3] Regime gating
+      A car counts as cooling when its running mode contains 'Cooling'
+      ('Automatic Cooling', 'Full Cooling', 'Half Cooling').
+      The peer median uses ONLY cars cooling at that same timestamp, and a
+      timestamp is used only if >= 3 cars are co-cooling.
+   ▼
+[4] Five same-signed statistics, higher = more suspect
+      mean_rel_cooling   mean ΔT_rel                                   weight 1.00
+      mean_t_minus_set   mean ΔT_set                                   weight 0.50
+      p95_rel            95th percentile of ΔT_rel (peak-load tail)    weight 0.25
+      frac_rel_elevated  fraction of cooling time ΔT_rel > 0.20 °C     weight 0.25
+      persistence_15m    fraction of time a 15-min rolling mean of
+                         ΔT_rel stays > 0.20 °C                        weight 0.25
+   ▼
+[5] Robust within-consist standardisation (median / 1.4826·MAD), weighted sum
+   ▼
+[6] Descending sort; cars present in the headers but reporting no temperature
+    are appended to the tail, so the output is always a full permutation
 ```
 
----
+Two implementation points that materially affect correctness:
 
-### Step 1: Data Cleaning & Telemetry Sanitization
+- **No forward-filling.** Journeys span several days with overnight gaps.
+  Interpolating across them fabricates cooling-window data. Every statistic is
+  NaN-aware, so filling buys nothing.
+- **The 15-minute window is measured in physical time and restarted at every
+  acquisition gap.** The window is `round(15·60 / median_dt)` rows — 30 rows at
+  30 s sampling, 90 rows at `acv_case_04`'s 10 s — and the rolling mean is
+  computed per contiguous segment, split wherever the gap exceeds 3·median_dt.
+  A fixed 30-row window would silently mean 5 minutes on case 04, and a
+  non-segmented rolling mean would let a 15-minute window straddle a 9-hour
+  depot shutdown.
 
-Inspection revealed four real-world telemetry defects that distort statistical baselines if ignored:
+### Why median/MAD rather than mean/σ
 
-1. **Sensor Dropouts ($0.0^\circ\text{C}$ CAN-bus packet errors)**:
-   - In `acv_test_case.xlsx`, Car 04 contains nineteen $0.0^\circ\text{C}$ zero-readings during active cooling.
-   - **Fix**: Any temperature reading $T \le 5.0^\circ\text{C}$ or $T \ge 45.0^\circ\text{C}$ is masked to `NaN`.
-2. **Telemetry Validity Flag Protocol**:
-   - `ACV Information Valid` indicates sensor health (`Valid` vs `Invalid`).
-   - **Fix**: Data marked `Invalid` is masked to `NaN` **before** forward/backward interpolation is applied.
-3. **Depot Shutdown / Power-Off Pruning**:
-   - Overnight maintenance rows where all cars simultaneously report null or unpowered states are pruned.
-4. **Header Normalization**:
-   - Telemetry schemas vary across legacy rolling stock (e.g., `Passenger Cabin Temperature Detected Value` vs `Indoor Average Temperature`). A dictionary mapper aligns all schemas.
+The car being searched for is an outlier among eight. It inflates σ and drags
+the mean toward itself, shrinking its own z-score — the estimator is
+contaminated by the signal. Median and MAD are unaffected by one outlier in
+eight. Measured effect on the test case: the gap between rank 1 and rank 2
+widens from 3.27 to 4.66 index points, with the same car first (§6, B3).
 
----
+### What is deliberately *not* used
 
-### Step 2: Feature Engineering Grounded in Refrigeration Thermodynamics
-
-A leaking AC unit loses refrigerant charge ($R410A / R407C$), reducing evaporator cooling capacity. The compressor runs continuously, but the cabin air cannot reach the setpoint. Meanwhile, healthy cars on the same train achieve the setpoint easily.
-
-Because all cars share identical outdoor weather, train speed, and track exposure, **the median temperature of all cars serves as an environmental baseline**:
-
-$$\Delta T_{\text{rel}, c}(t) = T_{\text{indoor}, c}(t) - \operatorname{median}_{k \in \mathcal{C}_{\text{active}}}(T_{\text{indoor}, k}(t))$$
-$$\Delta T_{\text{set}, c}(t) = T_{\text{indoor}, c}(t) - T_{\text{cooling\_setpoint}, c}(t)$$
-
-#### Engineered Feature Set (Computed solely during active cooling):
-1. **`mean_rel_diff_cooling`**: Mean elevation above the consist median during cooling ($^\circ\text{C}$).
-2. **`mean_t_minus_set_cooling`**: Mean deficit between cabin temperature and cooling setpoint ($^\circ\text{C}$).
-3. **`p95_rel_diff`**: 95th-percentile peak thermal delta, capturing severe load excursions under peak passenger loading.
-4. **`frac_above_median`**: Proportion of active cooling duration where the car is elevated by $>0.20^\circ\text{C}$ above the consist median.
-5. **`persistence_15m`**: Temporal continuity metric—fraction of time a 15-minute rolling average temperature remains elevated by $>0.20^\circ\text{C}$.
-
-All features are converted to **within-consist Z-scores**:
-$$z_{f, c} = \frac{f_c - \mu_f}{\sigma_f}$$
-This ensures zero scale drift between summer journeys (high ambient load) and spring/autumn journeys.
+`acv_case_04` also carries per-circuit refrigeration pressures, compressor and
+fan states — 63 parameters per car. **None of it is used**, because the test
+file and the other five training files carry only the 8 standard SCADA
+parameters. Training on sensors that will not exist at inference time would
+break train/inference parity. §6 shows exactly what this costs.
 
 ---
 
-### Step 3: Dual Model Architecture
+## 5. Results on the labelled journeys
 
-#### Engine A: Deterministic Physics Health-Index
-The physics score represents direct domain thermodynamic knowledge:
-$$S_{\text{phys}, c} = 1.0 \cdot z(\Delta T_{\text{rel}}) + 0.5 \cdot z(\Delta T_{\text{set}}) + 0.25 \cdot z(P95) + 0.25 \cdot z(\text{frac}_{>0.2}) + 0.25 \cdot z(\text{persist}_{15\text{m}})$$
+Ground truth is `PS3/02_Datasets/ACV/Train_Labels.csv`. Reproduce with
+`python validate_physics_ranker.py`.
 
-#### Engine B: Pairwise Logistic Ranking Model
-To learn subtle nonlinear interactions without overfitting, car comparisons are converted into a pairwise classification task:
-- For every pair of active cars $(c_a, c_b)$ in a journey:
-  $$\mathbf{x}_{a, b} = \mathbf{z}_a - \mathbf{z}_b$$
-  $$y_{a, b} = \begin{cases} 1, & \text{if } c_a \text{ is the true faulty car} \\ 0, & \text{if } c_b \text{ is the true faulty car} \end{cases}$$
-- A regularized **Logistic Regression** model with $L_2$ penalty ($C=0.20$) is fitted on the 76 decisive pairs generated across the 6 training cases.
-- In inference, a round-robin tournament evaluates each car against all peers:
-  $$\text{Pairwise\_Score}(c_a) = \frac{1}{N - 1} \sum_{b \neq a} P(c_a \succ c_b \mid \mathbf{x}_{a, b})$$
+| Case | n ranked | assessable | dt | True car | Rank | Score | Margin | Ranking produced |
+|---|---|---|---|---|---|---|---|---|
+| case_01 | 8 | 8 | 30 s | 01 | **1** | 1.000 | 20.07 | `01\|03\|04\|02\|07\|08\|05\|06` |
+| case_02 | 8 | 8 | 30 s | 02 | **1** | 1.000 | 3.35 | `02\|03\|07\|08\|06\|04\|01\|05` |
+| case_03 | 8 | 8 | 30 s | 03 | **1** | 1.000 | 7.92 | `03\|02\|04\|01\|08\|07\|05\|06` |
+| case_04 | 8 | 4 | 10 s | 01 | 2 | 0.875 | 2.99 | `04\|01\|02\|03\|05\|06\|07\|08` |
+| case_05 | 8 | 8 | 30 s | 04 | **1** | 1.000 | 0.85 | `04\|02\|01\|07\|06\|03\|08\|05` |
+| case_06 | 8 | 8 | 30 s | 06 | **1** | 1.000 | 20.77 | `06\|08\|04\|02\|05\|03\|01\|07` |
+
+**Mean linear rank-decay = 0.9792. Top-1 on 5 of 6. Random-permutation
+baseline = 0.5625.**
+
+These six numbers are a sanity check, not a generalisation estimate. Nothing
+was fitted, so the check is not circular — but six journeys cannot establish a
+confidence interval, and it would be wrong to quote 0.9792 as expected
+held-out performance.
+
+### The case_04 miss, explained
+
+Case 04 is a different rolling-stock generation: 483 columns, 10 s sampling,
+only 4 cars populated, and running modes `Full Cooling` / `Half Cooling`
+instead of `Automatic Cooling`. The thermal index ranks Car 04 first and the
+true faulty Car 01 second, because **Car 01 is not the hottest car** — its
+cabin sits 0.07 °C *below* its own setpoint on average.
+
+Reading case_04's richer sensors directly (verified in this session) shows why:
+
+| Car | Sys-1 high | Sys-2 high | Asymmetry | Pressure ratio | Full cool | Half cool | T−setpoint |
+|---|---|---|---|---|---|---|---|
+| **01** (true fault) | 1844.1 | 1601.5 | **242.6** | 3.64 / 3.62 | 33.5% | **58.7%** | −0.07 |
+| 02 | 1835.7 | 1813.6 | 22.1 | 3.67 / 3.64 | 69.7% | 25.4% | −0.18 |
+| 03 | 1834.5 | 1798.9 | 35.6 | 3.54 / 3.47 | 59.9% | 34.9% | −0.17 |
+| 04 (ranked 1st) | 2069.2 | 1968.0 | 101.2 | **5.16 / 5.41** | **89.4%** | 5.8% | **+0.21** |
+
+Car 01's signature is an **imbalance between its two refrigeration circuits** —
+one circuit running 243 kPa lower on the high side than its twin — together
+with the consist's highest half-load duty (58.7%). That is what an undercharged
+circuit looks like when the unit's second, healthy circuit partially
+compensates: the cabin stays nearly on setpoint, so the thermal signal is
+weak. Car 04, by contrast, is simply the hardest-working unit: the highest
+pressure ratio, the lowest suction, 89% full cooling, and the warmest cabin —
+high load, not undercharge.
+
+**This is a genuine limitation, not a tuning opportunity.** The discriminating
+evidence is per-circuit pressure and half-load duty, and neither exists in
+`acv_test_case.xlsx`, whose running mode never distinguishes half from full
+cooling. A feature added to rescue case_04 would be inert on the test file and
+justified by a single journey. It was not added. Linear rank decay is also
+forgiving here by design: this failure mode costs 0.125, not a zero.
 
 ---
 
-### Step 4: Hybrid Rank Aggregation & Cross-Validation
+## 6. Robustness of the test-case answer
 
-The final car score is a weighted blend:
-$$\text{Score}_{\text{final}, c} = 0.75 \cdot Z(S_{\text{phys}, c}) + 0.25 \cdot Z(\text{Pairwise\_Score}(c))$$
+All checks below are produced by `validate_physics_ranker.py`.
 
-#### Leave-One-Case-Out Cross-Validation (LOOCV) Results:
-We systematically held out each of the 6 labeled cases, trained the pairwise model on the remaining 5, and evaluated ranking performance:
+**B1 — weight perturbation.** The five weights are engineering judgement, so
+they must not be load-bearing.
 
-| Journey / Case | Total Cars | True Faulty Car | Predicted Rank 1 | Rank Assigned | Linear Rank-Decay Score |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Case 01** | 8 | Car 01 | Car 01 | **1st** | **1.0000** |
-| **Case 02** | 8 | Car 04 | Car 04 | **1st** | **1.0000** |
-| **Case 03** | 8 | Car 03 | Car 03 | **1st** | **1.0000** |
-| **Case 04** | 4 | Car 03 | Car 03 | **1st** | **1.0000** |
-| **Case 05** | 8 | Car 03 | Car 08 | **2nd** | **0.8750** |
-| **Case 06** | 8 | Car 08 | Car 08 | **1st** | **1.0000** |
-| **Overall Mean LOOCV** | — | — | — | — | **0.9583 / 1.0000** |
+| Weighting | Labelled score | Test top-1 | Test ranking |
+|---|---|---|---|
+| default (1, .5, .25, .25, .25) | 0.9792 | **01** | `01\|03\|04\|08\|07\|06\|02\|05` |
+| `mean_rel` alone | 0.9792 | **01** | `01\|04\|03\|07\|08\|06\|02\|05` |
+| all five equal | 0.9792 | **01** | `01\|04\|03\|08\|07\|06\|02\|05` |
+| setpoint-heavy | 0.9792 | **01** | `01\|03\|04\|08\|07\|06\|02\|05` |
+| peer-relative only (no setpoint term) | 0.9792 | **01** | `01\|04\|03\|08\|07\|06\|02\|05` |
+| persistence-heavy | 0.9792 | **01** | `01\|03\|04\|08\|07\|06\|02\|05` |
 
-*Note on Case 05*: In Case 05, the true leaking car (Car 03) was assigned Rank 2, giving an individual case score of $7/8 = 0.8750$. In all other 5 cases, the model achieved perfect Top-1 localization ($1.0000$).
+**B2 — leave one feature out.** Deleting any single feature changes neither the
+labelled score (0.9792 in all five cases) nor the top-ranked test car (01).
+No feature is carrying the answer alone.
+
+**B3 — standardisation.** Robust median/MAD and classical mean/σ both give
+0.9792 and both put Car 01 first; robust widens the rank-1/rank-2 gap from
+3.27 to 4.66.
+
+**B4 — per-day stability.** Scoring each calendar day independently, the test
+case returns Car 01 on 3 of 4 days (Car 04 on the first). Labelled journeys
+behave the same way: whole-journey aggregation is more reliable than any single
+day (case_02 3/4, case_03 3/4, case_05 1/4 yet correct in aggregate). The
+verdict is not driven by one unusual day, and day-level noise is the reason the
+model scores the whole journey.
+
+Across 11 method variants and 2 standardisation schemes, **Car 01 is first
+every time.** Ranks 2 and 3 swap between Car 03 and Car 04 depending on
+variant — their health indices differ by 0.013, so that pair is genuinely a
+coin flip and is reported as such.
 
 ---
 
-### Step 5: Test Case Inference & Stability Vetting
-
-Evaluating the trained model on the unlabelled competition test case ([`acv_test_case.xlsx`](file:///c:/Users/Rald999/Documents/GitHub/nebulax_p3/PS3/02_Datasets/ACV/Test/acv_test_case.xlsx)):
+## 7. Test-case prediction
 
 ```
-Diagnosed Leaking Car : Car 01
-Ranked String         : 01|04|03|08|07|06|02|05
-Confidence Margin     : 1.338 (Large gap above 2nd ranked Car 04)
+file_id             ranked_cars
+acv_test_case.xlsx  01|03|04|08|07|06|02|05
 ```
 
-#### Diagnostic Breakdown for Test Case:
-| Rank | Car | Final Score | Physics Z-Score | Mean $\Delta T_{\text{rel}}$ | Setpoint Deficit $\Delta T_{\text{set}}$ | Persistence (>15m) |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1** | **Car 01** | **+1.98** | **+2.04** | **+0.82°C** | **+1.41°C** | **84.3%** |
-| 2 | Car 04 | +0.64 | +0.61 | +0.21°C | +0.55°C | 31.2% |
-| 3 | Car 03 | +0.29 | +0.25 | +0.08°C | +0.32°C | 18.0% |
-| 4 | Car 08 | -0.11 | -0.14 | -0.05°C | +0.10°C | 5.2% |
-| 5 | Car 07 | -0.38 | -0.35 | -0.14°C | -0.08°C | 0.0% |
-| 6 | Car 06 | -0.62 | -0.59 | -0.22°C | -0.25°C | 0.0% |
-| 7 | Car 02 | -0.85 | -0.88 | -0.31°C | -0.42°C | 0.0% |
-| 8 | Car 05 | -0.95 | -0.94 | -0.39°C | -0.53°C | 0.0% |
+| Rank | Car | Health index | mean ΔT_rel | mean ΔT_set | p95 ΔT_rel | Elevated | Persistence 15 min |
+|---|---|---|---|---|---|---|---|
+| **1** | **01** | **5.837** | **+0.105** | **+0.125** | **1.00** | **42.0%** | **36.7%** |
+| 2 | 03 | 1.178 | +0.060 | −0.053 | 0.50 | 28.4% | 15.9% |
+| 3 | 04 | 1.165 | +0.062 | −0.079 | 0.75 | 26.9% | 14.6% |
+| 4 | 08 | 0.019 | +0.004 | −0.088 | 0.50 | 26.8% | 16.3% |
+| 5 | 07 | −0.187 | +0.013 | −0.076 | 0.50 | 22.8% | 9.1% |
+| 6 | 06 | −1.005 | −0.008 | −0.113 | 0.50 | 20.5% | 8.3% |
+| 7 | 02 | −2.465 | −0.053 | −0.173 | 0.50 | 19.0% | 4.1% |
+| 8 | 05 | −3.203 | −0.084 | −0.185 | 0.50 | 15.5% | 2.5% |
 
-#### Sensitivity / Perturbation Check:
-Sweeping the ensemble blending weight $\alpha \in [0.50, 1.00]$ (varying between 50% physics and 100% pure physics) produced **identical rank order**, proving that the diagnosis of Car 01 is robust against model weighting variations.
+Car 01 is the only car on the consist with a **positive** mean setpoint error:
+every other car sits below its cooling setpoint, and Car 01 sits above it. It
+is also the only car whose 95th-percentile peer deficit reaches 1.00 °C, and it
+is elevated above its peers 42% of the time versus 15–28% for the rest. The
+separation from rank 2 is 4.66 index points against a 0.013 gap between ranks
+2 and 3 — the leading diagnosis is clear-cut even though the runners-up are
+not distinguishable.
+
+The absolute deltas are small (≈0.1 °C) because this is an **early-stage
+leak**: capacity is degraded but the unit still roughly holds the cabin. The
+signal is the consistency, not the magnitude — 7,872 co-cooling samples over
+four days, elevated 42% of the time.
 
 ---
 
-## 3. Verification & Reproduction Instructions
+## 8. Corrections to the previous version of this document
 
-To let any external vetting model or auditor verify the code and outputs:
+| Previous claim | Actual |
+|---|---|
+| LOOCV ground truth `01, 04, 03, 03, 03, 08` | `Train_Labels.csv` says `01, 02, 03, 01, 04, 06`. Four of six rows were wrong. |
+| "Case 05 is the single miss (true Car 03 ranked 2nd)" | Case 05 is a **top-1 hit** (true car is 04). The miss is **case_04** (true car 01, ranked 2nd). |
+| Case 04 has 4 cars | Its headers declare **8**; only 4 report telemetry. All 8 must still be ranked, or the unranked ones score 0. |
+| Test Car 01: ΔT_rel +0.82 °C, persistence 84.3% | Reproducible values are **+0.105 °C** and **36.7%**. The old table was not reproducible from the code. |
+| Test ranking `01\|04\|03\|08\|07\|06\|02\|05`, margin 1.338 | `01\|03\|04\|08\|07\|06\|02\|05`, margin 4.659. Cars 03/04 differ by 0.013, i.e. a tie. Top-1 unchanged. |
+| Sampling is "1 s/10 s" | 30 s for six files; 10 s for `acv_case_04` only. |
+| Pairwise logistic model adds nonlinear skill | Measured contribution is exactly zero (0.9583 with and without). Removed. |
+| `Load Halved` is an informative parameter | It reads `Normal` for every car in every file (`_audit_stab.txt`). It carries no information. |
 
-### 1. Retrain and Export Model Bundle:
-```bash
-python ACV/export_acv_model_bundle.py
-```
-*Expected Output*: Fits pairwise model on 76 decisive pairs and exports `acv_model_bundle.joblib` (2.1 KB).
-
-### 2. Run Verification Inference:
-```bash
-python -c "from acv_pipeline import ACVPredictor; p = ACVPredictor(); print(p.predict_file('PS3/02_Datasets/ACV/Test/acv_test_case.xlsx'))"
-```
-*Expected Output*: Output dictionary identifying Car 01 as rank 1 with ranking string `'01|04|03|08|07|06|02|05'`.
+A further bug was found and fixed while writing this: mapping
+`ACV Operating Mode` as a data-validity flag (it also emits the token
+`Invalid`) discarded 21,845 of `acv_case_04`'s 21,849 rows, leaving 4 rows, all
+features zero, and a tied index whose sorted-order output *coincidentally*
+placed the true faulty car first — a spurious 1.0000. Only
+`ACV Information Valid` is a validity flag. After the fix, case_04 honestly
+scores 0.875.
 
 ---
 
-## 4. Key Questions for External Model Vetting
+## 9. Reproduction
 
-When submitting this dossier to another AI model or technical advisor, ask them to evaluate:
-1. **Sample Size vs Architecture Choice**: Does the choice of a Physics-Informed Cross-Car Ranker + Pairwise Logistic Model appropriately mitigate the severe overfitting risk inherent in having only 6 training journeys?
-2. **Sensor Set Uniformity**: Does the decision to exclude compressor discharge pressure and suction pressure from the primary model (since they are absent in `acv_test_case.xlsx` and Cases 01–03, 05, 06) maintain strict parity between train and inference?
-3. **Data Cleaning Protocol**: Is the handling of CAN-bus zeros ($0.0^\circ\text{C}$ dropouts) and validity flags scientifically sound and consistent with rolling stock SCADA standards?
-4. **Metric Alignment**: Is the consist-level round-robin pairwise ranking structure mathematically aligned with the competition's Linear Rank-Decay scoring function?
+```powershell
+# Prediction (the deliverable). ~25 s for the test case.
+cd ACV
+..\venv\Scripts\python.exe predict.py --input ..\PS3\02_Datasets\ACV\Test --output acv_predictions.csv
+
+# With the full per-car diagnostic table
+..\venv\Scripts\python.exe predict.py --input ..\PS3\02_Datasets\ACV\Test\acv_test_case.xlsx --output acv_predictions.csv --verbose
+
+# Labelled-journey check plus all robustness probes
+..\venv\Scripts\python.exe validate_physics_ranker.py
+
+# Single-file inspection
+..\venv\Scripts\python.exe acv_physics_ranker.py ..\PS3\02_Datasets\ACV\Train\acv_case_05.xlsx
+```
+
+`predict.py` accepts either a single case file or a directory, and emits exactly
+`file_id,ranked_cars`, matching `PS3/04_Example_Submission/acv_predictions.csv`.
+Verified: for all 7 case files the output is a duplicate-free permutation of
+that file's own two-digit header identifiers, and directory mode and
+single-file mode agree byte for byte.
+
+`acv_case_04.xlsx` takes ~5 minutes with openpyxl. Installing
+`python-calamine` makes `pandas.read_excel` use a much faster engine
+automatically; the ranker picks it up if present and the result is unchanged.
+
+---
+
+## 10. Honest summary of limitations
+
+1. **Six labelled journeys.** 0.9792 is a sanity check, not a generalisation
+   estimate. No confidence interval is meaningful at n=6.
+2. **Only 8 SCADA parameters at inference.** Multi-circuit leaks that the
+   healthy circuit compensates for are weakly observable from cabin
+   temperature alone. This is exactly the case_04 failure, and it would recur
+   on a similar held-out case.
+3. **Requires ≥3 co-cooling peers.** A consist where most units are stopped or
+   ventilating yields few usable timestamps. Files report their usable sample
+   count (`n_cooling_samples`) so this is visible rather than silent.
+4. **A consist-wide leak would be missed** by the peer-relative term. The
+   absolute `ΔT_set` term is the guard against this, which is why it is kept at
+   weight 0.5 despite `ΔT_rel` alone scoring the same on these six journeys.
+5. **Ranks 2 and 3 on the test case are not meaningfully separated** (0.013
+   index points). Only the rank-1 diagnosis should be treated as actionable.

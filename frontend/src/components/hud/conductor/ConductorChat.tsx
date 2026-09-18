@@ -94,12 +94,22 @@ export const ConductorChat: React.FC<ConductorChatProps> = ({ compact = true }) 
     <div className="relative flex flex-col h-full min-h-0">
       {confirmRestart && (
         <div className="absolute inset-0 z-10 bg-white/95 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-[260px] text-center space-y-3">
-            <p className="text-xs text-slate-700 leading-relaxed">
-              Restart the setup walkthrough? This takes over the screen to pick a subsystem and upload
-              data again.
-            </p>
-            <div className="flex items-center justify-center gap-2">
+          <div className="w-full max-w-[280px] text-center space-y-3">
+            <div className="text-xs text-slate-700 leading-relaxed space-y-2">
+              <p className="font-semibold text-slate-800">
+                Available subsystems:
+              </p>
+              <div className="flex flex-wrap justify-center gap-1 text-[11px] text-slate-600">
+                <span className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">Air conditioning</span>
+                <span className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">Passenger doors</span>
+                <span className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">Rail corrugation</span>
+                <span className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">Structural health (SHM)</span>
+              </div>
+              <p className="pt-1">
+                Pick a subsystem to upload the data for that specific subsystem? This will open the walkthrough setup.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-2 pt-1">
               <button
                 onClick={() => setConfirmRestart(false)}
                 className="px-3 py-1.5 rounded text-label font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 transition-colors duration-150"
@@ -113,7 +123,7 @@ export const ConductorChat: React.FC<ConductorChatProps> = ({ compact = true }) 
                 }}
                 className="px-3 py-1.5 rounded text-label font-semibold text-white bg-ink-900 hover:bg-ink-700 transition-colors duration-150"
               >
-                Restart
+                Continue
               </button>
             </div>
           </div>
