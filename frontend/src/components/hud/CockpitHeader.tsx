@@ -5,7 +5,6 @@ import {
   Eye,
   GraduationCap,
   Layout,
-  Radio,
   ShieldCheck,
   SlidersHorizontal,
   Train,
@@ -53,7 +52,6 @@ function worstSubsystem(
 
 export const CockpitHeader: React.FC = () => {
   const currentFrame = useTwinStore((state) => state.currentFrame);
-  const isConnected = useTwinStore((state) => state.isConnected);
   const xrayMode = useTwinStore((state) => state.xrayMode);
   const toggleXray = useTwinStore((state) => state.toggleXray);
   const cameraMode = useTwinStore((state) => state.cameraMode);
@@ -291,14 +289,6 @@ export const CockpitHeader: React.FC = () => {
               </button>
             </div>
           )}
-        </div>
-
-        {/* Connection status */}
-        <div className="glass-panel px-2.5 py-1.5 rounded flex items-center space-x-1.5 text-xs font-mono">
-          <Radio className={`w-3 h-3 ${isConnected ? 'text-status-nominal' : 'text-status-fault animate-pulse'}`} />
-          <span className={`text-label ${isConnected ? 'text-status-nominal' : 'text-status-fault'}`}>
-            {isConnected ? 'LIVE' : 'OFFLINE'}
-          </span>
         </div>
       </div>
     </header>

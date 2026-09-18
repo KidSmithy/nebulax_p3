@@ -59,9 +59,9 @@ export const MetricReadout: React.FC<MetricReadoutProps> = ({
 
   return (
     <div className={`rounded border ${styles.border} ${styles.bg} ${compact ? 'p-1.5' : 'p-2'}`}>
-      <div className="flex items-start justify-between gap-1">
+      <div className="flex items-start justify-between gap-1 min-h-[23px]">
         <div className="flex items-center gap-1 min-w-0">
-          <span className="text-[9.5px] font-semibold text-slate-600 leading-tight">
+          <span className="text-[9.5px] font-semibold text-slate-600 leading-tight line-clamp-2">
             {label}
           </span>
           <InfoTip
@@ -125,9 +125,11 @@ export const MetricReadout: React.FC<MetricReadoutProps> = ({
         </div>
       )}
 
-      {footnote && (
-        <div className="mt-1 text-label text-slate-500 font-mono truncate">{footnote}</div>
-      )}
+      {/* Always reserve this line - a footnote appearing/disappearing between
+          live frames must not resize the card. */}
+      <div className="mt-1 text-label text-slate-500 font-mono truncate min-h-[14px]">
+        {footnote ?? ' '}
+      </div>
     </div>
   );
 };

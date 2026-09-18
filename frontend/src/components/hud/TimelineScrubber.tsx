@@ -46,7 +46,7 @@ export const TimelineScrubber: React.FC = () => {
 
         {/* Speed Multiplier Selectors */}
         <div className="flex items-center space-x-0.5 bg-slate-100 p-0.5 rounded border border-slate-200/80 font-mono text-label shrink-0">
-          {[1.0, 2.0, 5.0, 10.0].map((spd) => (
+          {[0.5, 1.0, 2.0, 5.0, 10.0].map((spd) => (
             <button
               key={spd}
               onClick={() => setPlaybackSpeed(spd)}
