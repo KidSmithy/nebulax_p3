@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useTwinStore } from '../../store/useTwinStore';
 import { carShiftZ } from './consist';
-import { Finding } from '../../types/telemetry';
+import { Finding, Line as LineId } from '../../types/telemetry';
 import { STATUS_SHORT, STATUS_STYLES } from '../../lib/metricGlossary';
 import { ACTIONS } from '../hud/WhatIfPanel';
 
@@ -55,7 +55,7 @@ interface IssueCopy {
 }
 
 /** AI-written card copy for one subsystem; the backend caches, so re-opening is cheap. */
-function useIssueCopy(type: IssueType, enabled: boolean, refetchKey: string) {
+function useIssueCopy(type: IssueType, enabled: boolean, refetchKey: string, line: LineId, car: number) {
   const [copy, setCopy] = useState<IssueCopy | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -66,7 +66,7 @@ function useIssueCopy(type: IssueType, enabled: boolean, refetchKey: string) {
     fetch('/api/ai/issue', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subsystem: type }),
+      body: JSON.stringify({ subsystem: type, line, car }),
     })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
       .then((data) => {
@@ -78,7 +78,7 @@ function useIssueCopy(type: IssueType, enabled: boolean, refetchKey: string) {
     return () => {
       cancelled = true;
     };
-  }, [type, enabled, refetchKey]);
+  }, [type, enabled, refetchKey, line, car]);
 
   return { copy, failed };
 }
@@ -88,7 +88,9 @@ export const InspectionTag: React.FC<InspectionTagProps> = ({ type, position, be
   const setActiveInspection = useTwinStore((state) => state.setActiveInspection);
   const setSelectedSubsystem = useTwinStore((state) => state.setSelectedSubsystem);
   const setRightDrawerTab = useTwinStore((state) => state.setRightDrawerTab);
-  const finding = useTwinStore((state) => state.currentFrame?.latest_upload_results?.[type]);
+  const finding = useTwinStore((state) => state.currentFrame?.uploads_by_line?.[state.activeLine]?.[type]);
+  const activeLine = useTwinStore((state) => state.activeLine);
+  const monitoredCarNo = useTwinStore((state) => state.monitoredCar);
   const resolveFinding = useTwinStore((state) => state.resolveFinding);
   const isHudVisible = useTwinStore((state) => state.isHudVisible);
   // Bubbles are sized for close inspection; zoomed far out they stack into an
@@ -102,7 +104,13 @@ export const InspectionTag: React.FC<InspectionTagProps> = ({ type, position, be
   });
 
   const isActive = activeInspection === type;
-  const { copy, failed } = useIssueCopy(type, isActive && Boolean(finding), finding?.file_name ?? '');
+  const { copy, failed } = useIssueCopy(
+    type,
+    isActive && Boolean(finding),
+    finding?.file_name ?? '',
+    activeLine,
+    monitoredCarNo
+  );
 
   // A bubble exists only for an unresolved uploaded finding: it appears when
   // the upload lands and stays until Resolve, which clears it and logs it.

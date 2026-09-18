@@ -3,6 +3,7 @@ import { Activity, ChevronDown, ChevronUp, DoorOpen, GitCommit, ReceiptText, Win
 import { useTwinStore } from '../../store/useTwinStore';
 import { STATUS_STYLES } from '../../lib/metricGlossary';
 import { ACTIONS } from './WhatIfPanel';
+import { LINES } from '../../lib/lines';
 
 const SUBSYSTEM_ICON: Record<string, React.FC<{ className?: string }>> = {
   door: DoorOpen,
@@ -99,9 +100,12 @@ export const ResolvedLogPanel: React.FC = () => {
                           <span className="text-[11px] font-semibold text-slate-800 truncate">
                             {SUBSYSTEM_LABEL[entry.subsystem] ?? entry.subsystem}
                           </span>
-                          {entry.car != null && (
-                            <span className="text-label text-slate-400 font-mono shrink-0">Car {entry.car}</span>
-                          )}
+                          <span className="text-label font-mono shrink-0 text-slate-400">
+                            <span className={`font-bold ${LINES[entry.line ?? 'NSL'].textClass}`}>
+                              {entry.line ?? 'NSL'}
+                            </span>
+                            {entry.car != null && ` · Car ${entry.car}`}
+                          </span>
                         </div>
                         <span className="text-label font-mono text-slate-400 shrink-0">{time}</span>
                       </div>

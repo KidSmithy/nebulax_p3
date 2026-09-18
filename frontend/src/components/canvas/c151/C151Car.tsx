@@ -12,6 +12,29 @@ const MODEL_URLS = {
 
 export type C151Variant = keyof typeof MODEL_URLS;
 
+/** The model's livery is baked into its body texture as red; 'green' recolours those pixels. */
+export type C151Livery = 'red' | 'green';
+
+/**
+ * Swaps the red stripe of the body texture to green in the shader: any pixel where
+ * red clearly dominates has its red and green channels exchanged. White, grey and
+ * black body paint have no dominant channel, so they are untouched.
+ */
+function greenLivery(material: THREE.Material): THREE.Material {
+  const mat = material.clone();
+  mat.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <map_fragment>',
+      `#include <map_fragment>
+       float redDominance = diffuseColor.r - max(diffuseColor.g, diffuseColor.b);
+       float redMask = smoothstep(0.08, 0.3, redDominance);
+       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(diffuseColor.b * 0.6, diffuseColor.r * 0.85, diffuseColor.b * 0.7), redMask);`
+    );
+  };
+  mat.customProgramCacheKey = () => 'c151-green-livery';
+  return mat;
+}
+
 interface DoorLeaf {
   node: THREE.Object3D;
   name: string;
@@ -66,6 +89,7 @@ export interface C151CarProps {
   variant: C151Variant;
   position?: [number, number, number];
   yaw?: number;
+  livery?: C151Livery;
   /** Every door pair cycles together, driven by the monitored door's own telemetry. */
   doorCycleState?: string;
   doorAnomalyScore?: number;
@@ -170,6 +194,7 @@ export const C151Car: React.FC<C151CarProps> = ({
   variant,
   position = [0, 0, 0],
   yaw = 0,
+  livery = 'red',
   doorCycleState = 'CLOSED_LOCKED',
   doorAnomalyScore = 0,
   bogieStressIntensity,
@@ -178,7 +203,18 @@ export const C151Car: React.FC<C151CarProps> = ({
   onReady,
 }) => {
   const { scene } = useGLTF(MODEL_URLS[variant]) as unknown as { scene: THREE.Group };
-  const car = useMemo(() => scene.clone(true), [scene]);
+  const car = useMemo(() => {
+    const clone = scene.clone(true);
+    if (livery === 'green') {
+      clone.traverse((node) => {
+        const mesh = node as THREE.Mesh;
+        if (mesh.isMesh && !Array.isArray(mesh.material) && mesh.material.name === 'MRT_Body') {
+          mesh.material = greenLivery(mesh.material);
+        }
+      });
+    }
+    return clone;
+  }, [scene, livery]);
   const doors = useMemo(() => getDoorLeaves(car), [car]);
   const ghostLeaves = useRef<DoorLeaf[]>([]);
   const animProgress = useRef(0);

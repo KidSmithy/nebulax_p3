@@ -13,6 +13,7 @@ import { ConductorChat } from './ConductorChat';
 export const ConductorExpanded: React.FC = () => {
   const setConductorState = useTwinStore((s) => s.setConductorState);
   const monitoredCar = useTwinStore((s) => s.monitoredCar);
+  const activeLine = useTwinStore((s) => s.activeLine);
   const beginner = useTwinStore((s) => s.uiMode) === 'beginner';
   const { orderedItems, isPromoted } = useMonitoredItems();
   const [monitoredOpen, setMonitoredOpen] = useState(true);
@@ -29,7 +30,7 @@ export const ConductorExpanded: React.FC = () => {
           <div className="min-w-0">
             <div className="text-sm font-bold text-slate-900 leading-tight">Conductor</div>
             <div className="text-label text-slate-500 leading-tight truncate">
-              Car {monitoredCar} · reading live data
+              {activeLine} · Car {monitoredCar} · reading live data
             </div>
           </div>
         </div>

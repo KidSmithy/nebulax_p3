@@ -1,10 +1,12 @@
 import { create } from 'zustand';
+import { DEFAULT_CAR, LINE_IDS } from '../lib/lines';
 import {
   AIAnswer,
   AIInsight,
   ActiveInterventions,
   CameraPreset,
   Finding,
+  Line,
   LogEntry,
   SubsystemSelection,
   UiMode,
@@ -23,8 +25,31 @@ const EMPTY_INTERVENTIONS: ActiveInterventions = {
 };
 
 export const CAR_COUNT = 8;
-/** Which ACV finding the monitored car was last synced to (see setFrame). */
-let syncedAcvKey = '';
+
+type ConductorState = 'docked' | 'popup' | 'expanded' | 'onboarding';
+
+/**
+ * Everything that belongs to one line's own Conductor and view. The active
+ * line's values live on the store's top-level fields (so components read them
+ * unchanged); only the inactive line is parked here.
+ */
+interface LineSnapshot {
+  monitoredCar: number;
+  conductorState: ConductorState;
+  aiAnswers: AIAnswer[];
+  uploadResult: Finding | null;
+  selectedSubsystem: SubsystemSelection;
+}
+
+const freshSnapshot = (): LineSnapshot => ({
+  monitoredCar: DEFAULT_CAR,
+  conductorState: 'docked',
+  aiAnswers: [],
+  uploadResult: null,
+  selectedSubsystem: 'overview',
+});
+/** Which ACV finding each line's monitored car was last synced to (see setFrame). */
+const syncedAcvKey: Record<Line, string> = { NSL: '', EWL: '' };
 const ZOOM_FOR_MODE: Record<CameraPreset, number> = { micro: 0, meso: 0.5, macro: 1 };
 
 interface TwinState {
@@ -33,6 +58,10 @@ interface TwinState {
   cameraMode: CameraPreset;
   /** 0 = close on the selected component, 0.5 = one car, 1 = all 8 cars. */
   cameraZoom: number;
+  /** Which line the scene, findings and Conductor currently belong to. */
+  activeLine: Line;
+  /** The other line's parked state (see LineSnapshot). */
+  lineSnapshots: Record<Line, LineSnapshot>;
   /** Which of the 8 cars (1-8) the scene focuses on and hangs its hotspots on. */
   monitoredCar: number;
   /** The upload's own direct response, for the onboarding walkthrough's results step. */
@@ -73,12 +102,13 @@ interface TwinState {
 
   // Conductor assistant - new surface, gated behind conductorEnabled.
   conductorEnabled: boolean;
-  conductorState: 'docked' | 'popup' | 'expanded' | 'onboarding';
+  conductorState: ConductorState;
 
   // Actions
   setFrame: (frame: UnifiedTelemetryFrame) => void;
   setCameraMode: (mode: CameraPreset) => void;
   setCameraZoom: (zoom: number) => void;
+  setActiveLine: (line: Line) => void;
   setMonitoredCar: (car: number) => void;
   uploadSubsystemData: (subsystem: SubsystemSelection, file: File) => Promise<Finding | null>;
   fetchLog: () => Promise<void>;
@@ -110,12 +140,26 @@ interface TwinState {
   setConductorEnabled: (on: boolean) => void;
 }
 
-export const useTwinStore = create<TwinState>((set, get) => ({
+export const useTwinStore = create<TwinState>((set, get) => {
+  /** Write to a line's own state whether it is the active line or parked - async work may finish after a tab switch. */
+  const patchLine = (line: Line, patch: Partial<LineSnapshot>) => {
+    if (line === get().activeLine) set(patch);
+    else
+      set((state) => ({
+        lineSnapshots: { ...state.lineSnapshots, [line]: { ...state.lineSnapshots[line], ...patch } },
+      }));
+  };
+  const readLine = (line: Line): LineSnapshot =>
+    line === get().activeLine ? (get() as unknown as LineSnapshot) : get().lineSnapshots[line];
+
+  return {
   currentFrame: null,
   history: [],
   cameraMode: 'meso',
   cameraZoom: ZOOM_FOR_MODE.meso,
-  monitoredCar: 3,
+  activeLine: 'NSL',
+  lineSnapshots: { NSL: freshSnapshot(), EWL: freshSnapshot() },
+  monitoredCar: DEFAULT_CAR,
   uploadResult: null,
   uploading: false,
   uploadError: null,
@@ -155,21 +199,28 @@ export const useTwinStore = create<TwinState>((set, get) => ({
     set((state) => {
       const newHistory = [...state.history, frame].slice(-60); // keep last 60 frames (6s at 10Hz)
 
-      // The unresolved ACV finding names the car everything else hangs on. Follow it
-      // whenever a new one is seen - including right after a page reload, when the
-      // backend still holds the finding but the client has fallen back to the default car.
-      const acv = frame.latest_upload_results?.acv;
-      const acvKey = acv?.most_likely_faulty_car ? `${acv.file_name}|${acv.most_likely_faulty_car}` : '';
+      // Each line's unresolved ACV finding names the car everything else on that line
+      // hangs on. Follow it whenever a new one is seen - including right after a page
+      // reload, when the backend still holds the finding but the client has fallen back
+      // to the default car.
       let monitoredCar = state.monitoredCar;
-      if (acvKey !== syncedAcvKey) {
-        syncedAcvKey = acvKey;
-        if (acvKey) monitoredCar = Math.min(CAR_COUNT, Math.max(1, Math.round(Number(acv!.most_likely_faulty_car))));
+      let lineSnapshots = state.lineSnapshots;
+      for (const line of LINE_IDS) {
+        const acv = frame.uploads_by_line?.[line]?.acv;
+        const acvKey = acv?.most_likely_faulty_car ? `${acv.file_name}|${acv.most_likely_faulty_car}` : '';
+        if (acvKey === syncedAcvKey[line]) continue;
+        syncedAcvKey[line] = acvKey;
+        if (!acvKey) continue;
+        const car = Math.min(CAR_COUNT, Math.max(1, Math.round(Number(acv!.most_likely_faulty_car))));
+        if (line === state.activeLine) monitoredCar = car;
+        else lineSnapshots = { ...lineSnapshots, [line]: { ...lineSnapshots[line], monitoredCar: car } };
       }
 
       return {
         currentFrame: frame,
         history: newHistory,
         monitoredCar,
+        lineSnapshots,
         // Trust the backend as the source of truth for which actions are live,
         // so the UI cannot drift out of sync with the simulation.
         activeInterventions: frame.active_interventions ?? state.activeInterventions,
@@ -183,14 +234,37 @@ export const useTwinStore = create<TwinState>((set, get) => ({
     set({ cameraZoom: z, cameraMode: z < 0.25 ? 'micro' : z < 0.75 ? 'meso' : 'macro' });
   },
 
+  setActiveLine: (line) =>
+    set((state) => {
+      if (line === state.activeLine) return {};
+      const parked: LineSnapshot = {
+        monitoredCar: state.monitoredCar,
+        conductorState: state.conductorState,
+        aiAnswers: state.aiAnswers,
+        uploadResult: state.uploadResult,
+        selectedSubsystem: state.selectedSubsystem,
+      };
+      const next = state.lineSnapshots[line];
+      return {
+        activeLine: line,
+        lineSnapshots: { ...state.lineSnapshots, [state.activeLine]: parked },
+        ...next,
+        activeInspection: null,
+        aiInsight: null,
+        uploadError: null,
+      };
+    }),
+
   setMonitoredCar: (car) => set({ monitoredCar: Math.min(CAR_COUNT, Math.max(1, Math.round(car))) }),
 
   uploadSubsystemData: async (subsystem, file) => {
+    const line = get().activeLine;
     set({ uploading: true, uploadError: null });
     try {
       const body = new FormData();
       body.append('file', file);
       body.append('subsystem', subsystem);
+      body.append('line', line);
       const res = await fetch('/api/predict/upload', { method: 'POST', body });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -198,11 +272,13 @@ export const useTwinStore = create<TwinState>((set, get) => ({
         return null;
       }
       const finding = data as Finding;
-      set({ uploadResult: finding });
+      patchLine(line, { uploadResult: finding });
       // Establishes which car everything else gets tagged to, per the "ACV
       // resolves first" assumption - see useMonitoredItems/TrainAssembly.
       if (subsystem === 'acv' && finding.most_likely_faulty_car) {
-        get().setMonitoredCar(Number(finding.most_likely_faulty_car));
+        patchLine(line, {
+          monitoredCar: Math.min(CAR_COUNT, Math.max(1, Math.round(Number(finding.most_likely_faulty_car)))),
+        });
       }
       return finding;
     } catch {
@@ -228,7 +304,7 @@ export const useTwinStore = create<TwinState>((set, get) => ({
       const res = await fetch('/api/predict/resolve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subsystem, car: get().monitoredCar }),
+        body: JSON.stringify({ subsystem, car: get().monitoredCar, line: get().activeLine }),
       });
       const entry = await res.json().catch(() => null);
       if (res.ok && entry) {
@@ -247,7 +323,7 @@ export const useTwinStore = create<TwinState>((set, get) => ({
     if (inspection) {
       // The card only exists for an unresolved uploaded finding, so clicking a
       // bare part just selects the subsystem instead of opening a dead card.
-      const hasFinding = Boolean(get().currentFrame?.latest_upload_results?.[inspection]);
+      const hasFinding = Boolean(get().currentFrame?.uploads_by_line?.[get().activeLine]?.[inspection]);
       set({ activeInspection: hasFinding ? inspection : null, selectedSubsystem: inspection });
     } else {
       set({ activeInspection: null });
@@ -334,7 +410,7 @@ export const useTwinStore = create<TwinState>((set, get) => ({
       const res = await fetch('/api/ai/insight', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ force }),
+        body: JSON.stringify({ force, line: get().activeLine, car: get().monitoredCar }),
       });
       const data = await res.json();
       set({ aiInsight: data.insight ?? null });
@@ -350,29 +426,27 @@ export const useTwinStore = create<TwinState>((set, get) => ({
   askAi: async (question) => {
     const q = question.trim();
     if (!q || get().aiAsking) return;
+    // The answer belongs to the line it was asked on, even if the tab changes meanwhile.
+    const line = get().activeLine;
+    const { monitoredCar } = readLine(line);
+    const append = (item: AIAnswer) =>
+      patchLine(line, { aiAnswers: [...readLine(line).aiAnswers, item].slice(-8) });
     set({ aiAsking: true });
     try {
       const res = await fetch('/api/ai/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q }),
+        body: JSON.stringify({ question: q, line, car: monitoredCar }),
       });
       const data = await res.json();
-      set((state) => ({
-        aiAnswers: [...state.aiAnswers, { ...data, question: q }].slice(-8),
-      }));
+      append({ ...data, question: q });
     } catch (err) {
       console.error('[AI] ask request failed:', err);
-      set((state) => ({
-        aiAnswers: [
-          ...state.aiAnswers,
-          {
-            question: q,
-            answer: 'Could not reach the assistant. Check that the backend is running.',
-            source: 'error',
-          },
-        ].slice(-8),
-      }));
+      append({
+        question: q,
+        answer: 'Could not reach the assistant. Check that the backend is running.',
+        source: 'error',
+      });
     } finally {
       set({ aiAsking: false });
     }
@@ -445,4 +519,5 @@ export const useTwinStore = create<TwinState>((set, get) => ({
     socket._manualClose = true;
     socket.close();
   },
-}));
+  };
+});

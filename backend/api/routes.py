@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
+from backend.core.harmonizer import LINES
 from backend.core.config import CORRUGATION_ZONES, INTERVENTION_ACTIONS, METRIC_THRESHOLDS
 from backend.services.ai_insight import AIInsightService
 from backend.services.whatif_engine import ACTION_CATALOG
@@ -26,22 +27,43 @@ class WhatIfRequest(BaseModel):
 
 class AskRequest(BaseModel):
     question: str = Field(..., max_length=500)
+    line: str = "NSL"
+    car: Optional[int] = None
 
 
 class InsightRequest(BaseModel):
     force: bool = False
+    line: str = "NSL"
+    car: Optional[int] = None
 
 
 class IssueRequest(BaseModel):
     subsystem: str
+    line: str = "NSL"
+    car: Optional[int] = None
 
 
 class ResolveRequest(BaseModel):
     subsystem: str
     car: Optional[int] = None
+    line: str = "NSL"
+
+
+def _line(value: str) -> str:
+    line = (value or "NSL").upper().strip()
+    if line not in LINES:
+        raise HTTPException(status_code=400, detail=f"Unknown line: {value}")
+    return line
 
 
 def setup_routes(harmonizer, whatif_engine):
+    def frame_for(line: str, car: Optional[int] = None) -> dict:
+        """Current frame, scoped to one line so the AI only sees that line's findings."""
+        frame = harmonizer.generate_next_frame(dt=0.0)
+        frame["latest_upload_results"] = dict(harmonizer.uploads_by_line[line])
+        frame["line"], frame["car"] = line, car
+        return frame
+
     @router.get("/health")
     async def health_check():
         return {
@@ -93,7 +115,7 @@ def setup_routes(harmonizer, whatif_engine):
 
     @router.post("/ai/insight")
     async def ai_insight(req: Optional[InsightRequest] = None):
-        frame = harmonizer.generate_next_frame(dt=0.0)
+        frame = frame_for(_line(req.line if req else "NSL"), req.car if req else None)
         insight = ai_service.get_insight(frame, force=bool(req and req.force))
         return {
             "insight": insight,
@@ -104,7 +126,7 @@ def setup_routes(harmonizer, whatif_engine):
     @router.post("/ai/issue")
     async def ai_issue(req: IssueRequest):
         """Explanation + suggestion copy for one 3D bubble's card."""
-        frame = harmonizer.generate_next_frame(dt=0.0)
+        frame = frame_for(_line(req.line), req.car)
         result = ai_service.explain_issue(req.subsystem.lower().strip(), frame)
         if result.get("source") == "validation":
             raise HTTPException(status_code=400, detail=result["error"])
@@ -112,14 +134,16 @@ def setup_routes(harmonizer, whatif_engine):
 
     @router.post("/ai/ask")
     async def ai_ask(req: AskRequest):
-        frame = harmonizer.generate_next_frame(dt=0.0)
-        return ai_service.ask(req.question, frame)
+        return ai_service.ask(req.question, frame_for(_line(req.line), req.car))
 
     # ------------------------------------------------------------------
     # Batch / CSV Model Inference (Conductor Onboarding)
     # ------------------------------------------------------------------
     @router.post("/predict/upload")
-    async def upload_predict(file: UploadFile = File(...), subsystem: str = Form(...)):
+    async def upload_predict(
+        file: UploadFile = File(...), subsystem: str = Form(...), line: str = Form("NSL")
+    ):
+        line = _line(line)
         content = await file.read()
         sub = subsystem.lower().strip()
         try:
@@ -138,12 +162,12 @@ def setup_routes(harmonizer, whatif_engine):
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Inference error: {e}")
 
-        harmonizer.set_upload_result(sub, result)
+        harmonizer.set_upload_result(sub, result, line=line)
         return result
 
     @router.get("/predict/latest")
     async def get_latest_predictions():
-        return {"predictions": harmonizer.latest_upload_results}
+        return {"predictions": harmonizer.uploads_by_line}
 
     # ------------------------------------------------------------------
     # Resolve an uploaded finding: apply its recommended repair for a real
@@ -151,7 +175,8 @@ def setup_routes(harmonizer, whatif_engine):
     # ------------------------------------------------------------------
     @router.post("/predict/resolve")
     async def resolve_prediction(req: ResolveRequest):
-        finding = harmonizer.latest_upload_results.get(req.subsystem)
+        line = _line(req.line)
+        finding = harmonizer.uploads_by_line[line].get(req.subsystem)
         if finding is None:
             raise HTTPException(status_code=404, detail=f"No active finding for '{req.subsystem}'.")
 
@@ -161,7 +186,9 @@ def setup_routes(harmonizer, whatif_engine):
             whatif_result = whatif_engine.simulate_action(action, True)
             measured_impact = whatif_result.get("measured_impact")
 
-        entry = harmonizer.resolve_upload(req.subsystem, car=req.car, measured_impact=measured_impact)
+        entry = harmonizer.resolve_upload(
+            req.subsystem, car=req.car, measured_impact=measured_impact, line=line
+        )
         return entry
 
     @router.get("/log")

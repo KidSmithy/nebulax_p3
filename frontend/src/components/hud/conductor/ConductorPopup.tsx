@@ -11,6 +11,7 @@ import { ConductorChat } from './ConductorChat';
 export const ConductorPopup: React.FC = () => {
   const setConductorState = useTwinStore((s) => s.setConductorState);
   const monitoredCar = useTwinStore((s) => s.monitoredCar);
+  const activeLine = useTwinStore((s) => s.activeLine);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,7 +35,7 @@ export const ConductorPopup: React.FC = () => {
           <div className="min-w-0">
             <div className="text-xs font-bold text-slate-900 leading-tight">Conductor</div>
             <div className="text-label text-slate-500 leading-tight truncate">
-              Car {monitoredCar} · reading live data
+              {activeLine} · Car {monitoredCar} · reading live data
             </div>
           </div>
         </div>

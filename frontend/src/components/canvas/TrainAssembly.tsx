@@ -60,6 +60,7 @@ const CarMarkers: React.FC<{ status: string; monitoredIndex: number }> = ({ stat
 export const TrainAssembly: React.FC = () => {
   const fullTrainView = useTwinStore((state) => state.cameraMode) === 'macro';
   const monitoredCar = useTwinStore((state) => state.monitoredCar);
+  const livery = useTwinStore((state) => state.activeLine) === 'EWL' ? 'green' : 'red';
   const monitoredIndex = monitoredCar - 1;
   const xrayMode = useTwinStore((state) => state.xrayMode);
   const currentFrame = useTwinStore((state) => state.currentFrame);
@@ -100,6 +101,7 @@ export const TrainAssembly: React.FC = () => {
             variant={car.variant}
             position={[0, 0, car.z]}
             yaw={car.yaw}
+            livery={livery}
             doorCycleState={door?.cycle_state}
             doorAnomalyScore={door?.anomaly_score ?? 0}
             bogieStressIntensity={stressIntensity}
@@ -113,6 +115,7 @@ export const TrainAssembly: React.FC = () => {
             variant={car.variant}
             position={[0, 0, car.z]}
             yaw={car.yaw}
+            livery={livery}
             xrayMode={xrayMode}
             onReady={mergeAnchors}
           />

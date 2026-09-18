@@ -72,6 +72,9 @@ Rules:
 4. Do not speculate about anything outside this train's telemetry.
 Respond in plain prose, not JSON, not markdown headings."""
 
+LINE_NAMES = {"NSL": "North-South Line", "EWL": "East-West Line"}
+LINE_SETS = {"NSL": "C151B-SET-402", "EWL": "C151B-SET-517"}
+
 SUBSYSTEM_LABELS = {
     "door": "Passenger door (Door 3R)",
     "acv": "Air conditioning pack",
@@ -122,7 +125,9 @@ def build_frame_summary(frame: Dict[str, Any]) -> str:
     subs = frame.get("subsystems", {})
     lines: List[str] = [
         "LIVE TRAIN READINGS",
-        f"Train: C151B-SET-402 car 3, North-South Line",
+        f"Train: {LINE_SETS.get(frame.get('line') or 'NSL')} "
+        + (f"car {frame['car']}, " if frame.get("car") else "")
+        + LINE_NAMES.get(frame.get("line") or "NSL", "North-South Line"),
         f"Position: kilometre post {_fmt(frame.get('track_chainage_km'))} km",
         f"Speed: {_fmt(frame.get('train_speed_kmh'))} km/h",
     ]
@@ -572,6 +577,7 @@ class AIInsightService:
         subs = frame.get("subsystems", {})
         cf = frame.get("counterfactual") or {}
         parts = [
+            str(frame.get("line") or "NSL"),
             str(round((frame.get("fleet_health_index") or 0) * 10)),
             (subs.get("door") or {}).get("fault_type", ""),
             (subs.get("acv") or {}).get("fault_type", ""),
@@ -634,7 +640,8 @@ class AIInsightService:
 
         signature = "|".join(str(finding.get(k, "")) for k in
                              ("file_name", "status", "anomaly_score", "most_likely_faulty_car"))
-        cached = self._issue_cache.get(subsystem)
+        cache_key = f"{frame.get('line') or 'NSL'}:{subsystem}"
+        cached = self._issue_cache.get(cache_key)
         if cached and cached["sig"] == signature:
             return cached["data"]
 
@@ -669,7 +676,7 @@ class AIInsightService:
             return rule_based_issue(subsystem, frame, self.last_error)
 
         self.last_error = None
-        self._issue_cache[subsystem] = {"sig": signature, "data": data}
+        self._issue_cache[cache_key] = {"sig": signature, "data": data}
         return data
 
     def ask(self, question: str, frame: Dict[str, Any]) -> Dict[str, Any]:
