@@ -64,6 +64,7 @@ export const DiagnosisPanel: React.FC = () => {
   const setAutoRefresh = useTwinStore((s) => s.setAiAutoRefresh);
   const answers = useTwinStore((s) => s.aiAnswers);
   const asking = useTwinStore((s) => s.aiAsking);
+  const pendingQuestion = useTwinStore((s) => s.aiPendingQuestion);
   const askAi = useTwinStore((s) => s.askAi);
 
   const [question, setQuestion] = useState('');
@@ -86,7 +87,7 @@ export const DiagnosisPanel: React.FC = () => {
 
   useEffect(() => {
     answersEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [answers.length]);
+  }, [answers.length, pendingQuestion, asking]);
 
   const severity = (insight?.severity ?? 'UNKNOWN') as MetricStatus;
   const styles = STATUS_STYLES[severity];
@@ -244,7 +245,7 @@ export const DiagnosisPanel: React.FC = () => {
           </span>
         </div>
 
-        {answers.length > 0 && (
+        {(answers.length > 0 || pendingQuestion) && (
           <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
             {answers.map((a, i) => (
               <div key={i} className="space-y-1">
@@ -254,11 +255,22 @@ export const DiagnosisPanel: React.FC = () => {
                 <p className="text-[10.5px] text-slate-700 leading-relaxed px-2">{a.answer}</p>
               </div>
             ))}
+            {pendingQuestion && (
+              <div className="space-y-1">
+                <div className="text-label font-semibold text-slate-700 bg-slate-100 rounded px-2 py-1">
+                  {pendingQuestion}
+                </div>
+                <div className="flex items-center gap-1.5 text-label text-slate-400 px-2 py-1">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Thinking…</span>
+                </div>
+              </div>
+            )}
             <div ref={answersEndRef} />
           </div>
         )}
 
-        {answers.length === 0 && (
+        {answers.length === 0 && !pendingQuestion && (
           <div className="flex flex-wrap gap-1">
             {SUGGESTED_QUESTIONS.map((q) => (
               <button

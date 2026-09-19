@@ -37,6 +37,7 @@ interface LineSnapshot {
   monitoredCar: number;
   conductorState: ConductorState;
   aiAnswers: AIAnswer[];
+  aiPendingQuestion: string | null;
   uploadResult: Finding | null;
   selectedSubsystem: SubsystemSelection;
 }
@@ -45,6 +46,7 @@ const freshSnapshot = (): LineSnapshot => ({
   monitoredCar: DEFAULT_CAR,
   conductorState: 'docked',
   aiAnswers: [],
+  aiPendingQuestion: null,
   uploadResult: null,
   selectedSubsystem: 'overview',
 });
@@ -101,6 +103,7 @@ interface TwinState {
   aiModel: string | null;
   aiAnswers: AIAnswer[];
   aiAsking: boolean;
+  aiPendingQuestion: string | null;
 
   // Conductor assistant - new surface, gated behind conductorEnabled.
   conductorEnabled: boolean;
@@ -197,6 +200,7 @@ export const useTwinStore = create<TwinState>((set, get) => {
   aiModel: null,
   aiAnswers: [],
   aiAsking: false,
+  aiPendingQuestion: null,
 
   conductorEnabled: true,
   conductorState: 'docked',
@@ -247,6 +251,7 @@ export const useTwinStore = create<TwinState>((set, get) => {
         monitoredCar: state.monitoredCar,
         conductorState: state.conductorState,
         aiAnswers: state.aiAnswers,
+        aiPendingQuestion: state.aiPendingQuestion,
         uploadResult: state.uploadResult,
         selectedSubsystem: state.selectedSubsystem,
       };
@@ -475,8 +480,12 @@ export const useTwinStore = create<TwinState>((set, get) => {
     const line = get().activeLine;
     const { monitoredCar } = readLine(line);
     const append = (item: AIAnswer) =>
-      patchLine(line, { aiAnswers: [...readLine(line).aiAnswers, item].slice(-8) });
-    set({ aiAsking: true });
+      patchLine(line, {
+        aiAnswers: [...readLine(line).aiAnswers, item].slice(-8),
+        aiPendingQuestion: null,
+      });
+    patchLine(line, { aiPendingQuestion: q });
+    set({ aiAsking: true, aiPendingQuestion: q });
     try {
       const res = await fetch('/api/ai/ask', {
         method: 'POST',
@@ -493,7 +502,8 @@ export const useTwinStore = create<TwinState>((set, get) => {
         source: 'error',
       });
     } finally {
-      set({ aiAsking: false });
+      patchLine(line, { aiPendingQuestion: null });
+      set({ aiAsking: false, aiPendingQuestion: null });
     }
   },
 

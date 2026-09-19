@@ -74,6 +74,7 @@ interface ConductorChatProps {
 export const ConductorChat: React.FC<ConductorChatProps> = ({ compact = true }) => {
   const answers = useTwinStore((s) => s.aiAnswers);
   const asking = useTwinStore((s) => s.aiAsking);
+  const pendingQuestion = useTwinStore((s) => s.aiPendingQuestion);
   const askAi = useTwinStore((s) => s.askAi);
   const setConductorState = useTwinStore((s) => s.setConductorState);
   const [question, setQuestion] = useState('');
@@ -82,7 +83,7 @@ export const ConductorChat: React.FC<ConductorChatProps> = ({ compact = true }) 
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [answers.length]);
+  }, [answers.length, pendingQuestion, asking]);
 
   const submit = (q: string) => {
     if (!q.trim() || asking) return;
@@ -143,7 +144,7 @@ export const ConductorChat: React.FC<ConductorChatProps> = ({ compact = true }) 
       )}
 
       <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 py-2 space-y-2.5">
-        {answers.length === 0 && (
+        {answers.length === 0 && !pendingQuestion && (
           <div className="flex flex-col gap-1.5">
             <p className="text-label text-slate-500 leading-relaxed">
               Ask about anything you see on this car - the Conductor explains and points you to
@@ -207,7 +208,28 @@ export const ConductorChat: React.FC<ConductorChatProps> = ({ compact = true }) 
           );
         })}
 
-        {asking && (
+        {/* Optimistic user question displayed immediately while waiting for response */}
+        {pendingQuestion && (
+          <div className="space-y-2">
+            <div className="flex justify-end">
+              <div className="max-w-[85%] bg-ink-900 text-white rounded-2xl rounded-br-md px-3 py-2 text-xs font-medium">
+                {pendingQuestion}
+              </div>
+            </div>
+
+            <div className="flex items-start gap-1.5">
+              <span className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
+                <HardHat className="w-3 h-3 text-slate-600" />
+              </span>
+              <div className="max-w-[85%] bg-slate-100 rounded-2xl rounded-tl-md px-3 py-2 flex items-center gap-2 text-slate-500 text-label">
+                <Loader2 className="w-3 h-3 animate-spin text-slate-500 shrink-0" />
+                <span>The Conductor is reading the live data…</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {asking && !pendingQuestion && (
           <div className="flex items-center gap-1.5 text-label text-slate-400">
             <Loader2 className="w-3 h-3 animate-spin" />
             The Conductor is reading the live data…
