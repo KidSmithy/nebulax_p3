@@ -114,10 +114,10 @@ cp backend/.env.example backend/.env    # configure OPENAI_API_KEY
 
 The API key is securely read only by the backend and never exposed to the client. Built with fault tolerance: **if unconfigured, rate-limited, or encountering an API error, the system automatically falls back to deterministic, rule-based diagnostic explanations** — ensuring zero interruption to operator workflows.
 
-### Try it
+### Run it locally
 
-1. Open <http://localhost:3000>. The NSL train already carries four bubbles (see [baseline data pipeline](#baseline-data-pipeline-prototype)).
-2. Click a bubble for its card, or open the **Results** panel on the right and switch tabs.
+1. Open <http://localhost:3000> (or use the [live web app](https://smrt-digital-twin-2026.web.app/)). The NSL train initializes with active component findings across all four subsystems (see [baseline data pipeline](#baseline-data-pipeline-prototype)).
+2. Click a bubble for its diagnostic card, or open the **Results** panel on the right and switch tabs.
 3. Click **Upload new data**, choose a subsystem, and drop a file. Uploads take `.csv`, `.xlsx`, `.xls` or a `.zip` of several runs, up to 30 MB.
 4. Download the prediction CSV from the Results panel, then **Resolve** the finding.
 
