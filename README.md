@@ -1,475 +1,208 @@
-# 🚆 NebulaX P3 — Unified Rail Digital Twin
+<h1 align="center">NebulaX P3 — Train Condition Monitoring</h1>
 
-> **Interactive 3D Digital Twin & Predictive Maintenance System for Railway Fleet & Track Infrastructure**  
-> Built for the **Land Transport Authority (LTA) NebulaX 2026 Hackathon — Problem Statement 3 (Train Condition Monitoring)**.
+<p align="center">
+  <img alt="React" src="https://img.shields.io/badge/React-18-61dafb?style=for-the-badge&logo=react&logoColor=white">
+  <img alt="Three.js" src="https://img.shields.io/badge/Three.js-R3F-111111?style=for-the-badge&logo=threedotjs&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-Python%203.11-009688?style=for-the-badge&logo=fastapi&logoColor=white">
+  <img alt="scikit-learn" src="https://img.shields.io/badge/scikit--learn-models-f7931e?style=for-the-badge&logo=scikitlearn&logoColor=white">
+</p>
 
----
+An interactive 3D train that turns raw maintenance data into **clear actions**. Drag a data file onto it, and the fault shows up as a bubble on the exact component that needs attention, with an explanation a non-engineer can read and trust.
 
-## 🌟 Overview
-
-The **NebulaX P3 Unified Rail Digital Twin** is an operational condition-monitoring platform that unifies four heterogeneous railway subsystems into a single real-time vehicle-infrastructure operational environment:
-
-1. **Door Subsystem (Cabin Envelope)**: Motor current signature analysis, kinematic obstruction detection, transit cycle duration, and guide-rail wear.
-2. **Air Conditioning & Ventilation (ACV) (Auxiliary Climate Pack)**: Thermodynamic heat exchange, compressor power curves, COP efficiency, and refrigerant leakage localisation.
-3. **Structural Health Monitoring (SHM) (Bogie & Running Gear)**: High-frequency axle-box acceleration ($g$), dynamic strain, weld joint fatigue, and bearing defect frequencies via ASTM E1049-85 Rainflow cycle counting and Welch PSD spectrum analysis.
-4. **Rail Corrugation (Continuous Track Infrastructure)**: Surface roughness displacement ($\mu\text{m}$), spatial wavelength class (short-pitch vs. long-pitch), and grinding prioritization along Kilometre Post ($KP$) chainage.
-
-### 🔬 Core Innovation: Physical Cross-Correlation
-Track corrugation directly induces high-frequency shock loads into the wheelset, triggering elevated structural stress in the bogie bolster rib (`SHM`), while onboard auxiliary systems (`Door`, `ACV`) experience simultaneous operational duty cycles.
-
----
-
-## 🏗️ Full-Stack 50/50 Architecture
+Built for the **LTA NebulaX 2026 Hackathon — Problem Statement 3 (Train Condition Monitoring)**, on a Singapore MRT **North-South** and **East-West** line.
 
 ```
-+----------------------------------------------------------------------------------------------------+
-|                                    UNIFIED OPERATIONAL BOUNDARY                                    |
-+-------------------------------------------------+--------------------------------------------------+
-| BACKEND: INGESTION, INFERENCE & STREAMING (50%) | FRONTEND: 3D SCENE, SHADERS & HUD (50%)          |
-+-------------------------------------------------+--------------------------------------------------+
-| 1. Data Ingestion & Spatial Harmonization       | 1. Multi-Scale 3D Scene Graph (R3F)              |
-|    - 10 Hz temporal tick alignment (100ms)      |    - Hierarchical camera lerp (Macro/Meso/Micro) |
-|    - Chainage mapping: KP(t) integration        |    - Procedural train car, bogie & track ribbon  |
-| 2. Multi-Model Inference Pipeline               | 2. Dynamic GLSL Shaders & Kinematic Binding      |
-|    - Door: Random Forest / Segment extraction   |    - Bogie FEA stress gradient vertex/frag shader|
-|    - ACV: Pairwise Regressor & Thermal Delta    |    - Track corrugation displacement & stripes    |
-|    - SHM: Rainflow / Welch PSD Fatigue Model    |    - Dual-leaf door kinematics & "ghost" mesh    |
-|    - Rail: Axle-box XGBoost / Multi-class       |    - Volumetric ACV airflow particle vectors     |
-| 3. Streaming Engine & Downsampler               | 3. High-Frequency Telemetry Cockpit (HUD)        |
-|    - Full-duplex WebSocket server (10 Hz)       |    - Synchronized ECharts waveform monitors      |
-|    - LTTB algorithm for waveform decimation     |    - Dark-mode glassmorphism HUD with Tailwind   |
-| 4. Counterfactual "What-If" Engine              | 4. Interactive Simulation & Playback Sandbox     |
-|    - Maintenance intervention simulator         |    - Timeline playback scrubber (1x - 10x, seek) |
-|    - Closed-loop telemetry recalculation        |    - Maintenance sandbox intervention toggles    |
-+-------------------------------------------------+--------------------------------------------------+
+  raw sensor file  ──►  subsystem model  ──►  finding on the train  ──►  explanation · fix · download
+  (csv · xlsx · zip)    (one per subsystem)    (bubble on the part)      (Resolve when it's done)
 ```
 
----
+## What it does
 
-## ⚡ Key Capabilities
+Four subsystems, each with its own model and its own PS3 prediction format:
 
-### 1. Multi-Scale 3D Scene (React Three Fiber & Drei)
-- **Macro View**: Orbiting wide corridor showing the train progressing along the track ribbon and catenary alignment.
-- **Meso View**: Isometric rolling stock car body with an interactive **X-Ray toggle** ($1.0 \rightarrow 0.25$ shell opacity) to expose interior assemblies.
-- **Micro View**: Isolated camera zoom on targeted subsystems (Bogie running gear, Door 3R, or Rooftop ACV pack).
+| Subsystem | You upload | Model | You get back |
+|---|---|---|---|
+| **Air conditioning (ACV)** | A consist case workbook (`.xlsx`) | ACV2 physics-based ranker: six evidence groups, calibrated against a null distribution | All eight cars ranked most → least likely to have a refrigerant leak (`03\|01\|05\|…`) |
+| **Passenger doors** | A continuous door stream (`.csv`) | Random Forest on 210 features across 16 channels; cycles found from timestamp gaps | Every open/close cycle labelled `Normal` or `Abnormal resistance`, with start/end times |
+| **Structural health (SHM)** | A bogie vibration recording (`.csv`) | Calibrated Rainflow fatigue model (ASTM E1049-85) + Welch PSD | A cumulative-damage value, plus bearing-risk and spectrum readouts |
+| **Rail corrugation** | A 128-channel vibration run (`.csv`) | 15-estimator ensemble on 252 features, with class-specific thresholds for the rare `Side I` class | `Normal`, `Side I` or `Side II`, with depth and grinding priority |
 
-### 2. Custom Model-Driven GLSL Shaders
-- **Bogie FEA Stress Shader (`FEAStressShader.ts`)**: Dynamically shifts vertex and fragment coloration based on real-time axle-box vibration RMS and weld node fatigue:
-  - `Navy Blue (#1e3a8a)` $\rightarrow$ Nominal `Emerald (#059669)` $\rightarrow$ Elevated `Amber (#d97706)` $\rightarrow$ Critical `Crimson (#e11d48)`.
-- **Corrugation Ribbon Shader (`CorrugationRibbonShader.ts`)**: Displaces track rail vertices according to surface roughness depth ($\mu\text{m}$) and projects dynamic amber hazard alert stripes across sections where severity $> 0.70$.
+Every result is also available as the **exact prediction CSV** the competition asks for (`acv_predictions.csv`, `door_predictions.csv`, `shm_predictions.csv`, `rail_predictions.csv`), built by the backend so the download is the model's output, not a re-derivation.
 
-### 3. Kinematic Door Simulation with Ghost Baseline
-- Dual-leaf kinematics driven by cycle state (`OPENING`, `CLOSING`, `DWELL`).
-- Injects mechanical stuttering and jitter when `anomaly_score > 0.5`.
-- Concurrently renders a translucent green wireframe **Ghost Mesh** representing nominal mechanical timing, visually highlighting the spatial lag $\Delta x$.
+### On screen
 
-### 4. GPU Instanced Airflow Particles
-- Simulates ACV climate pack airflow with warm amber cabin intake transitioning through cooling coils to bright cyan conditioned air, with stream velocity directly tied to compressor duty cycle.
+- **Findings on the train.** Each unresolved upload is a bubble anchored to the part it concerns. Click it for a card with an **explanation**, a **suggested repair**, and a link to the full charts. The text types out as it arrives.
+- **Explainable by design.** The AI is given pre-interpreted readings (value, threshold, verdict), so it can't invent its own idea of "normal" or contradict the dashboard. It explains the model's result in plain language; it doesn't make the diagnosis.
+- **Results panel.** One tab per unresolved upload, each with its breakdown and a download button. Resolve a finding and its tab disappears.
+- **Drag and drop.** Drop a file (or a ZIP of runs) onto the Conductor's upload dialog.
+- **Resolve and log.** Resolving clears the bubble and writes a receipt to the resolved log.
+- **What-if sandbox.** Toggle maintenance actions (grind rail, lubricate door, replace filter, inspect bearing) and see the measured before/after impact on risk scores and charts.
+- **Two lines.** NSL and EWL each keep their own findings and Conductor conversation.
+- **Conductor.** A chat assistant grounded in the live readings and your latest uploads.
+- **Simple / Expert toggle.** Plain wording ("Wheel shaking") or engineering terms ("Axle-box vibration RMS"); every reading has a **?** tooltip. Definitions live in [`frontend/src/lib/metricGlossary.ts`](frontend/src/lib/metricGlossary.ts).
 
-### 5. High-Frequency Telemetry Cockpit (HUD)
-- Synchronized **Apache ECharts** monitoring motor current signatures against nominal envelopes and axle-box FFT vibration spectra.
-- **Interactive Timeline Scrubber**: Play/Pause, reset, speed multipliers ($1\times, 2\times, 5\times, 10\times$), and chainage slider.
-- **Counterfactual "What-If" Sandbox**: Operator toggles (`ACTION_GRIND_RAIL`, `ACTION_LUBRICATE_DOOR`, `ACTION_REPLACE_FILTER`, `ACTION_INSPECT_BEARING`) with real-time recalculation of risk scores, 3D shaders, and chart waveforms.
+## Architecture
 
----
+<p align="center">
+  <img src="docs/architecture.svg" alt="System architecture: a React browser app, a FastAPI backend with four subsystem models, a harmonizer that merges a simulated live stream with uploaded findings, and a WebSocket back to the browser" width="100%">
+</p>
 
-## 📁 Repository Structure
+There are two data paths, joined in the `TelemetryHarmonizer`:
 
-```
-nebulax_p3/
-├── backend/
-│   ├── api/
-│   │   ├── routes.py                # REST API endpoints (/api/health, /api/whatif, etc.)
-│   │   └── websocket_streamer.py    # 10 Hz full-duplex WebSocket server
-│   ├── core/
-│   │   ├── config.py                # Corridor geometry & threshold configurations
-│   │   ├── harmonizer.py            # Temporal-spatial alignment into unified frames
-│   │   └── seed_findings.py         # Replays saved model output as first-load findings
-│   ├── models/
-│   │   ├── door_model.py            # Door Random Forest classifier & waveform evaluator
-│   │   ├── acv_model.py             # ACV thermodynamic regressor & leak detection
-│   │   ├── shm_model.py             # Rainflow fatigue & Welch PSD vibration model
-│   │   ├── corrugation_model.py     # Rail corrugation classification & grinding priority
-│   │   └── inference_broker.py      # Multi-model orchestrator & Fleet Health Index
-│   ├── services/
-│   │   ├── downsampler.py           # LTTB decimation algorithm
-│   │   └── whatif_engine.py         # Counterfactual simulation engine
-│   ├── utils/
-│   │   └── mock_generator.py        # Synchronized physical telemetry generator
-│   ├── main.py                      # FastAPI application entry point
-│   └── requirements.txt             # Python dependencies
-│
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── canvas/
-│   │   │   │   ├── TwinCanvas.tsx             # 3D Scene graph & camera lerp orchestrator
-│   │   │   │   ├── TrainAssembly.tsx          # Procedural train car & bogies
-│   │   │   │   ├── TrackCorridor.tsx          # Sleepers, catenary & rail ribbon
-│   │   │   │   ├── kinematics/
-│   │   │   │   │   ├── DoorAssembly.tsx       # Kinematic doors with jitter
-│   │   │   │   │   └── GhostMesh.tsx          # Translucent nominal baseline
-│   │   │   │   ├── particles/
-│   │   │   │   │   └── AirflowParticles.tsx   # ACV airflow vector particles
-│   │   │   │   └── shaders/
-│   │   │   │       ├── FEAStressShader.ts     # Bogie stress colormap shader
-│   │   │   │       └── CorrugationRibbonShader.ts # Rail corrugation shader
-│   │   │   └── hud/
-│   │   │       ├── CockpitHeader.tsx          # Top fleet telemetry bar & X-Ray toggle
-│   │   │       ├── SubsystemSelector.tsx      # Subsystem cards & status badges
-│   │   │       ├── TelemetryMonitor.tsx       # Synchronized ECharts monitors
-│   │   │       ├── TimelineScrubber.tsx       # Playback controls & KP seek slider
-│   │   │       └── WhatIfSandbox.tsx          # Counterfactual intervention drawer
-│   │   ├── store/
-│   │   │   └── useTwinStore.ts                # Global Zustand state management
-│   │   ├── types/
-│   │   │   └── telemetry.ts                   # TypeScript telemetry schemas
-│   │   ├── App.tsx                            # Root application view
-│   │   └── globals.css                        # Tailwind & glassmorphism theme
-│   ├── package.json
-│   ├── tailwind.config.js
-│   └── vite.config.ts
-│
-├── PS3/                             # Hackathon Problem Statement 3 datasets & specifications
-├── Door/                            # Trained Door subsystem model bundle & evaluation scripts
-├── ACV/                             # Trained ACV model bundle & pipeline
-├── Rail_Corrugation/                # Trained Rail corrugation model bundle & features
-├── SHM/                             # Trained SHM model artifact (shm_model.pkl)
-├── antigravity.config.yaml          # Project services configuration
-└── antigravity_rail_digital_twin_spec.md # Master digital twin specification
+1. **Live stream (simulated).** A physics-based generator produces synchronised door / ACV / SHM / rail telemetry at 10 Hz. The harmonizer aligns it into one frame, evaluates it twice (with and without the operator's maintenance actions, same noise seed) for the what-if comparison, and broadcasts it over the WebSocket.
+2. **Uploads (real models).** A file goes through REST to the matching subsystem model. The result, a *finding*, is stored per line and rides along on the next frames as `uploads_by_line`, which is how the bubbles and the Results panel stay in sync without any extra polling.
+
+```mermaid
+sequenceDiagram
+  actor Op as Operator
+  participant UI as React UI
+  participant API as FastAPI
+  participant M as Subsystem model
+  participant H as Harmonizer
+  participant AI as AI service
+
+  Op->>UI: Drop a data file
+  UI->>API: POST /api/predict/upload (file, subsystem, line)
+  API->>M: predict_from_csv / predict_batch
+  M-->>API: finding + prediction CSV rows
+  API->>H: set_upload_result(finding)
+  H-->>UI: next 10 Hz frame carries the finding
+  UI->>Op: Bubble appears on the train, tab appears in Results
+  Op->>UI: Open the bubble
+  UI->>API: POST /api/ai/issue
+  API->>AI: pre-interpreted readings
+  AI-->>UI: explanation + suggestion (or rule-based fallback)
+  Op->>UI: Download CSV / Resolve
+  UI->>API: POST /api/predict/resolve
+  API->>H: clear finding, append to resolved log
 ```
 
----
+### Deployment
 
-## 🚀 Quick Start Guide
+The frontend is a static Vite build on **Firebase Hosting**; its `/api/**` rewrite forwards to the backend, a container built from [`backend/Dockerfile`](backend/Dockerfile) and run on **Cloud Run** (`asia-southeast1`).
 
-### Prerequisites
-- **Python 3.11+** (virtual environment located in `./venv`)
-- **Node.js 18+** and **npm**
+## Quick start
 
-### Step 1: Start the Backend Service
+**Prerequisites:** Python 3.11+, Node.js 18+.
 
-**Option A: From project root:**
-```powershell
-.\venv\Scripts\python.exe -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+```sh
+# 1. Backend (from the repo root)
+python -m venv venv
+source venv/bin/activate            # Windows: .\venv\Scripts\activate
+pip install -r backend/requirements.txt
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-**Option B: From inside the `backend/` directory:**
-```powershell
-cd backend
-..\venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-# Or directly:
-..\venv\Scripts\python.exe main.py
-```
-- **REST Health API**: [http://localhost:8000/api/health](http://localhost:8000/api/health)
-- **Live WebSocket Stream**: `ws://localhost:8000/ws/telemetry`
-
-
-### Step 2: Start the Frontend Application
-
-```powershell
-# Open a new terminal:
+```sh
+# 2. Frontend (new terminal)
 cd frontend
 npm install
-npm run dev
-```
-- Open [http://localhost:3000](http://localhost:3000) in any modern browser.
-
----
-
-## 📡 Data Contract (`telemetry_frame.json`)
-
-The backend broadcasts standardized 10 Hz JSON telemetry frames over WebSockets:
-
-```json
-{
-  "frame_id": 14029,
-  "timestamp": "2026-09-18T10:00:00.000Z",
-  "track_chainage_km": 14.850,
-  "train_speed_kmh": 68.4,
-  "fleet_health_index": 0.86,
-  "subsystems": {
-    "door": {
-      "active_door_id": "DOOR_3R",
-      "cycle_state": "CLOSING",
-      "transit_time_seconds": 3.42,
-      "motor_current_amps": 11.85,
-      "nominal_current_amps": 8.20,
-      "anomaly_score": 0.78,
-      "fault_type": "GUIDE_RAIL_FRICTION",
-      "ghost_deviation_mm": 18.2,
-      "waveform_window": [2.1, 4.3, 7.8, 11.85, 11.2, 5.0, 1.2]
-    },
-    "acv": {
-      "unit_id": "ACV_PACK_1",
-      "supply_temp_c": 19.2,
-      "return_temp_c": 26.5,
-      "delta_temp_c": 7.3,
-      "compressor_power_kw": 4.82,
-      "efficiency_rating": 0.71,
-      "anomaly_score": 0.32,
-      "fault_type": "NONE"
-    },
-    "shm": {
-      "bogie_id": "BOGIE_FRONT",
-      "vibration_rms_g": 3.82,
-      "peak_frequency_hz": 142.5,
-      "bearing_defect_prob": 0.24,
-      "fatigue_damage_index": 0.64,
-      "anomaly_score": 0.81,
-      "critical_weld_node": "BOLSTER_RIB_L2",
-      "fft_spectrum": [
-        {"freq_hz": 25.0, "amp": 0.42},
-        {"freq_hz": 142.5, "amp": 2.89},
-        {"freq_hz": 300.0, "amp": 0.15}
-      ]
-    },
-    "rail_corrugation": {
-      "kp_start": 14.800,
-      "kp_end": 14.900,
-      "depth_microns": 42.0,
-      "wavelength_class": "SHORT_PITCH",
-      "severity_score": 0.89,
-      "maintenance_urgency": "SCHEDULE_GRINDING_7D",
-      "grinding_priority_rank": 2
-    }
-  },
-  "active_interventions": {
-    "ACTION_GRIND_RAIL": true,
-    "ACTION_LUBRICATE_DOOR": false,
-    "ACTION_REPLACE_FILTER": false,
-    "ACTION_INSPECT_BEARING": false
-  },
-  "plain_status": {
-    "shm.vibration_rms_g": "ACTION_NEEDED",
-    "acv.efficiency_rating": "WATCH",
-    "door.motor_current_amps": "GOOD"
-  },
-  "counterfactual": {
-    "active": true,
-    "active_actions": ["ACTION_GRIND_RAIL"],
-    "headline": "Overall health improved from 35% to 91%",
-    "improved_count": 6,
-    "metrics": [
-      {
-        "path": "shm.vibration_rms_g",
-        "label": "Bogie vibration",
-        "unit": "g",
-        "before": 4.78,
-        "after": 2.17,
-        "delta": -2.61,
-        "percent_change": -54.6,
-        "direction": "better",
-        "status_before": "ACTION_NEEDED",
-        "status_after": "GOOD"
-      }
-    ]
-  },
-  "next_corrugation_zone": {
-    "kp_start": 18.250,
-    "kp_centre": 18.300,
-    "distance_km": 3.398,
-    "is_inside_zone": false
-  }
-}
+npm run dev                          # http://localhost:3000
 ```
 
-### Counterfactual block
+Vite proxies `/api` to `localhost:8000`, and the app opens its WebSocket to `ws://localhost:8000/ws/telemetry`.
 
-Every frame is evaluated **twice from the same physical instant using the same
-noise seed**: once with the operator's maintenance interventions applied, once
-with all of them reverted. `counterfactual.metrics` is the measured difference
-between those two evaluations, so the "what did my repair achieve?" figures in
-the UI are real measurements rather than hardcoded estimates. When an action has
-no effect, the delta is honestly zero and the UI explains why.
+### Optional: AI explanations
 
-`plain_status` carries a `GOOD` / `WATCH` / `ACTION_NEEDED` verdict per metric,
-derived from `METRIC_THRESHOLDS` in `backend/core/config.py`. The frontend
-glossary mirrors those thresholds, so the words and colours in the HUD can never
-contradict the backend's own judgement.
-
-### WebSocket message kinds
-
-| `type` | Direction | Purpose |
-| --- | --- | --- |
-| `frame` | server → client | 10 Hz telemetry frame, as above |
-| `whatif_result` | server → client | Confirmation of a toggled intervention, including its measured impact |
-| `playback` | client → server | Play/pause and speed multiplier |
-| `seek` | client → server | Jump to a chainage |
-| `whatif` | client → server | Apply or revert a maintenance action |
-| `reset_whatif` | client → server | Revert every action at once |
-
----
-
-## 🤖 AI Insight Layer (optional)
-
-The HUD's **AI** tab turns the raw engineering readings into a plain-language
-explanation for non-specialists, plus a free-text Q&A box.
-
-### Setup
-
-```powershell
-copy backend\.env.example backend\.env
-# then edit backend\.env and set your key
+```sh
+cp backend/.env.example backend/.env    # then add your OPENAI_API_KEY
 ```
 
-```ini
-OPENAI_API_KEY=sk-proj-your-key-here
-OPENAI_MODEL=gpt-5.6-terra
-AI_INSIGHT_MIN_INTERVAL_SEC=6
-```
+The key is read only by the backend and never reaches the browser. **With no key, an exhausted quota or an API error, a deterministic rule-based explanation is used and labelled as such** — the app degrades in quality, never in availability.
 
-Install the two extra dependencies (already in `requirements.txt`):
+### Try it
 
-```powershell
-.\venv\Scripts\python.exe -m pip install "openai>=1.99,<2" python-dotenv
-```
+1. Open <http://localhost:3000>. The NSL train already carries four bubbles (see [seeded findings](#seeded-findings)).
+2. Click a bubble for its card, or open the **Results** panel on the right and switch tabs.
+3. Click **Upload new data**, choose a subsystem, and drop a file. Uploads take `.csv`, `.xlsx`, `.xls` or a `.zip` of several runs, up to 30 MB.
+4. Download the prediction CSV from the Results panel, then **Resolve** the finding.
 
-### Behaviour and safeguards
+## Seeded findings
 
-- **The key never leaves the server.** The browser calls this backend; only the
-  backend calls OpenAI.
-- **The model is given pre-interpreted readings**, each annotated with its
-  threshold and the verdict the UI is already displaying. It cannot invent its
-  own idea of "normal" or contradict the dashboard.
-- **Calls are throttled and cached** on a coarse fingerprint of the operational
-  situation. A 10 Hz stream never becomes 10 model calls per second, and
-  auto-refresh is opt-in at 20 s intervals.
-- **Graceful degradation.** With no key, an exhausted quota, or an API error, a
-  deterministic rule-based explanation is returned and labelled as such. The
-  dashboard degrades in quality, never in availability.
+So the first load isn't an empty train, the four bubbles are pre-populated from **real model output**: inference is run once, offline, over files from the PS3 **Train** splits, and the unedited results are saved to [`backend/model_data/seed_findings.json`](backend/model_data/seed_findings.json). The backend replays that file through the same code path an upload uses, so everything downstream (AI cards, Resolve, the log) behaves identically. It does this at startup and again on every page load (the frontend calls `POST /api/predict/seed?reset=1`), so a browser refresh is a clean slate. Test files stay unseen for live uploads.
 
-### Endpoints
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `GET` | `/api/ai/status` | Whether AI is enabled, and which model |
-| `POST` | `/api/ai/insight` | Structured plain-language explanation of the current frame |
-| `POST` | `/api/ai/ask` | Free-text question grounded in the live readings |
-| `GET` | `/api/metrics/glossary` | Backend thresholds, for asserting UI/backend agreement |
-| `GET` | `/api/whatif/actions` | Available interventions and their plain-language copy |
-| `POST` | `/api/whatif/reset` | Revert all interventions |
-| `POST` | `/api/predict/seed` | Restore the four pre-seeded demo findings |
-
----
-
-## 🔖 Pre-seeded inspection tags (all four bubbles on first load)
-
-Opening the site shows **all four inspection bubbles already on the NSL train**
-— door, aircon, bogie and track — instead of an empty train that only gets tags
-after four manual uploads.
-
-Those numbers are **real model output, not mock values**. Inference is run once,
-offline, over real files from `PS3/02_Datasets/`, and the unedited result
-envelopes are saved to `backend/model_data/seed_findings.json`, which the
-harmonizer replays at startup through the same `set_upload_result()` an upload
-uses. The only "hardcoded" part is *which* dataset file was analysed — exactly
-as if an operator had uploaded it a moment before you opened the page.
-
-| Subsystem | Seeded dataset | Model verdict |
-| --- | --- | --- |
-| ACV | `ACV/Train/acv_case_05.xlsx` (labelled faulty car 04) | `WATCH` — car 04 leading suspect, ambiguous confidence |
-| Door | `Door/Train.csv` (raw, **not** `_cleaned`) | `ACTION_NEEDED` — 30 of 110 cycles abnormal (27.3%) |
-| SHM | `SHM/Train/train31.csv` (highest labelled damage, 0.928) | `ACTION_NEEDED` — inspect the axle-box bearing |
-| Rail | `Rail_Corrugation/Train/Train2.csv` (labelled `Side II`) | `ACTION_NEEDED` — schedule grinding |
-
-All four seeds come from the **Train** splits on purpose, so every `Test` file
-stays unseen and available for the live upload walkthrough.
-
-`acv_case_05` is deliberate: its faulty car (04) is the UI's `DEFAULT_CAR`, so
-the camera does not jump on first load.
-
-### ⚠️ Feed the door model `Train.csv`, never `Train_cleaned.csv`
-
-`door_model.predict_from_csv` has its own column normaliser, but its alias table
-targets the **original LTA headers** (`Motor current(mA)`, `Datetime`, …). The
-`Door/*_cleaned.csv` files were normalised for a different (notebook) pipeline
-and use snake_case (`motor_current_ma`, `datetime_str`, …), which that table does
-not recognise:
-
-| Input | Channels resolved | Cycle segmentation | Cycles found |
-| --- | --- | --- | --- |
-| `Train.csv` | **17 / 17** | real timestamp gaps | **110** (matches answer key) |
-| `Train_cleaned.csv` | 0 / 17 | blind 150-row chunks | 121 (fabricated) |
-| `Test.csv` | **17 / 17** | real timestamp gaps | 38 |
-| `Test_cleaned.csv` | 0 / 17 | blind 150-row chunks | 42 (fabricated) |
-
-With a cleaned file, motor current survives only by the "first numeric column"
-fallback, the other 16 channels are silently replaced by **hardcoded constants**
-(voltage 5000, EMF 500, leaf position 350), and `mean_duration_s` becomes an
-artifact of the chunk size rather than a measurement. The verdict happens to
-land in roughly the same place because current dominates the features — it is
-accidentally right, not right.
-
-Validated against `Door/Train_Segments_Answer.csv`: on raw `Train.csv` the model
-reproduces the answer key exactly — **110/110 cycles, 30/30 abnormal, and 40/40
-per-segment status and open/close agreement** over the returned segment detail.
-
-
-Everything downstream behaves normally — the AI cards, the cockpit charts,
-**Resolve** and the resolved log all treat these as ordinary findings, and the
-seeded SHM result really does drive the generator's bearing wear.
-
-### Regenerating, resetting and disabling
-
-```powershell
-# re-run the real models over the datasets and rewrite the saved JSON
-.\venv\Scripts\python.exe -m backend.scripts.build_seed_findings
-
-# only some subsystems
-.\venv\Scripts\python.exe -m backend.scripts.build_seed_findings door shm
-
-# put the bubbles back mid-demo, after resolving them (no restart needed)
-curl -X POST http://localhost:8000/api/predict/seed
+```sh
+python -m backend.scripts.build_seed_findings          # re-run the models over the datasets
+curl -X POST http://localhost:8000/api/predict/seed    # put the bubbles back after resolving them
 ```
 
 | Env var | Default | Effect |
-| --- | --- | --- |
-| `SEED_DEMO_FINDINGS` | `1` | Set to `0` for the original empty-until-you-upload start |
-| `SEED_DEMO_LINES` | `NSL` | Comma-separated; e.g. `NSL,EWL` to seed both lines |
+|---|---|---|
+| `SEED_DEMO_FINDINGS` | `1` | `0` starts empty until you upload |
+| `SEED_DEMO_LINES` | `NSL` | Comma-separated, e.g. `NSL,EWL` |
 
-**EWL is intentionally left empty**, so the upload walkthrough still has a clean
-line to demonstrate on. A missing or corrupt `seed_findings.json` degrades
-silently to the old empty-state behaviour rather than failing startup — and the
-datasets themselves are never needed at runtime.
+The `PS3/` datasets are git-ignored, so they are not in a fresh clone. They are only needed to *regenerate* the seed file, never at runtime.
 
+## Repository layout
 
----
+| Path | What it is |
+|---|---|
+| [`backend/`](backend/) | FastAPI service: REST + WebSocket, the four models, the harmonizer, the what-if engine and the AI service |
+| [`frontend/`](frontend/) | React + Three.js app (Vite, Tailwind, Zustand, ECharts) |
+| [`ACV2/`](ACV2/) | The ACV reference implementation, with its own CLI, methodology and reports; the backend adapts it |
+| [`Door/`](Door/), [`SHM/`](SHM/), [`Rail_Corrugation/`](Rail_Corrugation/) | Training pipelines, audit notes and evaluation scripts for each subsystem |
+| `PS3/` | Hackathon specification, datasets and example submissions (git-ignored) |
 
-## 👓 Making the dashboard readable for non-experts
+### Backend
 
-The HUD ships a **Beginner/Expert toggle** (the `SIMPLE` / `EXPERT` button).
+| File | Role |
+|---|---|
+| `backend/main.py` | App entry point; starts the 10 Hz broadcast loop and seeds findings |
+| `backend/api/routes.py` | REST endpoints (upload, resolve, AI, what-if, log) |
+| `backend/api/websocket_streamer.py` | Full-duplex WebSocket manager |
+| `backend/core/harmonizer.py` | Builds the unified frame; owns findings per line and the resolved log |
+| `backend/models/door_model.py`, `acv_model.py`, `shm_model.py`, `corrugation_model.py` | The four subsystem models |
+| `backend/models/inference_broker.py` | Runs the models on live frames; computes the fleet health index |
+| `backend/models/submission.py` | Builds each subsystem's PS3 prediction CSV |
+| `backend/services/whatif_engine.py` | Counterfactual simulation |
+| `backend/services/ai_insight.py` | Plain-language explanations and Q&A |
+| `backend/scripts/build_seed_findings.py` | Offline generator for the seeded findings |
 
-- **Beginner** replaces jargon with everyday wording — "Axle-box vibration RMS"
-  becomes "Wheel shaking", "COP efficiency rating" becomes "Efficiency" — and
-  states each verdict in words (`Normal`, `Watch`, `Act`) rather than relying on
-  colour alone.
-- **Expert** restores the engineering terminology and raw units.
+### Frontend
 
-Every reading carries a **?** tooltip defining what it measures, why it matters,
-its healthy range, and an everyday analogy. Definitions live in one place,
-`frontend/src/lib/metricGlossary.ts`, alongside a `TERM_GLOSSARY` that explains
-enum values such as `SHORT_PITCH` or `GUIDE_RAIL_FRICTION`.
+| File | Role |
+|---|---|
+| `src/components/canvas/` | 3D scene: train, track corridor, GLSL shaders, and `InspectionTag.tsx` (bubbles and cards) |
+| `src/components/hud/ResultsPanel.tsx` | Per-upload tabs, breakdowns and CSV download |
+| `src/components/hud/conductor/` | Upload dialog (drag and drop), chat and onboarding |
+| `src/store/useTwinStore.ts` | Global state, WebSocket client, upload calls |
+| `src/lib/downloadCsv.ts` | Saves a finding's prediction CSV |
 
----
+## API
 
-## 🛠️ Verification & Testing
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/predict/upload` | Score a file or ZIP for one subsystem on one line |
+| `GET` | `/api/predict/latest` | Current unresolved findings per line |
+| `POST` | `/api/predict/resolve` | Clear a finding and log it |
+| `POST` | `/api/predict/seed` | Restore the seeded demo findings |
+| `GET` | `/api/log` | The resolved log |
+| `POST` | `/api/ai/issue` · `/api/ai/insight` · `/api/ai/ask` | Card copy, live insight, free-text Q&A |
+| `GET` · `POST` | `/api/whatif/actions` · `/api/whatif` · `/api/whatif/reset` | Maintenance-action sandbox |
+| `GET` | `/api/health` · `/api/metrics/glossary` | Health check; the thresholds the UI mirrors |
+| `WS` | `/ws/telemetry` | 10 Hz frames; accepts `playback`, `seek`, `whatif` and `reset_whatif` |
 
-- **Backend Smoke Test**:
-  ```powershell
-  .\venv\Scripts\python.exe -c "from backend.core.harmonizer import TelemetryHarmonizer; h = TelemetryHarmonizer(); print(h.generate_next_frame())"
-  ```
-- **LTTB Downsampler Test**:
-  ```powershell
-  .\venv\Scripts\python.exe -c "from backend.services.downsampler import lttb_downsample; import numpy as np; print(len(lttb_downsample(np.random.randn(1000), 50)))"
-  ```
-- **Frontend Production Build**:
-  ```powershell
-  cd frontend
-  npm run build
-  ```
+## Design notes
 
----
+- **One source of truth for verdicts.** `GOOD` / `WATCH` / `ACTION_NEEDED` come from `METRIC_THRESHOLDS` in `backend/core/config.py`, and the frontend glossary mirrors them, so the words and colours in the UI can't contradict the backend.
+- **The AI explains; it doesn't diagnose.** The model gets pre-interpreted readings. Calls are throttled and cached on a coarse fingerprint, so a 10 Hz stream never becomes 10 model calls a second.
+- **The download is the model's output.** Each model builds its own submission rows at prediction time; the UI only serialises them. Door files without usable timestamps have no submission CSV rather than a made-up one.
+- **Counterfactuals are measured, not estimated.** A frame is evaluated twice from the same instant and noise seed; the what-if numbers are the real difference between the two. An action with no effect shows a delta of zero and the UI says why.
+- **Imbalanced data is handled explicitly.** Rail `Side I` is only about 5% of samples, so plain `argmax` missed most of it. Class-specific probability thresholds roughly doubled its recall (about 36% → 71% in our notes; see [`Rail_Corrugation/PEAK_PERFORMANCE_EXPLANATION.md`](Rail_Corrugation/PEAK_PERFORMANCE_EXPLANATION.md)). SHM damage is heavily right-skewed, so it is trained on log-damage to keep percentage error low.
 
-## 📄 License
-This project was developed for the Land Transport Authority (LTA) NebulaX 2026 Hackathon.
+### Good to know
+
+- The **live 10 Hz stream is simulated** by a physics-based generator; uploaded files are scored by the **real models**. NSL and EWL share the one simulated stream but keep their own findings.
+- Findings and the resolved log are held **in memory**: they survive a browser refresh but not a backend restart.
+- **Door files need the original LTA headers** (`Motor current(mA)`, `Datetime`, …). Use `Train.csv` / `Test.csv`, not the `_cleaned` variants: their snake_case headers don't match, so the model would fall back to constants and fabricated cycle boundaries. Details in [`Door/DOOR_COMPLETE_GUIDE.md`](Door/DOOR_COMPLETE_GUIDE.md).
+
+## Verification
+
+```sh
+cd frontend && npm run build                                   # typecheck + production build
+python -c "from backend.core.harmonizer import TelemetryHarmonizer; print(TelemetryHarmonizer().generate_next_frame()['fleet_health_index'])"
+```
+
+## License
+
+Developed for the Land Transport Authority (LTA) NebulaX 2026 Hackathon.

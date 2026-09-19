@@ -1,0 +1,175 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 790" width="1100" height="790" role="img" aria-labelledby="t d" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title id="t">NebulaX P3 system architecture</title>
+  <desc id="d">A React browser app talks to a FastAPI backend. Uploaded files go through REST to four subsystem models and become findings per line. A live simulated stream and the findings are merged by the harmonizer and streamed back to the browser over a WebSocket.</desc>
+
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#475569"/>
+    </marker>
+    <style>
+      .box   { fill:#ffffff; stroke:#94a3b8; stroke-width:1.5; }
+      .client{ fill:#eff6ff; stroke:#93c5fd; stroke-width:1.5; }
+      .real  { fill:#f0fdf4; stroke:#86efac; stroke-width:1.5; }
+      .sim   { fill:#f8fafc; stroke:#94a3b8; stroke-width:1.5; stroke-dasharray:5 4; }
+      .store { fill:#fefce8; stroke:#facc15; stroke-width:1.5; }
+      .ai    { fill:#faf5ff; stroke:#c4b5fd; stroke-width:1.5; }
+      .zone  { fill:#f8fafc; stroke:#cbd5e1; stroke-width:1.5; }
+      .zoneC { fill:#f1f7ff; stroke:#bfdbfe; stroke-width:1.5; }
+      .h     { font-size:14px; font-weight:700; fill:#0f172a; }
+      .s     { font-size:11.5px; fill:#475569; }
+      .zt    { font-size:11px; font-weight:700; letter-spacing:.12em; fill:#64748b; }
+      .lbl   { font-size:11px; fill:#475569; }
+      .arrow { stroke:#475569; stroke-width:1.6; fill:none; }
+      .dash  { stroke:#64748b; stroke-width:1.5; fill:none; stroke-dasharray:5 4; }
+    </style>
+  </defs>
+
+  <rect x="0.75" y="0.75" width="1098.5" height="788.5" rx="12" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- ===================== BROWSER ===================== -->
+  <rect class="zoneC" x="30" y="20" width="1040" height="150" rx="10"/>
+  <text class="zt" x="50" y="44">BROWSER  ·  REACT 18  ·  VITE  ·  TYPESCRIPT</text>
+
+  <rect class="client" x="60" y="62" width="270" height="86" rx="8"/>
+  <text class="h" x="76" y="88">3D scene</text>
+  <text class="s" x="76" y="107">React Three Fiber, custom GLSL shaders</text>
+  <text class="s" x="76" y="124">train · track · finding bubbles</text>
+
+  <rect class="client" x="415" y="62" width="270" height="86" rx="8"/>
+  <text class="h" x="431" y="88">Zustand store</text>
+  <text class="s" x="431" y="107">useTwinStore</text>
+  <text class="s" x="431" y="124">WebSocket client · upload calls</text>
+
+  <rect class="client" x="770" y="62" width="270" height="86" rx="8"/>
+  <text class="h" x="786" y="88">HUD</text>
+  <text class="s" x="786" y="107">Results tabs · Conductor chat</text>
+  <text class="s" x="786" y="124">What-if · Resolved log · drag-and-drop</text>
+
+  <path class="arrow" d="M330 105 H415" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <path class="arrow" d="M685 105 H770" marker-start="url(#ah)" marker-end="url(#ah)"/>
+
+  <!-- ===================== BACKEND ===================== -->
+  <rect class="zone" x="30" y="250" width="1040" height="430" rx="10"/>
+  <text class="zt" x="50" y="274">BACKEND  ·  FASTAPI  ·  PYTHON 3.11</text>
+
+  <!-- WebSocket -->
+  <rect class="box" x="60" y="296" width="600" height="48" rx="8"/>
+  <text class="h" x="76" y="316">WebSocket  /ws/telemetry</text>
+  <text class="s" x="76" y="334">10 Hz frames, with each line's findings included</text>
+
+  <!-- Harmonizer -->
+  <rect class="box" x="60" y="390" width="300" height="76" rx="8"/>
+  <text class="h" x="76" y="416">TelemetryHarmonizer</text>
+  <text class="s" x="76" y="435">one unified frame per tick</text>
+  <text class="s" x="76" y="452">owns findings and the resolved log</text>
+
+  <!-- Generator -->
+  <rect class="sim" x="60" y="520" width="300" height="64" rx="8"/>
+  <text class="h" x="76" y="546">Physics-based generator</text>
+  <text class="s" x="76" y="565">simulated door · ACV · SHM · rail telemetry</text>
+
+  <!-- What-if -->
+  <rect class="sim" x="410" y="390" width="250" height="76" rx="8"/>
+  <text class="h" x="426" y="416">What-if engine</text>
+  <text class="s" x="426" y="435">counterfactual frames from the</text>
+  <text class="s" x="426" y="452">same instant and noise seed</text>
+
+  <!-- Findings -->
+  <rect class="store" x="410" y="520" width="250" height="64" rx="8"/>
+  <text class="h" x="426" y="546">Findings per line</text>
+  <text class="s" x="426" y="565">NSL · EWL, plus the resolved log</text>
+
+  <!-- REST -->
+  <rect class="real" x="710" y="296" width="330" height="64" rx="8"/>
+  <text class="h" x="726" y="322">REST API</text>
+  <text class="s" x="726" y="341">/api/predict · /api/ai · /api/whatif</text>
+
+  <!-- Broker -->
+  <rect class="real" x="710" y="395" width="330" height="170" rx="8"/>
+  <text class="h" x="726" y="418">Inference broker</text>
+  <text class="s" x="850" y="418">one real model per subsystem</text>
+
+  <rect class="box" x="725" y="434" width="145" height="52" rx="6"/>
+  <rect x="725" y="434" width="5" height="52" rx="2" fill="#2563eb"/>
+  <text class="h" x="740" y="455" style="font-size:13px">Door</text>
+  <text class="s" x="740" y="473">Random Forest</text>
+
+  <rect class="box" x="880" y="434" width="145" height="52" rx="6"/>
+  <rect x="880" y="434" width="5" height="52" rx="2" fill="#0891b2"/>
+  <text class="h" x="895" y="455" style="font-size:13px">ACV</text>
+  <text class="s" x="895" y="473">ACV2 physics ranker</text>
+
+  <rect class="box" x="725" y="498" width="145" height="52" rx="6"/>
+  <rect x="725" y="498" width="5" height="52" rx="2" fill="#7c3aed"/>
+  <text class="h" x="740" y="519" style="font-size:13px">SHM</text>
+  <text class="s" x="740" y="537">Rainflow fatigue model</text>
+
+  <rect class="box" x="880" y="498" width="145" height="52" rx="6"/>
+  <rect x="880" y="498" width="5" height="52" rx="2" fill="#c026d3"/>
+  <text class="h" x="895" y="519" style="font-size:13px">Rail</text>
+  <text class="s" x="895" y="537">15-model ensemble</text>
+
+  <!-- AI -->
+  <rect class="ai" x="710" y="600" width="330" height="56" rx="8"/>
+  <text class="h" x="726" y="624">AI insight service</text>
+  <text class="s" x="726" y="643">throttled · cached · rule-based fallback</text>
+
+  <!-- ===================== OUTSIDE ===================== -->
+  <rect class="ai" x="770" y="722" width="270" height="44" rx="8" stroke-dasharray="5 4"/>
+  <text class="h" x="786" y="742" style="font-size:13px">OpenAI API (optional)</text>
+  <text class="s" x="786" y="757">key never leaves the server</text>
+
+  <rect class="store" x="410" y="722" width="250" height="44" rx="8" stroke-dasharray="5 4"/>
+  <text class="h" x="426" y="742" style="font-size:13px">seed_findings.json</text>
+  <text class="s" x="426" y="757">real model output, built offline</text>
+
+  <!-- ===================== ARROWS ===================== -->
+  <!-- HUD -> REST : uploads -->
+  <path class="arrow" d="M905 148 V296" marker-end="url(#ah)"/>
+  <text class="lbl" x="915" y="205">drag and drop</text>
+  <text class="lbl" x="915" y="220">csv · xlsx · zip</text>
+
+  <!-- WebSocket -> Store : frames -->
+  <path class="arrow" d="M550 296 V148" marker-end="url(#ah)"/>
+  <text class="lbl" x="560" y="205">frames, incl.</text>
+  <text class="lbl" x="560" y="220">findings (10 Hz)</text>
+
+  <!-- REST -> Broker -->
+  <path class="arrow" d="M875 360 V395" marker-end="url(#ah)"/>
+
+  <!-- Broker -> Findings -->
+  <path class="arrow" d="M710 552 H662" marker-end="url(#ah)"/>
+
+  <!-- Findings -> Harmonizer (elbow) -->
+  <path class="arrow" d="M410 552 H385 V448 H362" marker-end="url(#ah)"/>
+
+  <!-- Harmonizer <-> What-if -->
+  <path class="arrow" d="M360 415 H410" marker-start="url(#ah)" marker-end="url(#ah)"/>
+
+  <!-- Generator -> Harmonizer -->
+  <path class="arrow" d="M210 520 V466" marker-end="url(#ah)"/>
+
+  <!-- Harmonizer -> WebSocket -->
+  <path class="arrow" d="M210 390 V344" marker-end="url(#ah)"/>
+
+  <!-- REST -> AI (right gutter) -->
+  <path class="arrow" d="M1040 328 H1056 V628 H1042" marker-end="url(#ah)"/>
+
+  <!-- AI -> OpenAI -->
+  <path class="dash" d="M905 656 V722" marker-end="url(#ah)"/>
+
+  <!-- Seed -> Findings -->
+  <path class="dash" d="M535 722 V586" marker-end="url(#ah)"/>
+  <text class="lbl" x="545" y="660">replayed at startup</text>
+  <text class="lbl" x="545" y="675">and on page load</text>
+
+  <!-- legend -->
+  <path class="arrow" d="M40 758 H80" marker-end="url(#ah)"/>
+  <text class="lbl" x="88" y="762">data flow</text>
+  <path class="dash" d="M40 776 H80" marker-end="url(#ah)"/>
+  <text class="lbl" x="88" y="780">optional / offline</text>
+  <rect class="sim" x="200" y="748" width="26" height="14" rx="3"/>
+  <text class="lbl" x="234" y="760">simulated</text>
+  <rect class="real" x="200" y="768" width="26" height="14" rx="3"/>
+  <text class="lbl" x="234" y="780">real models</text>
+</svg>
