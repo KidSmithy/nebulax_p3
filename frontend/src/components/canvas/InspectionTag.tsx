@@ -280,15 +280,11 @@ export const InspectionTag: React.FC<InspectionTagProps> = ({ type, position, be
                 </div>
               </div>
 
-              <CardSection icon={<FileText className="w-3.5 h-3.5" />} title="EXPLANATION">
-                {explanation ?? <Skeleton />}
-              </CardSection>
-
-              <div className="mt-4">
-                <CardSection icon={<Lightbulb className="w-3.5 h-3.5" />} title="SUGGESTION">
-                  {suggestion ?? <Skeleton />}
-                </CardSection>
-              </div>
+              <StreamedSections
+                streamKey={`${type}|${activeLine}|${monitoredCarNo}|${finding.file_name ?? ''}`}
+                explanation={explanation}
+                suggestion={suggestion}
+              />
 
               <button
                 onClick={handleResolve}
@@ -311,6 +307,102 @@ export const InspectionTag: React.FC<InspectionTagProps> = ({ type, position, be
         </Html>
       </group>
     </group>
+  );
+};
+
+/** Typing speed of the card copy, in characters per second. */
+const STREAM_CHARS_PER_SECOND = 110;
+
+/** Findings whose copy has already been typed out once; re-opening shows it instantly. */
+const streamedKeys = new Set<string>();
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Types `text` out character by character once `play` is true. The untyped
+ * remainder is rendered invisibly, so the card is already its final height and
+ * the words land where they will stay instead of the card growing as it types.
+ */
+const TypedText: React.FC<{
+  text: string;
+  play: boolean;
+  instant: boolean;
+  onDone: () => void;
+}> = ({ text, play, instant, onDone }) => {
+  const [count, setCount] = useState(instant ? text.length : 0);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
+  useEffect(() => {
+    if (instant) {
+      setCount(text.length);
+      onDoneRef.current();
+      return;
+    }
+    setCount(0);
+    if (!play) return;
+    const start = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const n = Math.min(text.length, Math.floor(((now - start) / 1000) * STREAM_CHARS_PER_SECOND));
+      setCount(n);
+      if (n < text.length) raf = requestAnimationFrame(tick);
+      else onDoneRef.current();
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [text, play, instant]);
+
+  return (
+    <span aria-label={text}>
+      <span aria-hidden="true">{text.slice(0, count)}</span>
+      <span aria-hidden="true" className="invisible">
+        {text.slice(count)}
+      </span>
+    </span>
+  );
+};
+
+/** Explanation then suggestion, typed out one after the other as the copy arrives. */
+const StreamedSections: React.FC<{
+  streamKey: string;
+  explanation: string | null;
+  suggestion: string | null;
+}> = ({ streamKey, explanation, suggestion }) => {
+  const instant = useRef(streamedKeys.has(streamKey) || prefersReducedMotion()).current;
+  const [explanationDone, setExplanationDone] = useState<string | null>(null);
+
+  return (
+    <>
+      <CardSection icon={<FileText className="w-3.5 h-3.5" />} title="EXPLANATION">
+        {explanation === null ? (
+          <Skeleton />
+        ) : (
+          <TypedText
+            text={explanation}
+            play
+            instant={instant}
+            onDone={() => setExplanationDone(explanation)}
+          />
+        )}
+      </CardSection>
+
+      <div className="mt-4">
+        <CardSection icon={<Lightbulb className="w-3.5 h-3.5" />} title="SUGGESTION">
+          {suggestion === null ? (
+            <Skeleton />
+          ) : (
+            <TypedText
+              text={suggestion}
+              play={explanationDone === explanation}
+              instant={instant}
+              onDone={() => streamedKeys.add(streamKey)}
+            />
+          )}
+        </CardSection>
+      </div>
+    </>
   );
 };
 

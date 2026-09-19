@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Activity, ChevronLeft, ChevronRight, DoorOpen, GitCommit, Table2, Wind } from 'lucide-react';
+import { Activity, ChevronLeft, ChevronRight, DoorOpen, Download, GitCommit, Table2, Wind } from 'lucide-react';
 import { useTwinStore } from '../../store/useTwinStore';
-import { Finding, Line, MetricStatus } from '../../types/telemetry';
+import { Finding, Line, MetricStatus, SubmissionCsv } from '../../types/telemetry';
+import { downloadSubmission } from '../../lib/downloadCsv';
 import { STATUS_SHORT, STATUS_STYLES } from '../../lib/metricGlossary';
 import { LINES } from '../../lib/lines';
 import { ACTIONS } from './WhatIfPanel';
@@ -10,14 +11,14 @@ type Subsystem = 'acv' | 'door' | 'shm' | 'rail';
 
 const ORDER: Subsystem[] = ['acv', 'door', 'shm', 'rail'];
 
-const META: Record<Subsystem, { label: string; Icon: React.FC<{ className?: string }>; color: string }> = {
-  acv: { label: 'Air conditioning', Icon: Wind, color: '#0891b2' },
-  door: { label: 'Passenger doors', Icon: DoorOpen, color: '#2563eb' },
-  shm: { label: 'Structural health (SHM)', Icon: Activity, color: '#7c3aed' },
-  rail: { label: 'Rail corrugation', Icon: GitCommit, color: '#c026d3' },
+const META: Record<Subsystem, { label: string; tab: string; Icon: React.FC<{ className?: string }>; color: string }> = {
+  acv: { label: 'Air conditioning', tab: 'Aircon', Icon: Wind, color: '#0891b2' },
+  door: { label: 'Passenger doors', tab: 'Doors', Icon: DoorOpen, color: '#2563eb' },
+  shm: { label: 'Structural health (SHM)', tab: 'SHM', Icon: Activity, color: '#7c3aed' },
+  rail: { label: 'Rail corrugation', tab: 'Rail', Icon: GitCommit, color: '#c026d3' },
 };
 
-/** The one number that best summarises each finding, for the overview row. */
+/** The one number that best summarises each finding, shown under its tab's title. */
 function headline(sub: Subsystem, f: Finding): string {
   switch (sub) {
     case 'acv':
@@ -92,13 +93,13 @@ const Detail: React.FC<{ sub: Subsystem; f: Finding }> = ({ sub, f }) => {
             action,
           ]}
         />
-        <DataTable head={[{ label: 'Rank' }, { label: 'Car' }, { label: 'Health idx', right: true }, { label: 'Elevated', right: true }, { label: 'Persist.', right: true }]}>
+        <DataTable head={[{ label: 'Rank' }, { label: 'Car' }, { label: 'Health idx', right: true }, { label: 'Warmer by', right: true }, { label: 'Persist.', right: true }]}>
           {cars.map((c) => (
             <tr key={c.car} className={c.rank === 1 ? 'bg-slate-50 font-semibold' : ''}>
               <Td>{c.rank}</Td>
               <Td>Car {Number(c.car)}</Td>
               <Td right>{c.health_index.toFixed(2)}</Td>
-              <Td right>{c.frac_elevated_pct.toFixed(0)}%</Td>
+              <Td right>{c.mean_rel_c >= 0 ? '+' : ''}{c.mean_rel_c.toFixed(2)} °C</Td>
               <Td right>{c.persistence_pct.toFixed(0)}%</Td>
             </tr>
           ))}
@@ -190,10 +191,29 @@ const Detail: React.FC<{ sub: Subsystem; f: Finding }> = ({ sub, f }) => {
   );
 };
 
+/** Downloads the finding's prediction CSV in the PS3 submission format. */
+const DownloadButton: React.FC<{ submission?: SubmissionCsv | null }> = ({ submission }) => {
+  if (!submission || submission.rows.length === 0) return null;
+  return (
+    <button
+      onClick={() => downloadSubmission(submission)}
+      className="w-full flex items-center justify-center gap-2 border border-slate-300 text-slate-700 text-xs font-semibold py-2 rounded hover:bg-slate-50 hover:text-slate-900 transition-colors duration-150"
+    >
+      <Download className="w-3.5 h-3.5" />
+      Download {submission.filename}
+      <span className="font-mono font-normal text-slate-400">
+        · {submission.rows.length} {submission.rows.length === 1 ? 'row' : 'rows'}
+      </span>
+    </button>
+  );
+};
+
 /**
- * Right-hand results table for the active line: one row per uploaded finding,
- * with the selected one broken down underneath. Docks into the layout on wide
- * screens (the scene reflows) and overlays on narrow ones; collapses to a tab.
+ * Right-hand results panel for the active line: one tab per unresolved upload,
+ * each showing that finding's breakdown and its downloadable prediction CSV. A
+ * finding leaves the panel (and its tab goes) as soon as it is resolved. Docks
+ * into the layout on wide screens (the scene reflows) and overlays on narrow
+ * ones; collapses to a handle on the right edge.
  */
 export const ResultsPanel: React.FC = () => {
   const open = useTwinStore((s) => s.resultsPanelOpen);
@@ -204,13 +224,14 @@ export const ResultsPanel: React.FC = () => {
 
   const present = ORDER.filter((sub) => findings?.[sub]);
   const selected: Subsystem | null = picked && present.includes(picked) ? picked : present[0] ?? null;
+  const finding = selected ? findings![selected]! : null;
 
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
         title="Show results"
-        className="fixed right-0 top-24 z-30 glass-panel-floating rounded-l pl-1.5 pr-2 py-2.5 flex flex-col items-center gap-1.5 text-slate-500 hover:text-ink-900 transition-colors duration-150"
+        className="fixed right-0 top-1/2 -translate-y-1/2 z-30 glass-panel-floating rounded-l pl-1.5 pr-2 py-2.5 flex flex-col items-center gap-1.5 text-slate-500 hover:text-ink-900 transition-colors duration-150"
       >
         <ChevronLeft className="w-4 h-4" />
         <Table2 className="w-4 h-4" />
@@ -222,77 +243,76 @@ export const ResultsPanel: React.FC = () => {
   }
 
   return (
-    <aside className="fixed xl:static top-0 right-0 h-full w-[400px] max-w-full z-40 xl:z-auto bg-white border-l border-slate-200 flex flex-col shrink-0">
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-200 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <Table2 className="w-4 h-4 text-slate-500 shrink-0" />
-          <div className="min-w-0">
-            <div className="text-sm font-bold text-slate-900 leading-tight">Results</div>
-            <div className="text-label text-slate-500 leading-tight flex items-center gap-1">
-              <span className={`w-1.5 h-1.5 rounded-full ${LINES[activeLine].dotClass}`} aria-hidden="true" />
-              {LINES[activeLine].tab} · uploaded tests
-            </div>
+    <aside className="fixed xl:relative top-0 right-0 h-full w-[400px] max-w-full z-40 xl:z-auto bg-white border-l border-slate-200 flex flex-col shrink-0">
+      {/* Hide handle: a tab on the panel's left edge, halfway down. */}
+      <button
+        onClick={() => setOpen(false)}
+        title="Hide results"
+        aria-label="Hide results"
+        className="absolute top-1/2 -left-7 -translate-y-1/2 z-10 w-7 h-14 flex items-center justify-center rounded-l border border-r-0 border-slate-200 bg-white text-slate-500 hover:text-slate-900 hover:bg-slate-50 shadow-sm transition-colors"
+      >
+        <ChevronRight className="w-5 h-5" />
+      </button>
+
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-200 shrink-0">
+        <Table2 className="w-4 h-4 text-slate-500 shrink-0" />
+        <div className="min-w-0">
+          <div className="text-sm font-bold text-slate-900 leading-tight">Results</div>
+          <div className="text-label text-slate-500 leading-tight flex items-center gap-1">
+            <span className={`w-1.5 h-1.5 rounded-full ${LINES[activeLine].dotClass}`} aria-hidden="true" />
+            {LINES[activeLine].tab} · unresolved uploads
           </div>
         </div>
-        <button
-          onClick={() => setOpen(false)}
-          title="Hide results"
-          className="p-1 rounded text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
       </div>
 
       {present.length === 0 ? (
         <p className="px-4 py-6 text-xs text-slate-400 leading-relaxed">
-          No results for this line yet. Upload a test file from the Conductor and its results will appear here.
+          No unresolved results for this line. Upload a test file from the Conductor and its results will appear here.
         </p>
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar-lg">
-          <table className="w-full border-b border-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                <Th>Subsystem</Th>
-                <Th>Status</Th>
-                <Th>Result</Th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {present.map((sub) => {
-                const f = findings![sub]!;
-                const { Icon, color, label } = META[sub];
-                return (
-                  <tr
-                    key={sub}
-                    onClick={() => setPicked(sub)}
-                    className={`cursor-pointer transition-colors duration-150 ${selected === sub ? 'bg-slate-50' : 'hover:bg-slate-50/60'}`}
-                  >
-                    <Td>
-                      <span className="flex items-center gap-1.5 font-semibold text-slate-800">
-                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-white shrink-0" style={{ backgroundColor: color }}>
-                          <Icon className="w-3 h-3" />
-                        </span>
-                        {label}
-                      </span>
-                    </Td>
-                    <Td><StatusPill status={f.status} /></Td>
-                    <Td>{headline(sub, f)}</Td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <>
+          <div role="tablist" aria-label="Uploaded data" className="flex border-b border-slate-200 shrink-0">
+            {present.map((sub) => {
+              const { Icon, color, tab } = META[sub];
+              const active = selected === sub;
+              const st = STATUS_STYLES[findings![sub]!.status] ?? STATUS_STYLES.UNKNOWN;
+              return (
+                <button
+                  key={sub}
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setPicked(sub)}
+                  className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-semibold border-b-2 -mb-px transition-colors duration-150 ${
+                    active
+                      ? 'border-slate-900 text-slate-900'
+                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="w-5 h-5 rounded-full flex items-center justify-center text-white shrink-0" style={{ backgroundColor: color }}>
+                    <Icon className="w-3 h-3" />
+                  </span>
+                  <span className="truncate">{tab}</span>
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${st.bar}`} aria-label={STATUS_SHORT[findings![sub]!.status]} />
+                </button>
+              );
+            })}
+          </div>
 
-          {selected && (
-            <div className="p-3 space-y-2">
-              <div className="flex items-baseline justify-between gap-2">
-                <h3 className="text-xs font-bold text-slate-900">{META[selected].label}</h3>
-                <span className="text-label font-mono text-slate-400 truncate">{findings![selected]!.file_name}</span>
+          {selected && finding && (
+            <div role="tabpanel" className="flex-1 min-h-0 overflow-y-auto custom-scrollbar-lg p-3 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="text-xs font-bold text-slate-900">{META[selected].label}</h3>
+                  <p className="text-label font-mono text-slate-400 truncate">{finding.file_name}</p>
+                </div>
+                <StatusPill status={finding.status} />
               </div>
-              <Detail sub={selected} f={findings![selected]!} />
+              <p className="text-xs font-semibold text-slate-700">{headline(selected, finding)}</p>
+              <Detail sub={selected} f={finding} />
+              <DownloadButton submission={finding.submission} />
             </div>
           )}
-        </div>
+        </>
       )}
     </aside>
   );

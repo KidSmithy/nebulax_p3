@@ -127,7 +127,8 @@ export interface CarDiagnostic {
   rank: number;
   car: string;
   health_index: number;
-  frac_elevated_pct: number;
+  /** Mean °C this car runs above the other cars in the consist. */
+  mean_rel_c: number;
   persistence_pct: number;
   assessable?: boolean;
 }
@@ -143,9 +144,18 @@ export interface DoorSegment {
   fault_probability: number;
 }
 
+/** The PS3 prediction CSV for an upload, ready to download as-is. */
+export interface SubmissionCsv {
+  filename: string;
+  columns: string[];
+  rows: Array<Array<string | number>>;
+}
+
 export interface Finding {
   subsystem: string;
   file_name: string;
+  /** Absent when the upload can't be expressed in the submission format (e.g. a door file without timestamps). */
+  submission?: SubmissionCsv | null;
   status: MetricStatus;
   verdict: string;
   anomaly_score: number;
