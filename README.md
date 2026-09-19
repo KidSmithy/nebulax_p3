@@ -7,6 +7,10 @@
   <img alt="scikit-learn" src="https://img.shields.io/badge/scikit--learn-models-f7931e?style=for-the-badge&logo=scikitlearn&logoColor=white">
 </p>
 
+<p align="center">
+  <a href="https://smrt-digital-twin-2026.web.app/"><strong>Live Demo: smrt-digital-twin-2026.web.app</strong></a>
+</p>
+
 An interactive 3D train that turns raw maintenance data into **clear actions**. Drag a data file onto it, and the fault shows up as a bubble on the exact component that needs attention, with an explanation a non-engineer can read and trust.
 
 Built for the **LTA NebulaX 2026 Hackathon — Problem Statement 3 (Train Condition Monitoring)**, on a Singapore MRT **North-South** and **East-West** line.
@@ -36,8 +40,6 @@ Every result is also available as the **exact prediction CSV** the competition a
 - **Results panel.** One tab per unresolved upload, each with its breakdown and a download button. Resolve a finding and its tab disappears.
 - **Drag and drop.** Drop a file (or a ZIP of runs) onto the Conductor's upload dialog.
 - **Resolve and log.** Resolving clears the bubble and writes a receipt to the resolved log.
-- **What-if sandbox.** Toggle maintenance actions (grind rail, lubricate door, replace filter, inspect bearing) and see the measured before/after impact on risk scores and charts.
-- **Two lines.** NSL and EWL each keep their own findings and Conductor conversation.
 - **Conductor.** A chat assistant grounded in the live readings and your latest uploads.
 - **Simple / Expert toggle.** Plain wording ("Wheel shaking") or engineering terms ("Axle-box vibration RMS"); every reading has a **?** tooltip. Definitions live in [`frontend/src/lib/metricGlossary.ts`](frontend/src/lib/metricGlossary.ts).
 
@@ -79,6 +81,8 @@ sequenceDiagram
 
 ### Deployment
 
+The live application is hosted at **[smrt-digital-twin-2026.web.app](https://smrt-digital-twin-2026.web.app/)**.
+
 The frontend is a static Vite build on **Firebase Hosting**; its `/api/**` rewrite forwards to the backend, a container built from [`backend/Dockerfile`](backend/Dockerfile) and run on **Cloud Run** (`asia-southeast1`).
 
 ## Quick start
@@ -112,26 +116,28 @@ The key is read only by the backend and never reaches the browser. **With no key
 
 ### Try it
 
-1. Open <http://localhost:3000>. The NSL train already carries four bubbles (see [seeded findings](#seeded-findings)).
+1. Open <http://localhost:3000>. The NSL train already carries four bubbles (see [baseline data pipeline](#baseline-data-pipeline-prototype)).
 2. Click a bubble for its card, or open the **Results** panel on the right and switch tabs.
 3. Click **Upload new data**, choose a subsystem, and drop a file. Uploads take `.csv`, `.xlsx`, `.xls` or a `.zip` of several runs, up to 30 MB.
 4. Download the prediction CSV from the Results panel, then **Resolve** the finding.
 
-## Seeded findings
+## Baseline data pipeline (prototype)
 
-So the first load isn't an empty train, the four bubbles are pre-populated from **real model output**: inference is run once, offline, over files from the PS3 **Train** splits, and the unedited results are saved to [`backend/model_data/seed_findings.json`](backend/model_data/seed_findings.json). The backend replays that file through the same code path an upload uses, so everything downstream (AI cards, Resolve, the log) behaves identically. It does this at startup and again on every page load (the frontend calls `POST /api/predict/seed?reset=1`), so a browser refresh is a clean slate. Test files stay unseen for live uploads.
+To reflect an operational maintenance depot rather than an empty dashboard on boot, the system prototypes an **established ingest pipeline**: realistic historical inspection runs from the PS3 dataset splits are pre-processed offline through the subsystem models, with outputs structured into [`backend/model_data/seed_findings.json`](backend/model_data/seed_findings.json). 
+
+The backend streams this baseline data through the exact same ingestion and validation code path used by live sensor uploads. Downstream services (3D spatial mapping, AI diagnostic cards, operator resolve workflow, audit logging) behave identically across both automated depot telemetry and manual file uploads.
 
 ```sh
-python -m backend.scripts.build_seed_findings          # re-run the models over the datasets
-curl -X POST http://localhost:8000/api/predict/seed    # put the bubbles back after resolving them
+python -m backend.scripts.build_seed_findings          # re-ingest and process runs through subsystem models
+curl -X POST http://localhost:8000/api/predict/seed    # reset pipeline to baseline state after resolving findings
 ```
 
 | Env var | Default | Effect |
 |---|---|---|
-| `SEED_DEMO_FINDINGS` | `1` | `0` starts empty until you upload |
-| `SEED_DEMO_LINES` | `NSL` | Comma-separated, e.g. `NSL,EWL` |
+| `SEED_DEMO_FINDINGS` | `1` | `0` disables initial pipeline findings, booting to a clean state until incoming uploads arrive |
+| `SEED_DEMO_LINES` | `NSL` | Comma-separated transit lines initialized on startup, e.g. `NSL,EWL` |
 
-The `PS3/` datasets are git-ignored, so they are not in a fresh clone. They are only needed to *regenerate* the seed file, never at runtime.
+The `PS3/` raw sensor datasets are git-ignored and not bundled in a fresh clone. They are only required when re-running the offline ingest pipeline, never for runtime serving.
 
 ## Repository layout
 
