@@ -17,6 +17,7 @@ UI can show the operator exactly what their action changed.
 """
 
 from backend.core.config import CORRUGATION_ZONES, INTERVENTION_ACTIONS, classify_metric
+from backend.core.seed_findings import SEED_FILE, load_seed_findings, seeded_lines, seeding_enabled
 from backend.models.inference_broker import InferenceBroker, NO_INTERVENTIONS
 from backend.utils.mock_generator import TelemetryGenerator
 
@@ -64,6 +65,37 @@ class TelemetryHarmonizer:
         # this matches the project's own pattern rather than adding one.
         self.resolved_log = []
         self._next_log_id = 1
+        self.seed_demo_findings()
+
+    def seed_demo_findings(self) -> dict:
+        """
+        Pre-populates a line's findings with saved real model output, so the
+        four inspection bubbles are already on the train at first page load
+        rather than appearing only after four manual uploads.
+
+        These go through the same set_upload_result() an upload does, so the
+        generator physics, the AI cards, Resolve and the log all behave exactly
+        as if an operator had just uploaded those datasets. Resolving one clears
+        it for good, same as any real finding - call this again (POST
+        /api/predict/seed) to put the demo back without restarting.
+
+        Returns {"lines": [...], "seeded": [...]} for the route to echo.
+        """
+        if not seeding_enabled():
+            return {"lines": [], "seeded": [], "reason": "SEED_DEMO_FINDINGS is off"}
+        findings = load_seed_findings()
+        if not findings:
+            return {"lines": [], "seeded": [], "reason": f"No usable {SEED_FILE.name}"}
+
+        lines = [line for line in seeded_lines() if line in LINES]
+        for line in lines:
+            for subsystem, finding in findings.items():
+                # A copy per line: set_upload_result tags the dict with its line.
+                self.set_upload_result(subsystem, dict(finding), line=line)
+        if lines:
+            print(f"[Seed] Pre-loaded {len(findings)} findings "
+                  f"({', '.join(findings)}) onto {', '.join(lines)}.")
+        return {"lines": lines, "seeded": list(findings), "reason": None}
 
     def set_upload_result(self, subsystem: str, result: dict, line: str = "NSL"):
         """Stores the most recent CSV batch prediction for a subsystem on a line."""

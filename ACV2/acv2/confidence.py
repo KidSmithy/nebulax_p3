@@ -164,6 +164,63 @@ def null_p_value(observed: float, null_values: list[float]) -> float:
 
 
 # --------------------------------------------------------------------------
+# combining the two separation statistics
+# --------------------------------------------------------------------------
+# Q and top_z answer different questions and measurement shows they are
+# complementary rather than redundant. Scored against the fault-free null, the
+# six labelled faults come out as:
+#
+#     file          p via Q    p via top_z
+#     acv_case_01     0.214        0.048
+#     acv_case_02     0.786        0.071
+#     acv_case_03     0.071        0.476
+#     acv_case_04     0.952        0.762
+#     acv_case_05     0.524        0.619
+#     acv_case_06     0.095        0.333
+#
+# Q catches cases 03 and 06; top_z catches 01 and 02. Neither dominates, because
+# they fail in different regimes:
+#
+#   * Q = (s1-s2)/(s1-sn) is a *ratio of gaps*, so it is blind to how far out the
+#     leader actually is. It also saturates once the leader's z-scores hit the
+#     z_clip guard, since further degradation cannot widen the numerator while
+#     the healthy cars' own scatter still fills the denominator.
+#   * top_z measures the leader's distance in robust sigmas, so it does not
+#     saturate - but it says nothing about whether the *runner-up* is nearly as
+#     bad, which is exactly the ambiguity Q is good at exposing.
+#
+# Using only one therefore discards real evidence. Both are tested and the
+# smaller p-value is taken, with a Bonferroni factor of two to pay honestly for
+# having looked twice. That is deliberately conservative: it cannot manufacture
+# significance, and it lifts four of the six genuine faults to a distinguishable
+# p-value where Q alone lifted two.
+N_SEPARATION_TESTS = 2
+
+
+def combined_p_value(p_q: float, p_top_z: float) -> float:
+    """Bonferroni-corrected smaller of the two null-referenced p-values."""
+    candidates = [p for p in (p_q, p_top_z) if np.isfinite(p)]
+    if not candidates:
+        return float("nan")
+    return float(min(1.0, N_SEPARATION_TESTS * min(candidates)))
+
+
+def p_value_for(sep: dict, null: dict | None) -> float:
+    """
+    Combined p-value for an already-computed :func:`separation` dict.
+
+    Convenience for the reporting scripts, so a report can never quote a
+    different statistic from the one the ranker acts on.
+    """
+    if not null:
+        return float("nan")
+    return combined_p_value(
+        null_p_value(sep.get("dixon_q", float("nan")), null.get("dixon_q_null", [])),
+        null_p_value(sep.get("top_z", float("nan")), null.get("top_z_null", [])),
+    )
+
+
+# --------------------------------------------------------------------------
 # detection-limit cross-check
 # --------------------------------------------------------------------------
 def detection_context(evidence_k: float, limit: dict | None) -> dict:
@@ -232,8 +289,11 @@ def assess(scores: pd.Series, evidence_k: float = float("nan"),
     limit = load_detection_limit() if limit is None else limit
 
     sep = separation(scores)
-    null_values = list(null.get("dixon_q_null", [])) if null else []
-    p = null_p_value(sep["dixon_q"], null_values)
+    null_q = list(null.get("dixon_q_null", [])) if null else []
+    null_z = list(null.get("top_z_null", [])) if null else []
+    p_q = null_p_value(sep["dixon_q"], null_q)
+    p_z = null_p_value(sep["top_z"], null_z)
+    p = combined_p_value(p_q, p_z)
     context = detection_context(evidence_k, limit)
 
     if not np.isfinite(p):
@@ -249,13 +309,17 @@ def assess(scores: pd.Series, evidence_k: float = float("nan"),
     if context["below_detection_limit"] and level == "strong":
         level, downgraded_for = "moderate", "below_detection_limit"
 
-    thin = bool(null_values) and len(null_values) < cfg.CONFIDENCE["min_null_samples"]
+    n_null = max(len(null_q), len(null_z))
+    thin = bool(n_null) and n_null < cfg.CONFIDENCE["min_null_samples"]
     return {
         **sep,
         "null_p_value": p,
-        "n_null_samples": len(null_values),
+        "null_p_dixon_q": p_q,
+        "null_p_top_z": p_z,
+        "n_null_samples": n_null,
         "null_thin": thin,
-        "null_median_q": float(np.median(null_values)) if null_values else float("nan"),
+        "null_median_q": float(np.median(null_q)) if null_q else float("nan"),
+        "null_median_top_z": float(np.median(null_z)) if null_z else float("nan"),
         "level": level,
         "downgraded_for": downgraded_for,
         "detection": context,
@@ -266,12 +330,19 @@ def assess(scores: pd.Series, evidence_k: float = float("nan"),
 def describe(assessment: dict) -> str:
     """One paragraph an operator can act on, with every caveat measured."""
     bits = []
-    q, p = assessment.get("dixon_q"), assessment.get("null_p_value")
-    if np.isfinite(q):
-        bits.append(f"Separation Q={q:.2f}")
+    q, z = assessment.get("dixon_q"), assessment.get("top_z")
+    p = assessment.get("null_p_value")
+    if np.isfinite(q) or np.isfinite(z):
+        parts = []
+        if np.isfinite(q):
+            parts.append(f"Q={q:.2f}")
+        if np.isfinite(z):
+            parts.append(f"{z:.1f} robust sigma above its peers")
+        bits.append("Separation " + " and ".join(parts))
         if np.isfinite(p):
             bits[-1] += (f", which {int(round(p * 100))}% of known-healthy consists match or "
-                         f"exceed (n={assessment['n_null_samples']} null consists)")
+                         f"exceed (n={assessment['n_null_samples']} null consists, two "
+                         f"statistics tested)")
         bits[-1] += f". Confidence: {assessment['level'].upper()}."
         bits.append(assessment["statement"])
     det = assessment.get("detection", {})

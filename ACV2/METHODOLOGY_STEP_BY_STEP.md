@@ -306,9 +306,10 @@ Single-channel discrimination (rank-decay score of each channel used alone, six 
 | `integrity_loss` | 1.000 | 3 | 3 |
 | refrigerant channels | 0.625–1.000 | 1 | 5 of 7 |
 
-`full_demand_frac` scores **below** the 0.5625 random baseline. It was kept (physically
-motivated, 4% of the weight, ablation delta 0.000) but is flagged as the weakest channel
-in the README rather than quietly left to look like a contributor.
+`full_demand_frac` scores **below** the 0.5625 random baseline. It was initially kept
+(physically motivated, 4% of the weight, ablation delta 0.000) and flagged as the weakest
+channel. That was later judged too generous and it was **demoted to zero weight** — see
+Step 17.
 
 ## Step 10 — Evaluation machinery
 
@@ -489,9 +490,9 @@ in those files; I did not re-run `ACV/` as part of this build.
 | Duty-cycle confound | not addressed | load-stratified and demand-matched statistics |
 | Leak vs sensor bias | not distinguished | `load_sensitivity` slope, by construction |
 | Onset time | not produced | CUSUM change point (test case: day 1.9) |
-| Robustness evidence | accuracy audit | ablation + block bootstrap + per-channel discrimination |
+| Robustness evidence | accuracy audit | ablation + weight sensitivity + two bootstraps + fault-free null + synthetic detection limit + per-channel discrimination |
 | Known defect | `sklearn` 1.6.1 pickle loaded under 1.9.1 raises `InconsistentVersionWarning` | not applicable — nothing is unpickled |
-| Tests | audit scripts | 21 automated checks incl. the metric and the output contract |
+| Tests | audit scripts | 36 automated checks incl. the metric, confidence calibration and the output contract |
 
 **The two pipelines agree on the test case.** `ACV/`'s `predict.py` produced
 `01|04|03|08|07|06|02|05` (recorded in `ACV/_audit_verify.txt`); `ACV2/` produced the
@@ -504,4 +505,157 @@ Where `ACV2/` is genuinely better: `acv_case_04` (real refrigerant physics rathe
 thermal proxy), no pickled estimator to rot, correct physical windows and gap handling,
 and the ability to say *why* a car was picked and *how confident* to be. Where it is not
 better: it cannot escape the same six labelled files, and its refrigerant branch is
-validated on exactly one of them.
+computable in exactly one of them.
+
+---
+
+## 19. Adversarial self-audit — five criticisms, and what measurement said
+
+The build was then reviewed against five documented weaknesses. Each was turned into a
+test rather than a paragraph of reassurance, and two of the tests came back negative.
+`scripts/validate_robustness.py` runs all five and writes `reports/robustness.md`.
+
+### 19.1 "The prior was hand-designed after inspecting all six files"
+
+True, and LOOCV does not fix it: LOOCV re-runs the *calibration* on five files but not the
+manual feature engineering or the weight choices. So the weights were probed directly —
+400 random non-negative weight vectors drawn uniform on the simplex over the same
+physically-signed channels, all group multipliers held at 1.0.
+
+Result: the hand-tuned numbers are **not load-bearing**. Most random positive weightings
+also rank every faulty car first, and the worst draw still beats the 0.5625 baseline
+comfortably. What does the work is the sign structure from the energy balance, which is
+fixed by physics and never fitted. The objection loses most of its force; it does not
+vanish, because the *choice of channels* was still made with all six files visible.
+
+### 19.2 "A large margin is being reported as confidence" — the audit's worst finding
+
+This one was not on the original list of criticisms and is the most consequential result
+in the suite. Test B deletes each file's labelled faulty car and re-ranks the healthy
+siblings that remain. If the margin meant anything, it should collapse.
+
+It does not. Median margin ratio **1.00×**. On `acv_case_04` the healthy-only consist
+separates *more* strongly (0.998) than the genuine fault does (0.095).
+
+The cause is structural rather than a bug: a peer-consensus detector returns whichever car
+is most anomalous relative to its siblings, and exactly one car is always the warmest, so a
+winner with a margin is produced whether or not anything is broken. **The margin was
+measuring spread, not fault presence, and quoting it as confidence overstated the
+evidence.**
+
+Fix — new module `acv2/confidence.py`:
+
+- **Dixon's Q**, `(s1 − s2) / (s1 − sn)`, replaces the raw margin. It is scale-free, so
+  unlike the margin it is comparable between a five-channel thin file and a
+  twelve-channel rich one, and it is the classical small-sample single-outlier test.
+- **A fault-free null**: 41 consists known to contain no fault, built by deleting each
+  labelled faulty car and then leaving out each healthy car in turn. Reported confidence
+  is `P(Q_null ≥ Q_observed)`, written to `artifacts/null_calibration.json`.
+- **A detection-limit cross-check** (19.3), which can downgrade a cleanly-separated
+  verdict whose underlying deficit is too small to be trustworthy.
+- If the artefacts are missing the ranker reports `uncalibrated` and attaches no
+  probability, rather than inventing one.
+
+The cost of honesty: three of the six genuine faults do not separate distinguishably from
+a healthy consist (p = 0.21, 0.79, 0.95), and the shipped test-case verdict comes back
+**WEAK**. That is the correct description of this evidence.
+
+### 19.3 "How far can a verdict built on +0.11 K be trusted?"
+
+Test C removes the real faulty car, injects a physics-shaped capacity deficit of known
+mean magnitude into a healthy car, re-quantises it onto the channel's own measurement grid
+so a sub-resolution deficit is not made artificially easy, and measures recovery. This is
+the only test in the suite that escapes the six-example ceiling — 126 independent unseen
+cases instead of six.
+
+| injected `delta_k` | top-1 rate | top-2 rate |
+|---|---|---|
+| 0.05 K | 0.22 | 0.33 |
+| 0.10 K | 0.22 | 0.33 |
+| 0.15 K | 0.28 | 0.61 |
+| 0.20 K | 0.56 | 0.83 |
+| 0.30 K | 0.83 | 0.89 |
+| 0.50 K | 0.83 | 1.00 |
+| 1.00 K | 1.00 | 1.00 |
+
+The test case's +0.11 K sits in the **22%** band, and reliable recovery (≥90%) only starts
+at 1.00 K. Written to `artifacts/detection_limit.json` and quoted verbatim in the verdict.
+
+Honest limit of test C: the injection has the shape the features are designed to see, so
+it measures sensitivity to a deficit of a given size *in real telemetry noise* — not
+whether the leak model itself is right.
+
+### 19.4 "`full_demand_frac` is below random and still gets weight"
+
+Correct, and the evidence against it was worse than a single number: 0.531 used alone
+against a 0.5625 baseline, computable in only 4 of 6 files, and a **negative** mean z at
+the true faulty car (−1.241) — the faulty car is commanded to full cooling *less* often
+than its siblings. The likely reason is that the demand tier is a controller state driven
+by set point and load schedule, not by delivered capacity, so it tracks duty history
+rather than health.
+
+Demoted from 0.30 to **0.00**. Still computed and printed as descriptive, but it cannot
+reach a ranking. Two follow-on fixes were needed to make that true rather than nominal:
+
+- `detectors.fuse` now restricts the IsolationForest to the weighted channels only.
+  Previously a zero-weight channel still entered the unsupervised member and could move
+  the ranking through the back door.
+- `ranker.load_model` now warns and overrides when a saved artefact disagrees with the
+  current prior. This was a live bug: artefact `feature_weights` are merged *over* the
+  config defaults, so the demotion silently did nothing until training was re-run.
+
+Verified unchanged afterwards: prior 1.0000, LOOCV 1.0000, test-case prediction identical.
+
+### 19.5 "The bootstrap is time-block only"
+
+Correct. Resampling 6-hour blocks handles autocorrelation but every draw still judges each
+car against the same seven siblings, so it measures temporal stability and nothing else.
+Added `peer_dropout_stability`: drop non-leading cars from the consist and re-rank from
+scratch, with features, peer reference, ambient estimate and load strata all recomputed.
+
+Leader retained in 30/30 draws on every thin-schema file; 23/30 on `acv_case_04`, which
+has only four instrumented cars so a single dropout is a quarter of its reference set.
+
+Neither bootstrap can test generalisation to an unseen *file*. With six labelled files
+nothing can, and that limit is stated rather than worked around.
+
+### 19.6 "The refrigerant branch is validated on exactly one file"
+
+Correct, but the framing matters: the branch is computable in one file because only that
+file's schema exposes circuit pressures. That is an accident of instrumentation, not a
+measured weakness, and downweighting the most physically direct evidence available because
+few of our six files happened to carry pressure sensors would be the wrong response —
+weight should reflect physical directness.
+
+So the branch was made auditable instead. Test E scores each file twice, on inferred
+thermal evidence alone and on circuit pressures alone, and records which was right when
+they disagree. On `acv_case_04` the inferred branch names car 04 (wrong) and the
+circuit-pressure branch names car 01 (right). That is the whole of the evidence for the
+branch: one data point, reported as one data point.
+
+### 19.7 "Car 01 vs car 04 on the test case"
+
+The ordering is robust — car 01 is top-1 under every ablation, in 40/40 time-block draws
+and 30/30 peer-dropout draws. But robust ordering and strong evidence are different
+claims, and the audit forced them apart.
+
+`ranker._contest` now emits an explicit competing hypothesis: every weighted channel is
+reported on the side it favours, with the share of weighted evidence pointing the other
+way (17% toward car 04), the physical interpretation (`integrity_loss` is what an
+electrical or sensor fault looks like, not a loss of charge), and the distinguishing
+inspection — car 01 for charge loss, car 04 for wiring and sensor integrity. It appears in
+`predict.py --report` and in the JSON sidecar.
+
+### Final verification after the audit
+
+| stage | result |
+|---|---|
+| tests | **36 passed**, 0 failed |
+| train | prior 1.0000, LOOCV 1.0000, artefacts written |
+| evaluate | 1.0000; block bootstrap 0.78–1.0; peer dropout 0.75–1.0; `reports/evaluation.md` |
+| robustness | 5 tests + 2 calibration artefacts; `reports/robustness.md` |
+| predict | `acv_test_case.xlsx,01\|04\|03\|08\|07\|06\|02\|05` — **unchanged**, now labelled WEAK |
+| format | header and shape identical to `PS3/04_Example_Submission/acv_predictions.csv` |
+
+The submission string did not move. What changed is that the system now states how much
+that string is worth.

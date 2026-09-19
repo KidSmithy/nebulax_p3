@@ -61,12 +61,11 @@ class DoorPredictor:
                 except Exception as e:
                     print(f"[DoorPredictor] Failed to load cached bundle from {path}: {e}")
 
-        # Fallback mock model if bundle not found
-        self.model = RandomForestClassifier(n_estimators=50, max_depth=5, random_state=42)
-        dummy_X = np.random.randn(20, len(self.feature_cols))
-        dummy_y = np.random.randint(0, 2, size=20)
-        self.model.fit(dummy_X, dummy_y)
-        self.expected_features = len(self.feature_cols)
+        if self.model is None:
+            raise FileNotFoundError(
+                f"[DoorPredictor] Could not load model bundle from any candidate path: "
+                f"{[str(p) for p in BUNDLE_PATHS]}. Silent mock model fallback has been disabled."
+            )
 
 
 

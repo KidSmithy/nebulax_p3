@@ -99,11 +99,23 @@ export const ConductorChat: React.FC<ConductorChatProps> = ({ compact = true }) 
               <p className="font-semibold text-slate-800">
                 Available subsystems:
               </p>
-              <div className="flex flex-wrap justify-center gap-1 text-[11px] text-slate-600">
-                <span className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">Air conditioning</span>
-                <span className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">Passenger doors</span>
-                <span className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">Rail corrugation</span>
-                <span className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200">Structural health (SHM)</span>
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-[11px] text-slate-600 text-left max-w-[250px] mx-auto py-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                  <span className="truncate">Air conditioning</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                  <span className="truncate">Passenger doors</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                  <span className="truncate">Rail corrugation</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                  <span className="truncate">Structural health (SHM)</span>
+                </div>
               </div>
               <p className="pt-1">
                 Pick a subsystem to upload the data for that specific subsystem? This will open the walkthrough setup.

@@ -64,6 +64,12 @@ class RailCorrugationModel:
                 except Exception as e:
                     print(f"[RailCorrugationModel] Warning loading bundle from {p}: {e}")
 
+        if not self.models:
+            raise FileNotFoundError(
+                f"[RailCorrugationModel] Could not load any valid corrugation model estimators from "
+                f"{[str(p) for p in BUNDLE_PATHS]}."
+            )
+
     def _extract_features_252(self, df: pd.DataFrame) -> np.ndarray:
         num_cols = df.select_dtypes(include=[np.number]).columns
         if len(num_cols) == 129 or (len(num_cols) > 0 and 'speed' in str(num_cols[0]).lower()):
@@ -207,124 +213,83 @@ class RailCorrugationModel:
         mean_rms = float(np.mean(channel_rms)) if channel_rms else 0.5
         max_rms = float(np.max(channel_rms)) if channel_rms else 0.5
 
-        # Try ensemble feature extraction if 128 bearing channels are present
-        features = None
-        if len(num_cols) >= 128 and len(self.models) > 0:
+        if len(num_cols) < 128:
+            raise ValueError(
+                f"Uploaded rail data '{file_name}' contains {len(num_cols)} numeric channels, but ML inference "
+                f"strictly requires at least 128 axle-box vibration/shock channels. Heuristic fallback has been disabled."
+            )
+
+        if not self.models:
+            raise RuntimeError("No trained Rail Corrugation models are loaded to perform ML inference.")
+
+        features = self._extract_features_252(df)
+        if features is None:
+            raise ValueError(
+                f"Feature extraction failed for '{file_name}'. Input data does not match the 128-channel format."
+            )
+
+        all_probs = []
+        for m in self.models:
             try:
-                features = self._extract_features_252(df)
-            except Exception as feat_err:
-                print(f"[RailCorrugationModel] Feature extraction note: {feat_err}")
+                p = m.predict_proba(features)[0]
+                all_probs.append(p)
+            except Exception as inf_err:
+                print(f"[RailCorrugationModel] Model prediction error: {inf_err}")
 
-        if features is not None and len(self.models) > 0:
-            all_probs = []
-            for m in self.models:
-                try:
-                    p = m.predict_proba(features)[0]
-                    all_probs.append(p)
-                except Exception:
-                    pass
-
-            if all_probs:
-                mean_probs = np.mean(all_probs, axis=0)
-                pred_idx = int(np.argmax(mean_probs))
-                pred_label = self.class_labels[pred_idx] if pred_idx < len(self.class_labels) else "Normal"
-                prob_normal = float(mean_probs[0])
-                prob_side_i = float(mean_probs[1]) if len(mean_probs) > 1 else 0.0
-                prob_side_ii = float(mean_probs[2]) if len(mean_probs) > 2 else 0.0
-
-                if pred_label == 'Normal':
-                    status = "GOOD"
-                    verdict = "GOOD"
-                    severity_score = round(float(np.clip(1.0 - prob_normal, 0.04, 0.35)), 2)
-                    depth_microns = round(float(np.clip(10.0 + severity_score * 20.0, 8.0, 18.0)), 1)
-                    wavelength = "NOMINAL"
-                    urgency = "NONE"
-                    action = "NONE"
-                    rank = 0
-                    summary = (
-                        f"Track surface analysis for '{file_name}': smooth rail surface detected "
-                        f"(confidence {prob_normal*100:.1f}%). Mean vibration RMS is {mean_rms:.2f}g. "
-                        f"Estimated roughness depth {depth_microns} microns is well within safe operating limits."
-                    )
-                else:
-                    is_severe = max(prob_side_i, prob_side_ii) > 0.65 or mean_rms > 1.5
-                    status = "ACTION_NEEDED" if is_severe else "WATCH"
-                    verdict = status
-                    severity_score = round(float(np.clip(max(prob_side_i, prob_side_ii), 0.45, 0.98)), 2)
-                    depth_microns = round(float(np.clip(28.0 + severity_score * 28.0, 25.0, 65.0)), 1)
-                    wavelength = "SHORT_PITCH" if is_severe else "LONG_PITCH"
-                    urgency = "IMMEDIATE_GRINDING_48H" if is_severe else "SCHEDULE_GRINDING_7D"
-                    action = "ACTION_GRIND_RAIL"
-                    rank = 1 if is_severe else 2
-                    summary = (
-                        f"Corrugation detected on {pred_label} for '{file_name}' (confidence {max(prob_side_i, prob_side_ii)*100:.1f}%). "
-                        f"Multi-channel vibration RMS reaches {mean_rms:.2f}g (peak {max_rms:.2f}g). "
-                        f"Estimated acoustic rail corrugation depth is {depth_microns} microns ({wavelength}). "
-                        f"Recommended: {urgency.replace('_', ' ').title()}."
-                    )
-
-                return {
-                    "subsystem": "rail",
-                    "file_name": file_name,
-                    "status": status,
-                    "verdict": verdict,
-                    "predicted_class": pred_label,
-                    "probabilities": {
-                        "normal": round(prob_normal, 4),
-                        "side_i": round(prob_side_i, 4),
-                        "side_ii": round(prob_side_ii, 4)
-                    },
-                    "anomaly_score": severity_score,
-                    "depth_microns": depth_microns,
-                    "wavelength_class": wavelength,
-                    "maintenance_urgency": urgency,
-                    "grinding_priority_rank": rank,
-                    "recommended_action": action,
-                    "mean_channel_rms": round(mean_rms, 2),
-                    "conductor_summary": summary,
-                }
-
-        # Infer corrugation depth & severity
-        depth_microns = round(float(np.clip(mean_rms * 28.0 + 8.0, 6.0, 65.0)), 1)
-        severity_score = round(float(np.clip(depth_microns / 45.0, 0.05, 0.98)), 2)
-
-        if severity_score > 0.65:
-            wavelength = "SHORT_PITCH"
-            urgency = "IMMEDIATE_GRINDING_48H"
-            status = "ACTION_NEEDED"
-            action = "ACTION_GRIND_RAIL"
-            rank = 1
-            summary = (
-                f"Severe corrugation warning for '{file_name}': multi-channel vibration RMS reaches {mean_rms:.2f}g "
-                f"(peak channel {max_rms:.2f}g). Estimated acoustic rail corrugation depth is {depth_microns} microns "
-                f"({wavelength}). Immediate rail grinding required within 48 hours to prevent wheel damage."
+        if not all_probs:
+            raise RuntimeError(
+                f"All {len(self.models)} corrugation model estimators failed to produce probability predictions for '{file_name}'."
             )
-        elif severity_score > 0.35:
-            wavelength = "LONG_PITCH"
-            urgency = "SCHEDULE_GRINDING_7D"
-            status = "WATCH"
-            action = "ACTION_GRIND_RAIL"
-            rank = 2
-            summary = (
-                f"Moderate corrugation detected for '{file_name}': estimated rail roughness depth {depth_microns} microns "
-                f"({wavelength}, severity {severity_score}). Grinding recommended within 7 days."
-            )
-        else:
-            wavelength = "NOMINAL"
-            urgency = "NOMINAL"
+
+        mean_probs = np.mean(all_probs, axis=0)
+        pred_idx = int(np.argmax(mean_probs))
+        pred_label = self.class_labels[pred_idx] if pred_idx < len(self.class_labels) else "Normal"
+        prob_normal = float(mean_probs[0])
+        prob_side_i = float(mean_probs[1]) if len(mean_probs) > 1 else 0.0
+        prob_side_ii = float(mean_probs[2]) if len(mean_probs) > 2 else 0.0
+
+        if pred_label == 'Normal':
             status = "GOOD"
+            verdict = "GOOD"
+            severity_score = round(float(np.clip(1.0 - prob_normal, 0.04, 0.35)), 2)
+            depth_microns = round(float(np.clip(10.0 + severity_score * 20.0, 8.0, 18.0)), 1)
+            wavelength = "NOMINAL"
+            urgency = "NONE"
             action = "NONE"
             rank = 0
             summary = (
-                f"Track surface analysis for '{file_name}': smooth rail surface detected. "
+                f"Track surface analysis for '{file_name}': smooth rail surface detected "
+                f"(confidence {prob_normal*100:.1f}%). Mean vibration RMS is {mean_rms:.2f}g. "
                 f"Estimated roughness depth {depth_microns} microns is well within safe operating limits."
+            )
+        else:
+            is_severe = max(prob_side_i, prob_side_ii) > 0.65 or mean_rms > 1.5
+            status = "ACTION_NEEDED" if is_severe else "WATCH"
+            verdict = status
+            severity_score = round(float(np.clip(max(prob_side_i, prob_side_ii), 0.45, 0.98)), 2)
+            depth_microns = round(float(np.clip(28.0 + severity_score * 28.0, 25.0, 65.0)), 1)
+            wavelength = "SHORT_PITCH" if is_severe else "LONG_PITCH"
+            urgency = "IMMEDIATE_GRINDING_48H" if is_severe else "SCHEDULE_GRINDING_7D"
+            action = "ACTION_GRIND_RAIL"
+            rank = 1 if is_severe else 2
+            summary = (
+                f"Corrugation detected on {pred_label} for '{file_name}' (confidence {max(prob_side_i, prob_side_ii)*100:.1f}%). "
+                f"Multi-channel vibration RMS reaches {mean_rms:.2f}g (peak {max_rms:.2f}g). "
+                f"Estimated acoustic rail corrugation depth is {depth_microns} microns ({wavelength}). "
+                f"Recommended: {urgency.replace('_', ' ').title()}."
             )
 
         return {
             "subsystem": "rail",
             "file_name": file_name,
             "status": status,
-            "verdict": status,
+            "verdict": verdict,
+            "predicted_class": pred_label,
+            "probabilities": {
+                "normal": round(prob_normal, 4),
+                "side_i": round(prob_side_i, 4),
+                "side_ii": round(prob_side_ii, 4)
+            },
             "anomaly_score": severity_score,
             "depth_microns": depth_microns,
             "wavelength_class": wavelength,

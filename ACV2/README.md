@@ -82,7 +82,7 @@ mode, so it runs on both schemas in the dataset.
 | `pulldown_rate` | peak sustained pull-down rate (K/h) on cooling ramps — probes `Q_max` directly, independent of set point |
 | `greybox_cool_rate` | `Q_max/C` identified by least squares from `dT_in/dt = a(T_out − T_in) + b·u + c` |
 | `elev_trend`, `cusum_fraction` | progression: K/day trend, and a CUSUM change point giving the **leak onset time** |
-| `full_demand_frac` | how often the controller escalates to full cooling |
+| `full_demand_frac` | how often the controller escalates to full cooling — **descriptive only, zero weight**: it measured 0.531 against a 0.5625 random baseline, so it is reported but cannot influence a ranking |
 | `integrity_loss` | rate of invalid-status flags and implausible readings the pack reports about itself |
 
 ### Refrigerant branch — activates on the rich schema
@@ -151,19 +151,49 @@ named physical channel per car.
   the physics.
 * **Group ablation** shows no single branch is load-bearing: zeroing any one group
   keeps the score at ≥0.979.
+* **Weight sensitivity** samples hundreds of random non-negative weight vectors over
+  the same physically-signed channels. Most of them also rank every faulty car first
+  and the worst draw still beats the random baseline comfortably, so the hand-chosen
+  magnitudes are *not* what is doing the work — the sign structure from the energy
+  balance is, and that is never fitted. This is the direct answer to "the prior was
+  hand-designed after inspecting all six files": LOOCV re-runs the calibration but not
+  the manual feature engineering, so the weights are probed separately.
 * **Block bootstrap** re-ranks each case on random 70% subsets of its 6-hour blocks.
   Whole blocks are kept or dropped together because consecutive 30-second samples are
   strongly autocorrelated and an i.i.d. bootstrap would grossly overstate the
-  effective sample size.
+  effective sample size. This measures *temporal* stability only.
+* **Peer-dropout bootstrap** resamples the *consist* instead: healthy cars are dropped
+  from the reference set and the case is re-ranked from scratch, with features, peer
+  reference, ambient estimate and load strata all recomputed. A peer-consensus verdict
+  that moves when two siblings leave was a property of the peer group, not of the
+  accused car. The leader is retained in 100% of draws on every thin-schema file and
+  77% on the rich-schema file, which has only four instrumented cars.
+* **Synthetic recovery** is the only test that escapes the six-example ceiling: the
+  real faulty car is deleted, a physics-shaped deficit of known magnitude is injected
+  into a healthy car, and recovery is measured as a function of magnitude. That yields
+  126 independent unseen cases instead of six.
 
 Honest caveats:
 
-* The refrigerant branch is validated on **one** file. Its internal logic is sound
-  vapour-compression physics and it is cross-checked against three independent
-  indicators that agree, but "n = 1" is the truth.
-* `full_demand_frac` scores 0.531 on its own — *below* the 0.5625 random baseline —
-  and `elev_trend` only 0.667. They carry 4% and 6% of the weight respectively and
-  removing the whole `control` group changes nothing (ablation delta 0.000).
+* **Neither bootstrap can test generalisation to an unseen *file*.** With six labelled
+  files nothing can. That limit is irreducible here and is not papered over.
+* The refrigerant branch is computable in **one** file, because only that file's schema
+  exposes circuit pressures. That is an accident of instrumentation rather than a
+  measured weakness, so the branch keeps the weight its physical directness earns
+  instead of being penalised for it. What is added instead is auditability: test E in
+  `reports/robustness.md` scores each file on inferred thermal evidence alone and on
+  circuit pressures alone, and records which branch was right when they disagree. On
+  `acv_case_04` the inferred branch names the wrong car and the circuit-pressure branch
+  names the right one — that is the single piece of evidence supporting the branch, and
+  it is reported as a single data point.
+* `full_demand_frac` measured **0.531** used alone, *below* the 0.5625 random baseline,
+  is computable in only 4 of 6 files, and its mean z at the true faulty car is negative
+  (−1.241) — the faulty car is commanded to full cooling *less* often than its
+  siblings. It has therefore been **demoted to zero weight**. It is still computed and
+  printed as a descriptive channel, but it cannot contribute to a ranking, and it is
+  excluded from the IsolationForest feature space too so that "zero weight" is not
+  quietly circumvented by the unsupervised member.
+* `elev_trend` scores only 0.667 and carries ~6% of the weight.
 * `pulldown_rate` is coarse: cabin temperature is quantised to 0.5 K at 30 s
   sampling, so the rate lands on a small set of discrete values.
 * `greybox_cool_rate` only identifies on `acv_case_06` (R² > 0.02). Elsewhere the
@@ -173,30 +203,92 @@ Honest caveats:
 
 ---
 
+## 4a. Confidence is calibrated against fault-free consists, not read off the margin
+
+The system used to quote the raw top-1 margin as though it were confidence. Test B in
+`reports/robustness.md` shows that was wrong. Deleting the labelled faulty car from each
+file and re-ranking the healthy siblings produces a margin of **the same size** — median
+ratio 1.00×, and on `acv_case_04` the healthy-only consist separates *more* strongly
+(0.998) than the genuine fault does (0.095).
+
+That is structural, not a bug. A peer-consensus detector returns whichever car is most
+anomalous relative to its siblings, and exactly one car is always the warmest, so a
+winner with a margin is produced whether or not anything is broken. **A margin is
+evidence about spread, not about fault presence.**
+
+Confidence is therefore built from three measured quantities instead:
+
+1. **A scale-free separation statistic** — Dixon's Q, `(s1 − s2) / (s1 − sn)`. Unlike
+   the raw margin it is comparable between a thin-schema file scored on five thermal
+   channels and a rich-schema file scored on twelve, and it is the classical
+   small-sample test for a single outlier, which is exactly this problem's structure.
+2. **A null reference** — the same statistic on **41 consists known to contain no
+   fault**, obtained by deleting each file's labelled faulty car and then leaving out
+   each healthy car in turn. The reported p-value is the fraction of genuinely healthy
+   consists that look at least as separated.
+3. **A detection-limit cross-check** — where the verdict's leading evidence sits on the
+   measured recovery-versus-magnitude curve.
+
+| file | true car | Q | p vs healthy | elev_mean |
+|---|---|---|---|---|
+| acv_case_01 | 01 | 0.499 | 0.21 | +0.48 K |
+| acv_case_02 | 02 | 0.229 | 0.79 | +0.25 K |
+| acv_case_03 | 03 | 0.578 | 0.07 | +0.63 K |
+| acv_case_04 | 01 | 0.057 | 0.95 | +0.22 K |
+| acv_case_05 | 04 | 0.398 | 0.52 | +0.21 K |
+| acv_case_06 | 06 | 0.556 | 0.10 | +1.36 K |
+
+Three of six genuine faults do not separate distinguishably from a healthy consist. That
+is the honest state of the evidence rather than a defect — a leak whose capacity deficit
+is still small genuinely does look like a healthy pack — and the point of reporting it is
+so the system can say so instead of quoting a confident margin it cannot justify.
+
+Both calibration artefacts (`artifacts/null_calibration.json`,
+`artifacts/detection_limit.json`) are produced by `scripts/validate_robustness.py` and
+consumed by `acv2/confidence.py`. If they are absent the ranker reports the separation
+statistic and declines to attach a probability, rather than inventing one.
+
+---
+
 ## 5. Test-case verdict, and where it is uncertain
 
 ```
 acv_test_case.xlsx → 01|04|03|08|07|06|02|05
 ```
 
-Car 01 wins by a wide margin (score 2.34 vs 0.56) and is top-1 in **40/40** bootstrap
-draws and under **every** group ablation. But the absolute signal is much weaker than
-in any training case: +0.11 K mean elevation, against 0.23–1.31 K for the six labelled
-faulty cars.
+Car 01 is top-1 under **every** group ablation, in **40/40** time-block bootstrap draws
+and in **30/30** peer-dropout draws. The ordering is stable.
 
-There is a genuine disagreement between channels worth stating plainly:
+**Its confidence is nevertheless WEAK, and this is the most important thing to say about
+it.** Separation Q = 0.486 is matched or exceeded by 26% of the 41 known-healthy
+consists, so the separation alone is not evidence that any fault is present. And the
+absolute signal is far below the measured detection limit: +0.11 K mean elevation, where
+synthetic-recovery trials recover the injected car as top-1 in only **22%** of trials,
+with reliable recovery (≥90%) starting from **1.00 K**. For comparison the six labelled
+faulty cars sit at 0.21–1.36 K.
+
+So the ranking is the best available ordering of this evidence, and the evidence is thin.
+Those are two separate claims and the system now reports both.
+
+There is also a genuine disagreement between channels, reported as an explicit competing
+hypothesis in `predict.py --report` and in the JSON sidecar:
 
 * **Thermal, capacity and progression evidence → car 01.** Highest elevation, largest
-  setpoint error, positive load sensitivity, largest CUSUM integral (peak 23.9,
-  onset day 1.9).
-* **Data-integrity evidence → car 04.** 39 invalid/dropout events versus 0–4 for
-  every other car. In the three training files where this channel fired it identified
-  the faulty car correctly all three times.
+  setpoint error, positive load sensitivity, largest CUSUM integral.
+* **Data-integrity evidence → car 04**, carrying 17% of the weighted evidence. 39
+  invalid/dropout events versus 0 for car 01 (z = +4.00 vs −0.74). In the three training
+  files where this channel fired it identified the faulty car correctly all three times.
 
-The fusion puts 01 first and 04 second. Under rank-decay scoring the expected value of
-that ordering versus the reverse is nearly identical (1.000/0.875 either way), so the
-defensible choice is to keep both in the top two and let the thermodynamics — the
-primary evidence of lost cooling capacity — set the order.
+The `integrity_loss` channel is deliberately secondary — it is not a measurement of
+cooling capacity and it fires in only half the labelled files — but it is exactly what an
+electrical or sensor fault would look like. **If the true defect is electrical rather than
+a loss of charge, car 04 is the better answer.** The fusion puts 01 first because the
+thermodynamics are the primary evidence of lost cooling capacity, and under rank-decay
+scoring the expected value of that ordering versus the reverse is nearly identical
+(1.000/0.875 either way).
+
+The distinguishing test is stated in the output: inspect car 01 for charge loss (sight
+glass, subcooling, weighed charge) and car 04 for wiring and sensor integrity.
 
 ---
 
@@ -213,17 +305,21 @@ ACV2/
 │   ├── physics.py              # the model: robust stats, grey-box ID, CUSUM, circuit thermodynamics
 │   ├── features.py             # thermal + refrigerant feature extraction
 │   ├── detectors.py            # robust z, physics pooling, IsolationForest, fusion
-│   ├── ranker.py               # end-to-end ranking + human-readable verdict
-│   ├── evaluate.py             # rank-decay metric, LOOCV, ablation, block bootstrap
+│   ├── confidence.py           # Dixon-Q separation, fault-free null p-value, detection-limit check
+│   ├── ranker.py               # end-to-end ranking + verdict + competing hypothesis
+│   ├── evaluate.py             # rank-decay metric, LOOCV, ablation, both bootstraps, branch audit
 │   └── reporting.py            # Markdown table writer
 ├── scripts/
 │   ├── explore_schema.py       # signal inventory per file: what is populated and does it vary per car
 │   ├── diagnose_features.py    # per-case feature tables + single-channel discrimination
 │   ├── evaluate_loocv.py       # the full evaluation → reports/evaluation.md
+│   ├── validate_robustness.py  # weight sensitivity, null calibration, detection limit, peer dropout,
+│   │                           #   branch agreement → reports/robustness.md + confidence artefacts
 │   ├── inspect_case.py         # deep dive on one file: contributions, stability, sensitivity
 │   └── train.py                # calibrate + export artifacts/acv2_model.joblib
-├── tests/test_acv2.py          # 21 checks: schema, cleaning, physics signs, output contract
-├── artifacts/                  # model weights, feature dump, training summary
+├── tests/test_acv2.py          # 36 checks: schema, cleaning, physics signs, confidence, contract
+├── artifacts/                  # model weights, feature dump, training summary,
+│                               #   null_calibration.json, detection_limit.json
 ├── reports/                    # evaluation report, feature diagnostics, test-case inspection
 └── cache/                      # Parquet cache (safe to delete)
 ```

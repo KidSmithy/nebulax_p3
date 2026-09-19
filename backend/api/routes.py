@@ -227,6 +227,14 @@ def setup_routes(harmonizer, whatif_engine):
     async def get_latest_predictions():
         return {"predictions": harmonizer.uploads_by_line}
 
+    @router.post("/predict/seed")
+    async def seed_predictions():
+        """
+        Restores the pre-seeded demo findings (the four inspection bubbles)
+        without restarting the backend - useful after resolving them in a demo.
+        """
+        return harmonizer.seed_demo_findings()
+
     # ------------------------------------------------------------------
     # Resolve an uploaded finding: apply its recommended repair for a real
     # measured delta (same engine the Repairs tab uses), then log it.

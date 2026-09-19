@@ -37,8 +37,7 @@ const ModelResultsCard: React.FC<{
 }> = ({ uploadResult, onDone, onOpenChat }) => {
   const verdict = (uploadResult.verdict || uploadResult.status || 'GOOD') as 'GOOD' | 'WATCH' | 'ACTION_NEEDED';
   const styles = STATUS_STYLES[verdict] || STATUS_STYLES['GOOD'];
-  const triggerWhatIf = useTwinStore((s) => s.triggerWhatIf);
-  const [appliedAction, setAppliedAction] = useState(false);
+  const setActiveInspection = useTwinStore((s) => s.setActiveInspection);
 
   return (
     <div className="space-y-3">
@@ -256,24 +255,18 @@ const ModelResultsCard: React.FC<{
         </div>
       </div>
 
-      {/* Suggested Intervention Button */}
+      {/* Pinpoint Fault Button */}
       {uploadResult.recommended_action && uploadResult.recommended_action !== 'NONE' && (
         <button
           onClick={() => {
-            triggerWhatIf(uploadResult.recommended_action, true);
-            setAppliedAction(true);
+            onDone();
+            // Open the inspection tag on the 3D train for this subsystem
+            setActiveInspection(uploadResult.subsystem);
           }}
-          disabled={appliedAction}
-          className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded border transition-colors ${
-            appliedAction 
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
-              : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
-          }`}
+          className="w-full flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded border transition-colors bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100"
         >
           <Wrench className="w-3.5 h-3.5" />
-          {appliedAction 
-            ? 'Intervention applied in Digital Twin' 
-            : `Simulate fix: ${uploadResult.recommended_action.replace('ACTION_', '').replace(/_/g, ' ')}`}
+          {`Pinpoint fault: ${uploadResult.recommended_action.replace('ACTION_', '').replace(/_/g, ' ')}`}
         </button>
       )}
 
@@ -541,7 +534,7 @@ export const ConductorOnboarding: React.FC = () => {
           {step === 'upload' && (
             <>
               <Prompt>
-                Upload a CSV data file or a ZIP archive containing multiple test runs for{' '}
+                Upload a CSV or XLSX (Excel) data file, or a ZIP archive containing multiple test runs for{' '}
                 {selected ? labelFor(selected.id) : 'this subsystem'}, or skip it and I'll keep watching the live feed.
               </Prompt>
 

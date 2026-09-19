@@ -103,8 +103,8 @@ def main() -> None:
     calibration = confidence.load_null_calibration()
     if calibration:
         separation["null_p_value"] = [
-            confidence.null_p_value(q, calibration["dixon_q_null"])
-            for q in separation["dixon_q"]]
+            confidence.p_value_for({"dixon_q": q, "top_z": z}, calibration)
+            for q, z in zip(separation["dixon_q"], separation["top_z"])]
     else:
         print("  (no null calibration yet - run scripts/validate_robustness.py)")
     print(separation.to_string(index=False))

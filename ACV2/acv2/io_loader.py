@@ -181,6 +181,23 @@ def _read_raw(path: str, cache_dir: str | None, verbose: bool) -> pd.DataFrame:
 def load_case(path: str, cache_dir: str | None = cfg.CACHE_DIR, verbose: bool = False) -> CasePanel:
     """Load one ACV case file into a :class:`CasePanel`."""
     raw = _read_raw(path, cache_dir, verbose)
+    return panel_from_frame(raw, file_id=os.path.basename(path),
+                            path=os.path.abspath(path), verbose=verbose)
+
+
+def panel_from_frame(raw: pd.DataFrame, file_id: str = "in_memory",
+                     path: str | None = None, verbose: bool = False) -> CasePanel:
+    """
+    Build a :class:`CasePanel` from an already-loaded raw sheet.
+
+    Split out of :func:`load_case` so a caller that has parsed the telemetry
+    itself - an HTTP upload handler holding CSV bytes, or a live streaming
+    buffer assembled in memory - can reach the identical physics without
+    round-tripping through a temporary file or reimplementing the header
+    parsing. There is no cache on this path: with no file there is no
+    size/mtime to key on.
+    """
+    raw = raw.copy()
     raw.columns = [str(c) for c in raw.columns]
 
     # ---- time axis ------------------------------------------------------
@@ -239,8 +256,8 @@ def load_case(path: str, cache_dir: str | None = cfg.CACHE_DIR, verbose: bool = 
                    for c in raw.columns if str(c).strip().lower() in cfg.ID_COLUMNS}
 
     panel = CasePanel(
-        file_id=os.path.basename(path),
-        path=os.path.abspath(path),
+        file_id=file_id,
+        path=path if path is not None else f"<{file_id}>",
         time=time,
         signals=signals,
         header_cars=header_cars,

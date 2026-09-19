@@ -225,6 +225,242 @@ def test_model_loading_falls_back_to_the_physical_prior():
 
 
 # --------------------------------------------------------------------------
+# zero-weight demotion (remark 3)
+# --------------------------------------------------------------------------
+def test_below_baseline_channel_carries_zero_weight():
+    """
+    full_demand_frac scored 0.531 used alone against a 0.5625 random baseline,
+    so it must not influence a ranking. It is still computed, because it is
+    descriptive, but its weight is zero.
+    """
+    assert cfg.FEATURE_SPEC["full_demand_frac"][2] == 0.0
+    features, _ = extract(clean(load_case(TEST_FILE)))
+    assert features["full_demand_frac"].notna().any()      # still computed
+
+    result = fuse(features, group_weights=DEFAULT_MODEL["group_weights"],
+                  feature_weights=DEFAULT_MODEL["feature_weights"])
+    assert "full_demand_frac" not in result["weights"]
+    assert float(result["contributions"]["full_demand_frac"].abs().max()) == 0.0
+
+
+def test_zero_weight_channel_cannot_reach_the_score_via_the_outlier_member():
+    """
+    The unsupervised member must see exactly the channels the physics member is
+    allowed to use, otherwise "zero weight" would be a lie: IsolationForest
+    would still consume the demoted channel and move the ranking.
+    """
+    features, _ = extract(clean(load_case(TEST_FILE)))
+    baseline = fuse(features, group_weights=DEFAULT_MODEL["group_weights"],
+                    feature_weights=DEFAULT_MODEL["feature_weights"])["score"]
+
+    perturbed = features.copy()
+    # Drive the demoted channel to an extreme on a car that is not the leader.
+    perturbed.loc[perturbed.index[-1], "full_demand_frac"] = 1e3
+    after = fuse(perturbed, group_weights=DEFAULT_MODEL["group_weights"],
+                 feature_weights=DEFAULT_MODEL["feature_weights"])["score"]
+    pd.testing.assert_series_equal(baseline, after)
+
+
+def test_zero_weight_group_is_not_advertised_as_evidence():
+    _features, ctx = extract(clean(load_case(TEST_FILE)))
+    assert "control" not in ctx["active_groups"]
+    assert "control" in ctx["descriptive_only_groups"]
+
+
+def test_stale_artefact_cannot_override_a_deliberate_demotion():
+    from acv2.ranker import _stale_weights
+    stale = {"feature_weights": dict(DEFAULT_MODEL["feature_weights"],
+                                     full_demand_frac=0.30)}
+    assert _stale_weights(stale) == ["full_demand_frac"]
+    assert _stale_weights({"feature_weights": DEFAULT_MODEL["feature_weights"]}) == []
+
+
+# --------------------------------------------------------------------------
+# confidence: separation must be referenced to a fault-free null
+# --------------------------------------------------------------------------
+def test_dixon_q_is_scale_free():
+    """
+    The raw margin depends on the arbitrary units of a weighted z-score pool,
+    which is why it could not be compared between files. Q does not.
+    """
+    from acv2.confidence import dixon_q
+    scores = pd.Series({"a": 3.0, "b": 1.0, "c": 0.5, "d": -1.0})
+    assert abs(dixon_q(scores) - dixon_q(scores * 17.0)) < 1e-12
+    assert abs(dixon_q(scores) - dixon_q(scores + 100.0)) < 1e-12
+    assert 0.0 <= dixon_q(scores) <= 1.0
+    assert np.isnan(dixon_q([1.0, 2.0]))                    # undefined below n=3
+    assert np.isnan(dixon_q([2.0, 2.0, 2.0]))               # no spread
+
+
+def test_separation_identifies_the_leader_and_the_alternative():
+    from acv2.confidence import separation
+    sep = separation(pd.Series({"01": 2.2, "04": 0.6, "03": 0.5, "05": -1.0}))
+    assert sep["top_car"] == "01" and sep["runner_up"] == "04"
+    assert sep["n_cars"] == 4
+    assert abs(sep["margin"] - 1.6) < 1e-9
+
+
+def test_null_p_value_is_bounded_and_never_exactly_zero():
+    from acv2.confidence import null_p_value
+    null = [0.1, 0.2, 0.3, 0.4, 0.5]
+    assert null_p_value(1.0, null) == 1 / 6                 # +1 correction
+    assert null_p_value(0.0, null) == 1.0
+    assert 0.0 < null_p_value(0.35, null) <= 1.0
+    assert np.isnan(null_p_value(0.5, []))
+
+
+def test_confidence_degrades_gracefully_without_a_calibration_artefact():
+    from acv2.confidence import assess
+    out = assess(pd.Series({"a": 3.0, "b": 1.0, "c": 0.0}), null={}, limit=None)
+    assert out["level"] == "uncalibrated"
+    assert np.isnan(out["null_p_value"])
+
+
+def test_combined_p_value_pays_for_testing_two_statistics():
+    """
+    Q and top_z are complementary - measured on the six labelled files, Q catches
+    cases 03 and 06 while top_z catches 01 and 02 - so both are tested and the
+    smaller p-value is taken with a Bonferroni factor of two. The correction must
+    be applied, and it must never manufacture significance.
+    """
+    from acv2.confidence import N_SEPARATION_TESTS, combined_p_value, p_value_for
+    assert N_SEPARATION_TESTS == 2
+    assert combined_p_value(0.02, 0.40) == 0.04        # 2 x the smaller
+    assert combined_p_value(0.40, 0.02) == 0.04        # order must not matter
+    assert combined_p_value(0.80, 0.90) == 1.0         # clamped, never > 1
+    # A missing second statistic must not be treated as a significant one.
+    assert combined_p_value(0.10, float("nan")) == 0.20
+    assert np.isnan(combined_p_value(float("nan"), float("nan")))
+
+    null = {"dixon_q_null": [0.1] * 10, "top_z_null": [1.0] * 10}
+    both = p_value_for({"dixon_q": 0.9, "top_z": 9.0}, null)
+    assert both == 2 * (1 / 11)
+    assert np.isnan(p_value_for({"dixon_q": 0.9, "top_z": 9.0}, None))
+
+
+def test_confidence_is_downgraded_below_the_measured_detection_limit():
+    """
+    Separation and detectability are different questions. A verdict resting on a
+    deficit smaller than the magnitude at which recovery becomes reliable must
+    not be reported as strong however cleanly it separates.
+    """
+    from acv2.confidence import assess
+    # Both nulls must be supplied, or the Bonferroni factor doubles a p-value
+    # without a second test having been paid for.
+    null = {"dixon_q_null": [0.02 * i for i in range(40)],      # max 0.78
+            "top_z_null": [0.2 * i for i in range(40)]}          # max 7.8
+    limit = {"curve": [{"delta_k": 0.05, "top1_rate": 0.22, "trials": 18},
+                       {"delta_k": 1.00, "top1_rate": 1.00, "trials": 18}]}
+    scores = pd.Series({"a": 10.0, "b": 0.1, "c": 0.0})
+
+    clean_big = assess(scores, evidence_k=2.0, null=null, limit=limit)
+    assert clean_big["level"] == "strong", (
+        f"expected strong, got {clean_big['level']} "
+        f"(p={clean_big['null_p_value']}, p_q={clean_big['null_p_dixon_q']}, "
+        f"p_z={clean_big['null_p_top_z']})")
+    assert clean_big["downgraded_for"] is None
+
+    clean_small = assess(scores, evidence_k=0.11, null=null, limit=limit)
+    assert clean_small["level"] == "moderate"
+    assert clean_small["downgraded_for"] == "below_detection_limit"
+    assert clean_small["detection"]["below_detection_limit"] is True
+    assert clean_small["detection"]["expected_top1_rate"] == 0.22
+
+
+def test_ranker_reports_calibrated_confidence_not_a_raw_margin():
+    result = rank_case(load_case(TEST_FILE))
+    conf = result["confidence"]
+    assert conf["level"] in {"strong", "moderate", "weak", "uncalibrated"}
+    assert conf["top_car"] == result["most_likely_faulty_car"]
+    # the verdict text must not present the bare margin as confidence
+    assert "margin" not in result["verdict"].lower()
+    if np.isfinite(conf["null_p_value"]):
+        assert "Confidence:" in result["verdict"]
+
+
+# --------------------------------------------------------------------------
+# competing hypothesis (remark 4)
+# --------------------------------------------------------------------------
+def test_competing_hypothesis_names_the_runner_up_and_its_evidence():
+    result = rank_case(load_case(TEST_FILE))
+    contest = result["competing_hypothesis"]
+    ranked = result["ranked_cars_list"]
+    assert contest["alternative"] == ranked[1]
+    assert contest["supports_leader"], "the leader must have named supporting evidence"
+    # every listed channel must point the way the sign of its delta claims
+    for row in contest["supports_leader"]:
+        assert row["delta"] > 0
+    for row in contest["supports_alternative"]:
+        assert row["delta"] < 0
+    assert 0.0 <= contest["evidence_share_against"] <= 1.0
+
+
+def test_split_evidence_is_reported_rather_than_hidden():
+    """
+    On the test case the integrity channel favours the runner-up while the
+    thermal and capacity channels favour the leader. The report must say so.
+    """
+    result = rank_case(load_case(TEST_FILE))
+    contest = result["competing_hypothesis"]
+    against = {row["feature"] for row in contest["supports_alternative"]}
+    assert "integrity_loss" in against
+    assert contest["narrative"]
+    assert contest["alternative"] in contest["narrative"]
+
+
+# --------------------------------------------------------------------------
+# car-level bootstrap (remark 5)
+# --------------------------------------------------------------------------
+def test_without_cars_shrinks_the_consist_and_recomputes_the_reference():
+    case = clean(load_case(THIN_FILE))
+    smaller = case.without_cars([case.cars[0], case.cars[1]])
+    assert len(smaller.cars) == len(case.cars) - 2
+    assert case.cars[0] not in smaller.header_cars
+    assert case.cars[0] not in smaller.t_in.columns
+    # the peer reference genuinely changes, which is the point of the test
+    features, _ = extract(smaller)
+    assert len(features) == len(smaller.cars)
+
+
+def test_peer_dropout_bootstrap_tests_a_different_axis_from_time_blocks():
+    from acv2.evaluate import peer_dropout_stability
+    case = clean(load_case(THIN_FILE))
+    stab = peer_dropout_stability(case, DEFAULT_MODEL, n_draws=4, drop_k=2)
+    assert stab["n_draws"] > 0
+    assert stab["baseline_top"] in case.cars
+    assert 0.0 <= stab["leader_retained"] <= 1.0
+    # each draw ranked a smaller consist than the original
+    assert all(0.0 <= f <= 1.0 for f in stab["top1_frequency"].values())
+
+
+# --------------------------------------------------------------------------
+# refrigerant branch audit (remark 2)
+# --------------------------------------------------------------------------
+def test_refrigerant_branch_is_auditable_against_the_inferred_branch():
+    """
+    The branch is computable in one file only. Rather than downweight the most
+    physically direct evidence for an accident of instrumentation, the two
+    branches are scored separately so the disagreement is on the record.
+    """
+    from acv2.evaluate import INFERRED_GROUPS, _branch_model
+    features, ctx = extract(clean(load_case(RICH_FILE)))
+    assert ctx["has_refrigerant"] is True
+
+    inferred = fuse(features, **{k: v for k, v in _branch_model(INFERRED_GROUPS).items()
+                                 if k in ("group_weights", "feature_weights",
+                                          "w_physics", "w_outlier")})
+    circuit = fuse(features, **{k: v for k, v in _branch_model(("refrigerant",)).items()
+                                if k in ("group_weights", "feature_weights",
+                                         "w_physics", "w_outlier")})
+    inferred_top = inferred["score"].idxmax()
+    circuit_top = circuit["score"].idxmax()
+    true_car = load_labels()["acv_case_04.xlsx"]
+    # the documented finding: the circuit branch is what gets this file right
+    assert circuit_top == true_car
+    assert inferred_top != true_car
+
+
+# --------------------------------------------------------------------------
 # CLI contract
 # --------------------------------------------------------------------------
 def test_predict_cli_writes_the_required_schema():

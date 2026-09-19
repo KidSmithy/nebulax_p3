@@ -4,11 +4,11 @@ Five tests aimed at the known weaknesses of a six-file problem. See the module d
 
 ## A. Weight sensitivity
 
-60 random non-negative weight vectors (uniform on the simplex) over the same channels, physics-fixed signs retained, all group multipliers 1.0.
+200 random non-negative weight vectors (uniform on the simplex) over the same channels, physics-fixed signs retained, all group multipliers 1.0.
 
 | draws | mean_score | worst | p05   | p25   | median | fraction_perfect | hand_tuned_prior | random_baseline |
 |-------|------------|-------|-------|-------|--------|------------------|------------------|-----------------|
-| 60    | 0.989      | 0.958 | 0.979 | 0.979 | 0.979  | 0.467            | 1                | 0.562           |
+| 200   | 0.988      | 0.958 | 0.979 | 0.979 | 0.979  | 0.435            | 1                | 0.562           |
 
 Reading: the hand-tuned prior is not load-bearing. Most random positive weightings of the same physically-signed channels also rank every faulty car first, and the worst draw still beats the random baseline comfortably. What is doing the work is the sign structure from the energy balance, which is fixed by physics and never fitted, not the particular magnitudes chosen by hand.
 
@@ -41,12 +41,12 @@ The labelled files scored against that null:
 
 | file_id          | true_car | top_car | correct | n_cars | margin | dixon_q | top_z  | elev_mean_top | null_p_value |
 |------------------|----------|---------|---------|--------|--------|---------|--------|---------------|--------------|
-| acv_case_01.xlsx | 01       | 01      | True    | 8      | 2.035  | 0.499   | 12.406 | 0.479         | 0.214        |
-| acv_case_02.xlsx | 02       | 02      | True    | 8      | 1.145  | 0.229   | 10.095 | 0.254         | 0.786        |
-| acv_case_03.xlsx | 03       | 03      | True    | 8      | 2.142  | 0.578   | 3.909  | 0.626         | 0.071        |
-| acv_case_04.xlsx | 01       | 01      | True    | 4      | 0.095  | 0.057   | 1.979  | 0.224         | 0.952        |
-| acv_case_05.xlsx | 04       | 04      | True    | 8      | 0.874  | 0.398   | 2.952  | 0.205         | 0.524        |
-| acv_case_06.xlsx | 06       | 06      | True    | 8      | 2.409  | 0.556   | 6.011  | 1.363         | 0.095        |
+| acv_case_01.xlsx | 01       | 01      | True    | 8      | 2.035  | 0.499   | 12.406 | 0.479         | 0.095        |
+| acv_case_02.xlsx | 02       | 02      | True    | 8      | 1.145  | 0.229   | 10.095 | 0.254         | 0.143        |
+| acv_case_03.xlsx | 03       | 03      | True    | 8      | 2.142  | 0.578   | 3.909  | 0.626         | 0.143        |
+| acv_case_04.xlsx | 01       | 01      | True    | 4      | 0.095  | 0.057   | 1.979  | 0.224         | 1            |
+| acv_case_05.xlsx | 04       | 04      | True    | 8      | 0.874  | 0.398   | 2.952  | 0.205         | 1            |
+| acv_case_06.xlsx | 06       | 06      | True    | 8      | 2.409  | 0.556   | 6.011  | 1.363         | 0.19         |
 
 `null_p_value` is the fraction of fault-free consists that separate at least as cleanly. A real fault is not guaranteed to produce a small p-value - a leak whose capacity deficit is still small genuinely does look like a healthy consist - so this figure measures how *distinguishable* the verdict is, not how likely it is to be the right car.
 
@@ -56,39 +56,39 @@ Real faulty car removed, then a physics-shaped capacity deficit of known mean ma
 
 | delta_k | trials | top1_rate | top2_rate | mean_score | mean_rank | mean_observed_elev |
 |---------|--------|-----------|-----------|------------|-----------|--------------------|
-| 0.05    | 12     | 0.333     | 0.5       | 0.726      | 2.917     | 0.091              |
-| 0.1     | 12     | 0.333     | 0.5       | 0.738      | 2.833     | 0.095              |
-| 0.15    | 12     | 0.417     | 0.75      | 0.869      | 1.917     | 0.121              |
-| 0.2     | 12     | 0.583     | 1         | 0.94       | 1.417     | 0.184              |
-| 0.3     | 12     | 0.917     | 1         | 0.988      | 1.083     | 0.338              |
-| 0.5     | 12     | 0.917     | 1         | 0.988      | 1.083     | 0.533              |
-| 1       | 12     | 1         | 1         | 1          | 1         | 0.975              |
+| 0.05    | 18     | 0.222     | 0.333     | 0.651      | 3.444     | 0.013              |
+| 0.1     | 18     | 0.222     | 0.333     | 0.667      | 3.333     | 0.016              |
+| 0.15    | 18     | 0.278     | 0.611     | 0.778      | 2.556     | 0.043              |
+| 0.2     | 18     | 0.556     | 0.833     | 0.881      | 1.833     | 0.105              |
+| 0.3     | 18     | 0.833     | 0.889     | 0.937      | 1.444     | 0.259              |
+| 0.5     | 18     | 0.833     | 1         | 0.976      | 1.167     | 0.453              |
+| 1       | 18     | 1         | 1         | 1          | 1         | 0.896              |
 
-Recovery becomes reliable (top-1 rate >= 90%) from **0.30 K** upward. This is the only test in the suite that escapes the six-example ceiling: every trial has a known injected target and the real fault has been removed, so 84 independent unseen cases are available instead of six.
+Recovery becomes reliable (top-1 rate >= 90%) from **1.00 K** upward. This is the only test in the suite that escapes the six-example ceiling: every trial has a known injected target and the real fault has been removed, so 126 independent unseen cases are available instead of six.
 
 Per-file mean rank of the injected car:
 
-| file_id          | 0.05 | 0.1 | 0.15 | 0.2 | 0.3 | 0.5 | 1.0 |
-|------------------|------|-----|------|-----|-----|-----|-----|
-| acv_case_01.xlsx | 3.5  | 3.5 | 2    | 1   | 1   | 1   | 1   |
-| acv_case_02.xlsx | 3.5  | 3.5 | 1.5  | 1.5 | 1   | 1   | 1   |
-| acv_case_03.xlsx | 3.5  | 3.5 | 2.5  | 1.5 | 1   | 1   | 1   |
-| acv_case_04.xlsx | 1.5  | 1.5 | 1.5  | 1.5 | 1.5 | 1.5 | 1   |
-| acv_case_05.xlsx | 3.5  | 3   | 2    | 2   | 1   | 1   | 1   |
-| acv_case_06.xlsx | 2    | 2   | 2    | 1   | 1   | 1   | 1   |
+| file_id          | 0.05  | 0.1   | 0.15  | 0.2   | 0.3   | 0.5   | 1.0 |
+|------------------|-------|-------|-------|-------|-------|-------|-----|
+| acv_case_01.xlsx | 3.333 | 3.333 | 2     | 1     | 1     | 1     | 1   |
+| acv_case_02.xlsx | 3.333 | 3.333 | 1.667 | 1.333 | 1     | 1     | 1   |
+| acv_case_03.xlsx | 4.667 | 4.667 | 3.667 | 2.333 | 1     | 1     | 1   |
+| acv_case_04.xlsx | 2     | 2     | 2     | 2     | 2     | 1.667 | 1   |
+| acv_case_05.xlsx | 4.667 | 4     | 3.333 | 3.333 | 2.667 | 1.333 | 1   |
+| acv_case_06.xlsx | 2.667 | 2.667 | 2.667 | 1     | 1     | 1     | 1   |
 
 ## D. Peer-dropout (car-level) bootstrap
 
-Each case re-ranked from scratch after dropping 2 randomly chosen non-leading cars, 12 times. Features, peer reference, ambient estimate and load strata are all recomputed, because every one of them changes when the consist changes.
+Each case re-ranked from scratch after dropping 2 randomly chosen non-leading cars, 30 times. Features, peer reference, ambient estimate and load strata are all recomputed, because every one of them changes when the consist changes.
 
 | file_id          | true_car | draws | cars_dropped | baseline_top | top1_true_car | leader_retained | runner_up_car | runner_up_freq |
 |------------------|----------|-------|--------------|--------------|---------------|-----------------|---------------|----------------|
-| acv_case_01.xlsx | 01       | 12    | 2            | 01           | 1             | 1               | -             | 0              |
-| acv_case_02.xlsx | 02       | 12    | 2            | 02           | 1             | 1               | -             | 0              |
-| acv_case_03.xlsx | 03       | 12    | 2            | 03           | 1             | 1               | -             | 0              |
-| acv_case_04.xlsx | 01       | 12    | 1            | 01           | 0.75          | 0.75            | 04            | 0.25           |
-| acv_case_05.xlsx | 04       | 12    | 2            | 04           | 1             | 1               | -             | 0              |
-| acv_case_06.xlsx | 06       | 12    | 2            | 06           | 1             | 1               | -             | 0              |
+| acv_case_01.xlsx | 01       | 30    | 2            | 01           | 1             | 1               | -             | 0              |
+| acv_case_02.xlsx | 02       | 30    | 2            | 02           | 1             | 1               | -             | 0              |
+| acv_case_03.xlsx | 03       | 30    | 2            | 03           | 1             | 1               | -             | 0              |
+| acv_case_04.xlsx | 01       | 30    | 1            | 01           | 0.767         | 0.767           | 04            | 0.233          |
+| acv_case_05.xlsx | 04       | 30    | 2            | 04           | 1             | 1               | -             | 0              |
+| acv_case_06.xlsx | 06       | 30    | 2            | 06           | 1             | 1               | -             | 0              |
 
 This complements the time-block bootstrap in `reports/evaluation.md`, which resamples 6-hour blocks and therefore only measures temporal stability against a fixed reference set. Neither test can measure generalisation to an unseen *file*; with six labelled files nothing can, and that limit is irreducible here.
 

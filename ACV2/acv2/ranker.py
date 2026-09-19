@@ -22,7 +22,7 @@ from . import confidence
 from .cleaning import CleanCase, clean
 from .detectors import fuse
 from .features import extract
-from .io_loader import CasePanel, load_case
+from .io_loader import CasePanel, load_case, panel_from_frame
 
 
 # --------------------------------------------------------------------------
@@ -206,22 +206,31 @@ def _contest(top: str, runner_up: str | None, contributions: pd.DataFrame,
 # --------------------------------------------------------------------------
 # public API
 # --------------------------------------------------------------------------
-def rank_case(source: str | CasePanel | CleanCase, model: dict | None = None,
-              verbose: bool = False) -> dict:
+def rank_case(source: "str | CasePanel | CleanCase | pd.DataFrame",
+              model: dict | None = None, verbose: bool = False,
+              file_id: str | None = None) -> dict:
     """
     Localise the refrigerant leak in one case file.
 
-    ``source`` may be a path, an already-loaded :class:`CasePanel` or a
-    :class:`CleanCase`, which makes the function cheap to reuse from the
-    evaluation loop without re-reading a 34 MB workbook.
+    ``source`` may be a path, a raw :class:`~pandas.DataFrame` in the dataset's
+    own ``Car <NN> - <parameter>`` header format, an already-loaded
+    :class:`CasePanel` or a :class:`CleanCase`. Accepting a panel or a clean
+    case makes the function cheap to reuse from the evaluation loop without
+    re-reading a 34 MB workbook; accepting a DataFrame lets an upload handler
+    that has already parsed CSV bytes reach the identical physics without
+    writing a temporary file.
     """
     model = load_model() if model is None else model
 
     if isinstance(source, CleanCase):
         case = source
+    elif isinstance(source, CasePanel):
+        case = clean(source)
+    elif isinstance(source, pd.DataFrame):
+        case = clean(panel_from_frame(source, file_id=file_id or "in_memory",
+                                      verbose=verbose))
     else:
-        panel = source if isinstance(source, CasePanel) else load_case(source, verbose=verbose)
-        case = clean(panel)
+        case = clean(load_case(source, verbose=verbose))
 
     features, ctx = extract(case)
     result = fuse(features,

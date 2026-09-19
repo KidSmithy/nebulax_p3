@@ -179,16 +179,27 @@ def specificity(case_set, model: dict) -> pd.DataFrame:
 
 def write_null_calibration(nulls: pd.DataFrame, model: dict) -> str:
     values = [float(v) for v in nulls["dixon_q"].dropna()]
+    top_z = [float(v) for v in nulls["top_z"].dropna()]
     payload = {
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "statistic": "dixon_q",
-        "definition": "(s1 - s2) / (s1 - sn) on the descending fused scores",
+        "statistic": "dixon_q + top_z, Bonferroni-combined",
+        "definition": {
+            "dixon_q": "(s1 - s2) / (s1 - sn) on the descending fused scores",
+            "top_z": "(s1 - median(others)) / MAD(others)",
+            "combined": ("min(2 * p_dixon_q, 2 * p_top_z, 1) - the two statistics are "
+                         "complementary, and the factor of two pays for testing both"),
+        },
         "source": ("labelled training files with the labelled faulty car deleted, then "
                    "each healthy car left out in turn"),
         "n_samples": len(values),
         "dixon_q_null": values,
-        "quantiles": {str(q): float(np.quantile(values, q)) for q in
-                      (0.5, 0.75, 0.9, 0.95, 0.99)} if values else {},
+        "top_z_null": top_z,
+        "quantiles": {
+            "dixon_q": {str(q): float(np.quantile(values, q)) for q in
+                        (0.5, 0.75, 0.9, 0.95, 0.99)} if values else {},
+            "top_z": {str(q): float(np.quantile(top_z, q)) for q in
+                      (0.5, 0.75, 0.9, 0.95, 0.99)} if top_z else {},
+        },
         "per_consist": nulls.to_dict(orient="records"),
         "model_group_weights": model.get("group_weights"),
         "caveat": ("'Healthy' means 'not the labelled faulty car'. An unlabelled second "
@@ -351,8 +362,9 @@ def main() -> None:
     observed = observed_separation(case_set, model)
     null_path = write_null_calibration(nulls, model)
     calibration = confidence.load_null_calibration(null_path)
-    observed["null_p_value"] = [confidence.null_p_value(q, calibration["dixon_q_null"])
-                               for q in observed["dixon_q"]]
+    observed["null_p_value"] = [
+        confidence.p_value_for({"dixon_q": q, "top_z": z}, calibration)
+        for q, z in zip(observed["dixon_q"], observed["top_z"])]
     print(f"  {len(nulls)} healthy consists -> {null_path}")
     print(observed.to_string(index=False))
 

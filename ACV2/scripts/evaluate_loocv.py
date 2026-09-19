@@ -156,8 +156,8 @@ def main() -> None:
     calibration = confidence.load_null_calibration()
     if calibration:
         separation["null_p_value"] = [
-            confidence.null_p_value(q, calibration["dixon_q_null"])
-            for q in separation["dixon_q"]]
+            confidence.p_value_for({"dixon_q": q, "top_z": z}, calibration)
+            for q, z in zip(separation["dixon_q"], separation["top_z"])]
     print(separation.to_string(index=False))
     n_null = len(calibration["dixon_q_null"]) if calibration else 0
     out += ["## 8. Calibrated confidence, not margin", "",

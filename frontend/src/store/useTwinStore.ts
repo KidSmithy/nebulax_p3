@@ -463,7 +463,11 @@ export const useTwinStore = create<TwinState>((set, get) => {
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname || 'localhost';
-    const wsUrl = `${protocol}//${host}:8000/ws/telemetry`;
+    const isLocal = host === 'localhost' || host === '127.0.0.1';
+    const wsUrl = import.meta.env.VITE_WS_URL
+      || (isLocal
+        ? `${protocol}//${host}:8000/ws/telemetry`
+        : `wss://smrt-digital-twin-backend-622102147707.asia-southeast1.run.app/ws/telemetry`);
 
     try {
       const socket = new WebSocket(wsUrl) as TaggedSocket;
