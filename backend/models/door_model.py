@@ -15,6 +15,7 @@ import pandas as pd
 import io
 from sklearn.ensemble import RandomForestClassifier
 from backend.core.config import ROOT_DIR, DOOR_DIR, DATASETS_DIR, MODEL_DATA_DIR
+from backend.models.submission import door_timestamp, make_submission, merge_submissions
 
 DOOR_CHANNELS = [
     'Motor current(mA)', 'Motor Voltage(10mV)', 'Motor electrodynamic force',
@@ -260,11 +261,16 @@ class DoorPredictor:
 
             if 'parsed_dt' in df.columns:
                 dur = (df['parsed_dt'].iloc[e] - df['parsed_dt'].iloc[s]).total_seconds()
+                start_time = door_timestamp(df['parsed_dt'].iloc[s])
+                end_time = door_timestamp(df['parsed_dt'].iloc[e])
             else:
                 dur = round(len(sub) * 0.02, 2)
+                start_time = end_time = None
 
             rec = {
                 'cycle_index': i + 1,
+                'start_time': start_time,
+                'end_time': end_time,
                 'duration_s': dur,
                 'n_rows': len(sub),
                 'op_is_open': 1 if inferred_op == 'Open' else 0,
@@ -364,6 +370,16 @@ class DoorPredictor:
                 f"Immediate maintenance required: lubricate guide rails and check door leaf alignment."
             )
 
+        # Submission CSV covers every cycle, and only exists when the file had real timestamps.
+        submission = None
+        if all(r['start_time'] for r in records):
+            submission = make_submission(
+                "door_predictions.csv",
+                ["start_time", "end_time", "prediction"],
+                [[r['start_time'], r['end_time'], "Abnormal resistance" if preds[i] == 1 else "Normal"]
+                 for i, r in enumerate(records)],
+            )
+
         segment_details = []
         for i, r in enumerate(records[:40]):  # Cap returned rows for performance
             prob_abnormal = float(probs[i][1]) if probs.shape[1] > 1 else (1.0 if preds[i] == 1 else 0.0)
@@ -394,6 +410,7 @@ class DoorPredictor:
             "max_current_peak_a": max_current_peak,
             "conductor_summary": conductor_summary,
             "segments": segment_details,
+            "submission": submission,
         }
 
     def predict_batch(self, file_list: list, batch_name: str = "door_batch.zip") -> dict:
@@ -488,6 +505,7 @@ class DoorPredictor:
             "mean_current_rms_a": mean_rms_current,
             "conductor_summary": conductor_summary,
             "batch_items": batch_breakdown,
+            "submission": merge_submissions(results),
         }
 
 

@@ -84,6 +84,8 @@ import sys
 
 import numpy as np
 
+from backend.models.submission import make_submission, merge_submissions
+
 try:
     import pandas as pd
     _PANDAS_AVAILABLE = True
@@ -651,6 +653,11 @@ class ACVSubsystemModel:
             "conductor_summary": summary,
             "ranked_cars": leak.get("ranked_cars_list", []),
             "car_diagnostics": leak.get("car_diagnostics", []),
+            "submission": make_submission(
+                "acv_predictions.csv",
+                ["file_id", "ranked_cars"],
+                [[file_name, "|".join(leak.get("ranked_cars_list", []))]],
+            ),
         }
 
     def predict_batch(self, file_list: list, batch_name: str = "acv_batch.zip") -> dict:
@@ -756,5 +763,6 @@ class ACVSubsystemModel:
             "recommended_action": action,
             "conductor_summary": conductor_summary,
             "batch_items": batch_breakdown,
+            "submission": merge_submissions(results),
             "skipped_files": failures,
         }

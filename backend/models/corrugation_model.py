@@ -15,6 +15,7 @@ import io
 import pandas as pd
 from scipy.signal import welch
 from backend.core.config import RAIL_DIR, PS3_DIR, MODEL_DATA_DIR, CORRUGATION_ZONES
+from backend.models.submission import make_submission, merge_submissions
 
 BUNDLE_PATHS = [
     MODEL_DATA_DIR / "rail_model_bundle.joblib",
@@ -298,6 +299,9 @@ class RailCorrugationModel:
             "recommended_action": action,
             "mean_channel_rms": round(mean_rms, 2),
             "conductor_summary": summary,
+            "submission": make_submission(
+                "rail_predictions.csv", ["file_id", "prediction"], [[file_name, pred_label]]
+            ),
         }
 
     def predict_batch(self, file_list: list, batch_name: str = "rail_batch.zip") -> dict:
@@ -394,6 +398,7 @@ class RailCorrugationModel:
             "recommended_action": action,
             "conductor_summary": conductor_summary,
             "batch_items": batch_breakdown,
+            "submission": merge_submissions(results),
         }
 
 

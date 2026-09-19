@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 from scipy.signal import welch
 from backend.core.config import SHM_DIR, PS3_DIR, MODEL_DATA_DIR
+from backend.models.submission import make_submission, merge_submissions
 
 MODEL_PATHS = [
     MODEL_DATA_DIR / "shm_model.joblib",
@@ -423,6 +424,9 @@ class SHMSubsystemModel:
             "recommended_action": action,
             "conductor_summary": conductor_summary,
             "fft_spectrum": spectrum_pts,
+            "submission": make_submission(
+                "shm_predictions.csv", ["file_id", "prediction"], [[file_name, fatigue_damage_index]]
+            ),
         }
 
     def predict_batch(self, file_list: list, batch_name: str = "shm_batch.zip") -> dict:
@@ -519,6 +523,7 @@ class SHMSubsystemModel:
             "recommended_action": action,
             "conductor_summary": conductor_summary,
             "batch_items": batch_breakdown,
+            "submission": merge_submissions(results),
         }
 
 
