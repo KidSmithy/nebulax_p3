@@ -112,6 +112,8 @@ interface TwinState {
   setMonitoredCar: (car: number) => void;
   uploadSubsystemData: (subsystem: SubsystemSelection, file: File) => Promise<Finding | null>;
   fetchLog: () => Promise<void>;
+  /** Puts the backend back to its first-load findings: 4 bubbles on NSL, none on EWL. */
+  resetToSeededFindings: () => Promise<void>;
   resolveFinding: (subsystem: SubsystemSelection) => Promise<void>;
   setSelectedSubsystem: (subsystem: SubsystemSelection) => void;
   setActiveInspection: (inspection: 'door' | 'acv' | 'shm' | 'rail' | null) => void;
@@ -260,6 +262,16 @@ export const useTwinStore = create<TwinState>((set, get) => {
   uploadSubsystemData: async (subsystem, file) => {
     const line = get().activeLine;
     set({ uploading: true, uploadError: null });
+    // Firebase Hosting rewrites have a hard 32 MB payload limit.
+    const MAX_SIZE_MB = 30;
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      set({
+        uploading: false,
+        uploadError: `File is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). Firebase Hosting limits uploads to ${MAX_SIZE_MB} MB. Please upload a single test file (e.g., Test1.csv, ~17 MB) rather than the entire Rail_Test.zip archive.`,
+      });
+      return null;
+    }
+
     try {
       const body = new FormData();
       body.append('file', file);
@@ -268,7 +280,17 @@ export const useTwinStore = create<TwinState>((set, get) => {
       const res = await fetch('/api/predict/upload', { method: 'POST', body });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        set({ uploadError: data.detail ?? 'The upload failed. Try again.' });
+        let msg = typeof data.detail === 'string' ? data.detail : null;
+        if (!msg) {
+          if (res.status === 413) {
+            msg = 'File is too large for the hosting proxy (HTTP 413). Please upload a file under 30 MB.';
+          } else if (res.status === 504) {
+            msg = 'The upload timed out (HTTP 504). Please try a smaller single-run file.';
+          } else {
+            msg = 'The upload failed. Try again.';
+          }
+        }
+        set({ uploadError: msg });
         return null;
       }
       const finding = data as Finding;
@@ -296,6 +318,23 @@ export const useTwinStore = create<TwinState>((set, get) => {
       set({ resolvedLog: data.log ?? [] });
     } catch (err) {
       console.error('[Log] fetch failed:', err);
+    }
+  },
+
+  // Findings live on the backend, so they would otherwise survive a refresh in
+  // whatever state the last session left them (bubbles resolved away, files
+  // uploaded onto EWL). Every page load re-asserts the intended demo start:
+  // the four seeded inspection tags on NSL, and a clean EWL for the upload
+  // walkthrough. Safe to fail - a refresh that cannot reach the backend just
+  // keeps the existing server state instead of blocking the app.
+  resetToSeededFindings: async () => {
+    try {
+      await fetch('/api/predict/seed?reset=1', { method: 'POST' });
+      // The monitored car is re-derived from the (re-seeded) ACV finding on the
+      // next frame, so forget what the previous frames synced to.
+      for (const line of LINE_IDS) syncedAcvKey[line] = '';
+    } catch (err) {
+      console.warn('[Seed] Could not restore the seeded findings:', err);
     }
   },
 

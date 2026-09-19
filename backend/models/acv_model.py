@@ -99,10 +99,20 @@ except ImportError:                                      # pragma: no cover
 # its own CLI, tests and reports. Adding its directory to sys.path keeps one
 # copy of the physics without turning the backend into its parent.
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_ACV2_DIR = os.path.join(_REPO_ROOT, "ACV2")
+_BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-if os.path.isdir(_ACV2_DIR) and _ACV2_DIR not in sys.path:
-    sys.path.insert(0, _ACV2_DIR)
+_CANDIDATE_ACV2_DIRS = [
+    os.path.join(_REPO_ROOT, "ACV2"),
+    os.path.join(_BACKEND_DIR, "ACV2"),
+    "/app/ACV2",
+    "/app/backend/ACV2",
+]
+
+_ACV2_DIR = next((d for d in _CANDIDATE_ACV2_DIRS if os.path.isdir(d)), os.path.join(_REPO_ROOT, "ACV2"))
+
+for _d in _CANDIDATE_ACV2_DIRS:
+    if os.path.isdir(_d) and _d not in sys.path:
+        sys.path.insert(0, _d)
 
 try:
     from acv2 import config as acv2_cfg

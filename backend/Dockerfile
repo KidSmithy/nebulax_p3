@@ -18,6 +18,10 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 # Copy backend source into /app/backend/ so 'from backend.xxx' imports work
 COPY . ./backend/
 
+# Ensure /app/ACV2 is populated and on PYTHONPATH for the ACV leak localisation module
+RUN if [ -d "/app/backend/ACV2" ]; then cp -r /app/backend/ACV2 /app/ACV2; fi
+ENV PYTHONPATH="/app:/app/ACV2:/app/backend/ACV2:${PYTHONPATH}"
+
 EXPOSE 8080
 
 # Run from /app so ROOT_DIR = /app and 'backend' is a valid package

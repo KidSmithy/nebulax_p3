@@ -13,14 +13,21 @@ import { ConductorOnboarding } from './components/hud/conductor/ConductorOnboard
 export const App: React.FC = () => {
   const initWebSocket = useTwinStore((state) => state.initWebSocket);
   const disconnectWebSocket = useTwinStore((state) => state.disconnectWebSocket);
+  const resetToSeededFindings = useTwinStore((state) => state.resetToSeededFindings);
   const conductorEnabled = useTwinStore((state) => state.conductorEnabled);
   const conductorState = useTwinStore((state) => state.conductorState);
   const setConductorState = useTwinStore((state) => state.setConductorState);
 
   useEffect(() => {
+    // Findings are backend state, so a refresh would otherwise inherit whatever
+    // the last session left behind. Re-assert the intended start on every load -
+    // four inspection tags on NSL, none on EWL - then stream. The socket is
+    // opened without waiting, since frames carry the findings and simply show
+    // the re-seeded ones as soon as the call lands.
+    void resetToSeededFindings();
     initWebSocket();
     return () => disconnectWebSocket();
-  }, [initWebSocket, disconnectWebSocket]);
+  }, [initWebSocket, disconnectWebSocket, resetToSeededFindings]);
 
   // Global ⌘K / Ctrl+K, matching the hint shown on the docked Conductor row.
   useEffect(() => {

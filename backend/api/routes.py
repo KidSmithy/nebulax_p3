@@ -7,6 +7,7 @@ REST API Endpoints for NebulaX P3 Rail Digital Twin.
 
 import io
 import re
+import traceback
 from typing import Any, Dict, List, Optional, Tuple
 import zipfile
 
@@ -218,6 +219,7 @@ def setup_routes(harmonizer, whatif_engine):
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
         except Exception as e:
+            traceback.print_exc()
             raise HTTPException(status_code=500, detail=f"Inference error: {e}")
 
         harmonizer.set_upload_result(sub, result, line=line)
@@ -228,12 +230,18 @@ def setup_routes(harmonizer, whatif_engine):
         return {"predictions": harmonizer.uploads_by_line}
 
     @router.post("/predict/seed")
-    async def seed_predictions():
+    async def seed_predictions(reset: bool = False):
         """
         Restores the pre-seeded demo findings (the four inspection bubbles)
         without restarting the backend - useful after resolving them in a demo.
+
+        `?reset=1` first clears the active findings on every line, so the result
+        is the exact first-load picture: four bubbles on the seeded line (NSL by
+        default) and none on EWL. The frontend calls it this way on every page
+        load, which makes a browser refresh a clean slate. The resolved log is
+        left untouched either way.
         """
-        return harmonizer.seed_demo_findings()
+        return harmonizer.seed_demo_findings(reset=reset)
 
     # ------------------------------------------------------------------
     # Resolve an uploaded finding: apply its recommended repair for a real

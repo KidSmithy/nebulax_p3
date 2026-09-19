@@ -38,6 +38,7 @@ const ModelResultsCard: React.FC<{
   const verdict = (uploadResult.verdict || uploadResult.status || 'GOOD') as 'GOOD' | 'WATCH' | 'ACTION_NEEDED';
   const styles = STATUS_STYLES[verdict] || STATUS_STYLES['GOOD'];
   const setActiveInspection = useTwinStore((s) => s.setActiveInspection);
+  const setSelectedSubsystem = useTwinStore((s) => s.setSelectedSubsystem);
 
   return (
     <div className="space-y-3">
@@ -260,8 +261,11 @@ const ModelResultsCard: React.FC<{
         <button
           onClick={() => {
             onDone();
-            // Open the inspection tag on the 3D train for this subsystem
-            setActiveInspection(uploadResult.subsystem);
+            // Point the cockpit at this subsystem and leave the operator where
+            // they are: no card opened over the 3D view, and no camera zoom.
+            // The tag is already on the train for them to click if they want it.
+            setActiveInspection(null);
+            setSelectedSubsystem(uploadResult.subsystem);
           }}
           className="w-full flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded border transition-colors bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100"
         >
@@ -558,8 +562,10 @@ export const ConductorOnboarding: React.FC = () => {
                     <span className="text-xs font-medium text-slate-700">Click to choose a file or ZIP archive</span>
                     <span className="text-label text-slate-400 text-center px-4">
                       {subsystem === 'acv'
-                        ? 'ACV case workbook or archive (.xlsx, .xls, .csv, .zip)'
-                        : 'CSV / Excel dataset (.csv, .xlsx) or ZIP archive'}
+                        ? 'ACV case workbook or archive (.xlsx, .xls, .csv, .zip) • max 30 MB'
+                        : subsystem === 'rail'
+                        ? 'Single rail run (.csv, e.g. Test1.csv ~17 MB) • max 30 MB'
+                        : 'CSV / Excel dataset (.csv, .xlsx) or ZIP archive • max 30 MB'}
                     </span>
                   </button>
                   <input
