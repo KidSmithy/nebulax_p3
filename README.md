@@ -106,13 +106,13 @@ npm run dev                          # http://localhost:3000
 
 Vite proxies `/api` to `localhost:8000`, and the app opens its WebSocket to `ws://localhost:8000/ws/telemetry`.
 
-### Optional: AI explanations
+### AI explanations configuration
 
 ```sh
-cp backend/.env.example backend/.env    # then add your OPENAI_API_KEY
+cp backend/.env.example backend/.env    # configure OPENAI_API_KEY
 ```
 
-The key is read only by the backend and never reaches the browser. **With no key, an exhausted quota or an API error, a deterministic rule-based explanation is used and labelled as such** — the app degrades in quality, never in availability.
+The API key is securely read only by the backend and never exposed to the client. Built with fault tolerance: **if unconfigured, rate-limited, or encountering an API error, the system automatically falls back to deterministic, rule-based diagnostic explanations** — ensuring zero interruption to operator workflows.
 
 ### Try it
 
