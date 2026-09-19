@@ -83,7 +83,8 @@ nebulax_p3/
 │   │   └── websocket_streamer.py    # 10 Hz full-duplex WebSocket server
 │   ├── core/
 │   │   ├── config.py                # Corridor geometry & threshold configurations
-│   │   └── harmonizer.py            # Temporal-spatial alignment into unified frames
+│   │   ├── harmonizer.py            # Temporal-spatial alignment into unified frames
+│   │   └── seed_findings.py         # Replays saved model output as first-load findings
 │   ├── models/
 │   │   ├── door_model.py            # Door Random Forest classifier & waveform evaluator
 │   │   ├── acv_model.py             # ACV thermodynamic regressor & leak detection
@@ -348,6 +349,90 @@ Install the two extra dependencies (already in `requirements.txt`):
 | `GET` | `/api/metrics/glossary` | Backend thresholds, for asserting UI/backend agreement |
 | `GET` | `/api/whatif/actions` | Available interventions and their plain-language copy |
 | `POST` | `/api/whatif/reset` | Revert all interventions |
+| `POST` | `/api/predict/seed` | Restore the four pre-seeded demo findings |
+
+---
+
+## 🔖 Pre-seeded inspection tags (all four bubbles on first load)
+
+Opening the site shows **all four inspection bubbles already on the NSL train**
+— door, aircon, bogie and track — instead of an empty train that only gets tags
+after four manual uploads.
+
+Those numbers are **real model output, not mock values**. Inference is run once,
+offline, over real files from `PS3/02_Datasets/`, and the unedited result
+envelopes are saved to `backend/model_data/seed_findings.json`, which the
+harmonizer replays at startup through the same `set_upload_result()` an upload
+uses. The only "hardcoded" part is *which* dataset file was analysed — exactly
+as if an operator had uploaded it a moment before you opened the page.
+
+| Subsystem | Seeded dataset | Model verdict |
+| --- | --- | --- |
+| ACV | `ACV/Train/acv_case_05.xlsx` (labelled faulty car 04) | `WATCH` — car 04 leading suspect, ambiguous confidence |
+| Door | `Door/Train.csv` (raw, **not** `_cleaned`) | `ACTION_NEEDED` — 30 of 110 cycles abnormal (27.3%) |
+| SHM | `SHM/Train/train31.csv` (highest labelled damage, 0.928) | `ACTION_NEEDED` — inspect the axle-box bearing |
+| Rail | `Rail_Corrugation/Train/Train2.csv` (labelled `Side II`) | `ACTION_NEEDED` — schedule grinding |
+
+All four seeds come from the **Train** splits on purpose, so every `Test` file
+stays unseen and available for the live upload walkthrough.
+
+`acv_case_05` is deliberate: its faulty car (04) is the UI's `DEFAULT_CAR`, so
+the camera does not jump on first load.
+
+### ⚠️ Feed the door model `Train.csv`, never `Train_cleaned.csv`
+
+`door_model.predict_from_csv` has its own column normaliser, but its alias table
+targets the **original LTA headers** (`Motor current(mA)`, `Datetime`, …). The
+`Door/*_cleaned.csv` files were normalised for a different (notebook) pipeline
+and use snake_case (`motor_current_ma`, `datetime_str`, …), which that table does
+not recognise:
+
+| Input | Channels resolved | Cycle segmentation | Cycles found |
+| --- | --- | --- | --- |
+| `Train.csv` | **17 / 17** | real timestamp gaps | **110** (matches answer key) |
+| `Train_cleaned.csv` | 0 / 17 | blind 150-row chunks | 121 (fabricated) |
+| `Test.csv` | **17 / 17** | real timestamp gaps | 38 |
+| `Test_cleaned.csv` | 0 / 17 | blind 150-row chunks | 42 (fabricated) |
+
+With a cleaned file, motor current survives only by the "first numeric column"
+fallback, the other 16 channels are silently replaced by **hardcoded constants**
+(voltage 5000, EMF 500, leaf position 350), and `mean_duration_s` becomes an
+artifact of the chunk size rather than a measurement. The verdict happens to
+land in roughly the same place because current dominates the features — it is
+accidentally right, not right.
+
+Validated against `Door/Train_Segments_Answer.csv`: on raw `Train.csv` the model
+reproduces the answer key exactly — **110/110 cycles, 30/30 abnormal, and 40/40
+per-segment status and open/close agreement** over the returned segment detail.
+
+
+Everything downstream behaves normally — the AI cards, the cockpit charts,
+**Resolve** and the resolved log all treat these as ordinary findings, and the
+seeded SHM result really does drive the generator's bearing wear.
+
+### Regenerating, resetting and disabling
+
+```powershell
+# re-run the real models over the datasets and rewrite the saved JSON
+.\venv\Scripts\python.exe -m backend.scripts.build_seed_findings
+
+# only some subsystems
+.\venv\Scripts\python.exe -m backend.scripts.build_seed_findings door shm
+
+# put the bubbles back mid-demo, after resolving them (no restart needed)
+curl -X POST http://localhost:8000/api/predict/seed
+```
+
+| Env var | Default | Effect |
+| --- | --- | --- |
+| `SEED_DEMO_FINDINGS` | `1` | Set to `0` for the original empty-until-you-upload start |
+| `SEED_DEMO_LINES` | `NSL` | Comma-separated; e.g. `NSL,EWL` to seed both lines |
+
+**EWL is intentionally left empty**, so the upload walkthrough still has a clean
+line to demonstrate on. A missing or corrupt `seed_findings.json` degrades
+silently to the old empty-state behaviour rather than failing startup — and the
+datasets themselves are never needed at runtime.
+
 
 ---
 

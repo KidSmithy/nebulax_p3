@@ -1,0 +1,58 @@
+{
+  "created_utc": "2026-09-19T02:43:00+00:00",
+  "x_axis": "delta_k",
+  "x_meaning": "mean peer-relative cabin-temperature elevation added by the injected deficit, in kelvin, directly comparable to the elev_mean feature",
+  "reliable_top1_rate": 0.9,
+  "curve": [
+    {
+      "delta_k": 0.05,
+      "top1_rate": 0.2222222222222222,
+      "top2_rate": 0.3333333333333333,
+      "trials": 18,
+      "mean_observed_elev": 0.012595881297790205
+    },
+    {
+      "delta_k": 0.1,
+      "top1_rate": 0.2222222222222222,
+      "top2_rate": 0.3333333333333333,
+      "trials": 18,
+      "mean_observed_elev": 0.01645110926844741
+    },
+    {
+      "delta_k": 0.15,
+      "top1_rate": 0.2777777777777778,
+      "top2_rate": 0.6111111111111112,
+      "trials": 18,
+      "mean_observed_elev": 0.04284824988770225
+    },
+    {
+      "delta_k": 0.2,
+      "top1_rate": 0.5555555555555556,
+      "top2_rate": 0.8333333333333334,
+      "trials": 18,
+      "mean_observed_elev": 0.10513574433750306
+    },
+    {
+      "delta_k": 0.3,
+      "top1_rate": 0.8333333333333334,
+      "top2_rate": 0.8888888888888888,
+      "trials": 18,
+      "mean_observed_elev": 0.2585195135238085
+    },
+    {
+      "delta_k": 0.5,
+      "top1_rate": 0.8333333333333334,
+      "top2_rate": 1.0,
+      "trials": 18,
+      "mean_observed_elev": 0.4531458080534482
+    },
+    {
+      "delta_k": 1.0,
+      "top1_rate": 1.0,
+      "top2_rate": 1.0,
+      "trials": 18,
+      "mean_observed_elev": 0.8963095580982553
+    }
+  ],
+  "caveat": "The injection has the shape the features are designed to see, so this is sensitivity to a deficit of a given size in real telemetry noise, not validation of the leak model itself."
+}

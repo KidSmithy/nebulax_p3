@@ -11,7 +11,7 @@ Weights are the physical prior in `config.FEATURE_SPEC`; nothing is fitted.
 | acv_case_03.xlsx | 03       | 1    | 8        | 1     | 03\|02\|04\|01\|08\|07\|05\|06 |
 | acv_case_04.xlsx | 01       | 1    | 8        | 1     | 01\|04\|02\|03\|05\|06\|07\|08 |
 | acv_case_05.xlsx | 04       | 1    | 8        | 1     | 04\|02\|07\|06\|01\|03\|08\|05 |
-| acv_case_06.xlsx | 06       | 1    | 8        | 1     | 06\|08\|04\|05\|02\|03\|01\|07 |
+| acv_case_06.xlsx | 06       | 1    | 8        | 1     | 06\|08\|04\|05\|02\|03\|07\|01 |
 
 **Mean rank-decay score 1.0000** against a random-permutation baseline of 0.5625.
 
@@ -26,7 +26,7 @@ For each held-out file the group weights are re-selected by coordinate ascent on
 | acv_case_03.xlsx | 03       | 1    | 1     | 1           | 03\|02\|04\|01\|08\|07\|05\|06 |
 | acv_case_04.xlsx | 01       | 1    | 1     | 1           | 01\|04\|02\|03\|05\|06\|07\|08 |
 | acv_case_05.xlsx | 04       | 1    | 1     | 1           | 04\|02\|07\|06\|01\|03\|08\|05 |
-| acv_case_06.xlsx | 06       | 1    | 1     | 1           | 06\|08\|04\|05\|02\|03\|01\|07 |
+| acv_case_06.xlsx | 06       | 1    | 1     | 1           | 06\|08\|04\|05\|02\|03\|07\|01 |
 
 **LOOCV mean rank-decay score 1.0000.**
 
@@ -45,10 +45,10 @@ For each held-out file the group weights are re-selected by coordinate ascent on
 | integrity           | 1     | 0      |
 | all but thermal     | 0.979 | -0.021 |
 | all but capacity    | 0.958 | -0.042 |
-| all but progression | 0.792 | -0.208 |
-| all but control     | 0.646 | -0.354 |
-| all but refrigerant | 0.979 | -0.021 |
-| all but integrity   | 0.958 | -0.042 |
+| all but progression | 0.812 | -0.188 |
+| all but control     | 0.771 | -0.229 |
+| all but refrigerant | 0.771 | -0.229 |
+| all but integrity   | 0.833 | -0.167 |
 
 ## 4. Single-channel discrimination
 
@@ -107,3 +107,46 @@ Rank of the true faulty car per file, by channel:
 Coordinate ascent reaches a training score of 1.0000 with group weights `{'thermal': 1.0, 'capacity': 1.0, 'progression': 1.0, 'control': 1.0, 'refrigerant': 1.25, 'integrity': 1.0}`.
 
 Because the physical prior already scores 1.0000 there is nothing for the calibration to correct, and it returns the prior unchanged - the shipped model is therefore the physics, not a fit to six files.
+
+## 6. Block-bootstrap stability
+
+Each case is re-ranked on random 70% subsets of its 6-hour blocks. `top1_true_car` is how often the true faulty car still comes first.
+
+| file_id          | true_car | draws | top1_true_car | most_frequent | most_frequent_freq | mean_rank_true |
+|------------------|----------|-------|---------------|---------------|--------------------|----------------|
+| acv_case_01.xlsx | 01       | 40    | 1             | 01            | 1                  | 1              |
+| acv_case_02.xlsx | 02       | 40    | 1             | 02            | 1                  | 1              |
+| acv_case_03.xlsx | 03       | 40    | 1             | 03            | 1                  | 1              |
+| acv_case_04.xlsx | 01       | 40    | 0.775         | 01            | 0.775              | 1.23           |
+| acv_case_05.xlsx | 04       | 40    | 0.9           | 04            | 0.9                | 1.1            |
+| acv_case_06.xlsx | 06       | 40    | 1             | 06            | 1                  | 1              |
+
+This measures *temporal* stability only: every draw still judges each car against the same seven siblings. The companion car-level test, which resamples the consist itself, is test D in `reports/robustness.md`.
+
+## 7. Peer-dropout (car-level) stability
+
+Each case re-ranked from scratch after dropping randomly chosen non-leading cars, with the peer reference, ambient estimate and load strata all recomputed. This tests whether the verdict is a property of the accused car or of the particular sibling group it was compared against.
+
+| file_id          | true_car | draws | cars_dropped | top1_true_car | leader_retained |
+|------------------|----------|-------|--------------|---------------|-----------------|
+| acv_case_01.xlsx | 01       | 20    | 2            | 1             | 1               |
+| acv_case_02.xlsx | 02       | 20    | 2            | 1             | 1               |
+| acv_case_03.xlsx | 03       | 20    | 2            | 1             | 1               |
+| acv_case_04.xlsx | 01       | 20    | 1            | 0.75          | 0.75            |
+| acv_case_05.xlsx | 04       | 20    | 2            | 1             | 1               |
+| acv_case_06.xlsx | 06       | 20    | 2            | 1             | 1               |
+
+## 8. Calibrated confidence, not margin
+
+The system used to report the raw top-1 margin as though it were confidence. Test B in `reports/robustness.md` showed that is wrong: deleting the labelled faulty car and re-ranking the healthy siblings produces a margin of the same size, because a peer-consensus ranker always crowns the most anomalous car whether or not one is broken. Confidence is therefore reported as the scale-free Dixon-Q separation referenced to a null of 41 fault-free consists.
+
+| file_id          | true_car | top_car | correct | n_cars | margin | dixon_q | top_z  | elev_mean_top | null_p_value |
+|------------------|----------|---------|---------|--------|--------|---------|--------|---------------|--------------|
+| acv_case_01.xlsx | 01       | 01      | True    | 8      | 2.035  | 0.499   | 12.406 | 0.479         | 0.214        |
+| acv_case_02.xlsx | 02       | 02      | True    | 8      | 1.145  | 0.229   | 10.095 | 0.254         | 0.786        |
+| acv_case_03.xlsx | 03       | 03      | True    | 8      | 2.142  | 0.578   | 3.909  | 0.626         | 0.071        |
+| acv_case_04.xlsx | 01       | 01      | True    | 4      | 0.095  | 0.057   | 1.979  | 0.224         | 0.952        |
+| acv_case_05.xlsx | 04       | 04      | True    | 8      | 0.874  | 0.398   | 2.952  | 0.205         | 0.524        |
+| acv_case_06.xlsx | 06       | 06      | True    | 8      | 2.409  | 0.556   | 6.011  | 1.363         | 0.095        |
+
+`null_p_value` is the fraction of fault-free consists separating at least as cleanly. Three of the six genuine faults do not separate distinguishably from a healthy consist, which is the honest state of the evidence rather than a defect: a leak whose capacity deficit is still small genuinely does look like a healthy pack. The metric is reported so the system can say so instead of quoting a confident margin it cannot justify.

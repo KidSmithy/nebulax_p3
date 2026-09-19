@@ -79,11 +79,23 @@ def main(argv: list[str] | None = None) -> int:
         if args.report:
             print(f"\n  {result['verdict']}")
             print(f"  schema={result['schema']}  evidence groups={', '.join(result['active_groups'])}")
+            conf = result.get("confidence") or {}
+            if conf:
+                print(f"  confidence={conf.get('level', '?').upper()}  "
+                      f"Q={conf.get('dixon_q', float('nan')):.3f}  "
+                      f"p_vs_healthy={conf.get('null_p_value', float('nan')):.3f}  "
+                      f"(null n={conf.get('n_null_samples', 0)})")
             print(f"  {'rank':>4}  {'car':>3}  {'score':>7}  {'physics':>7}  evidence")
             for entry in result["car_table"]:
                 evidence = ", ".join(f"{e['feature']}={e['value']:.3g}" for e in entry["evidence"][:3])
                 print(f"  {entry['rank']:>4}  {entry['car']:>3}  {entry['score']:>7.3f}  "
                       f"{entry['physics_score']:>7.3f}  {evidence or '-'}")
+            contest = result.get("competing_hypothesis") or {}
+            if contest.get("narrative"):
+                print(f"\n  {contest['narrative']}")
+                for row in contest.get("supports_alternative", []):
+                    print(f"    favours car {contest['alternative']}: {row['feature']:<22} "
+                          f"z {row['alternative_z']:+.2f} vs {row['leader_z']:+.2f}")
             print()
 
     out_dir = os.path.dirname(os.path.abspath(args.output))
@@ -105,6 +117,8 @@ def main(argv: list[str] | None = None) -> int:
             "schema": d["schema"],
             "active_groups": d["active_groups"],
             "verdict": d["verdict"],
+            "confidence": d.get("confidence"),
+            "competing_hypothesis": d.get("competing_hypothesis"),
             "cars": [{k: v for k, v in entry.items()} for entry in d["car_table"]],
         } for d in details]
         with open(sidecar, "w", encoding="utf-8") as fh:

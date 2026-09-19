@@ -11,51 +11,76 @@ Two distinct capabilities live here:
    Called by InferenceBroker on every frame. Unchanged behaviour.
 
 2. localise_leak(...) / rank_consist_window(...)
-   The real refrigerant-leakage diagnosis model, ported from the ACV
-   subsystem work. Given per-car cabin temperatures across a consist, it
-   ranks every car from most to least likely to be leaking refrigerant.
-
-There is deliberately NO model artefact to load. The previous version of this
-file loaded acv_model_bundle.joblib but never used it; the pickle held an L2
-logistic pairwise ranker whose measured contribution to ranking accuracy was
-exactly zero (0.9583 with it, 0.9583 without). It has been replaced by the
-closed-form physics index below, which has no fitted parameters, cannot suffer
-scikit-learn version drift, and needs no training data.
+   Refrigerant-leakage localisation across a consist. This is now a thin
+   adapter over the ACV2 package (``ACV2/acv2/``), which is the single
+   reference implementation.
 
 -------------------------------------------------------------------------------
-PHYSICS
+WHY THIS FILE NO LONGER CONTAINS ANY PHYSICS
 -------------------------------------------------------------------------------
-A refrigerant leak reduces the mass of working fluid circulating through the
-evaporator, so cooling capacity falls and the affected cabin drifts above its
-setpoint and above its sibling cars. Every car on a consist shares the same
-outdoor weather, solar load, speed and door cycles at every instant, which is
-what licenses the cross-car comparison: the median cabin temperature of the
-cars cooling at that same timestamp is a live environmental reference, and
-subtracting it removes the dominant nuisance variable with no fitted terms.
+It used to carry a standalone copy of the five-feature scoring core from
+ACV/acv_physics_ranker.py, with a parity test to stop the two copies drifting.
+That was a workable arrangement for two copies and a bad one for three. The
+physics now lives in exactly one place and this module translates its output
+into the backend's response contract.
 
-    dT_rel(c,t) = T_in(c,t) - median over cars k also cooling at t
-    dT_set(c,t) = T_in(c,t) - T_cooling_setpoint(c,t)
-
-dT_rel is peer-relative and immune to a consist-wide hot day. dT_set is
-absolute and survives a consist-wide degradation. Using both means neither
-failure mode is blind.
+The upgrade is not cosmetic. ACV2 scores 1.0000 on the six labelled cases under
+leave-one-file-out cross validation against a 0.5625 random baseline, using 20
+channels across six evidence groups rather than five thermal statistics, and it
+reads refrigerant circuit pressures on the rich-schema files where the previous
+core discarded them.
 
 -------------------------------------------------------------------------------
-NOTE ON CODE DUPLICATION
+THE BUG THIS PORT FIXES
 -------------------------------------------------------------------------------
-The scoring core below is an intentional standalone copy of
-ACV/acv_physics_ranker.py, which remains the reference implementation and the
-one wired into the hackathon deliverable ACV/predict.py. The copy keeps the
-backend importable without depending on a path outside the backend package.
-Both copies are verified to agree numerically (see
-backend/models/test_acv_leak_model.py). If the physics constants or weights
-below are edited, edit ACV/acv_physics_ranker.py to match, and re-run that
-test.
+The previous version derived its confidence, and therefore its operational
+verdict, from the raw top-1 margin:
+
+    margin >= 2.0 -> "CLEAR"      margin >= 0.5 -> "MODERATE"
+    and  predict_from_csv:  confidence in ("CLEAR", "MODERATE") -> ACTION_NEEDED
+
+ACV2's audit measured that statistic directly. Deleting the known faulty car
+from each labelled file and re-ranking the healthy siblings produces a margin of
+**the same size** - median ratio 1.00x, and on one case the healthy-only consist
+separates ten times more strongly than the genuine fault. The cause is
+structural: a peer-consensus ranker returns whichever car is most anomalous
+relative to its siblings, and exactly one car is always the warmest, so a winner
+with a margin appears whether or not anything is broken.
+
+So the margin measures spread, not fault presence, and this backend was capable
+of telling an operator "ACTION_NEEDED, service Car 04, CLEAR confidence" about a
+consist in perfect health.
+
+Confidence is now the null-referenced statistic from ``acv2.confidence``: a
+scale-free Dixon-Q separation compared against 41 consists known to contain no
+fault, cross-checked against the measured detection limit. A weak verdict is
+reported as WATCH with the leading suspect still named - not silently promoted to
+ACTION_NEEDED, and not demoted to "all normal" either, because a weakly
+separated ranking is still the best available ordering of the evidence.
+
+-------------------------------------------------------------------------------
+NO MODEL ARTEFACT IS REQUIRED
+-------------------------------------------------------------------------------
+There is nothing to unpickle and no training step at inference time:
+
+  * the ranker is closed-form - feature signs come from the vapour-compression
+    energy balance and the weights are a fixed physical prior;
+  * ``ACV2/artifacts/acv2_model.joblib`` holds weights only, and because
+    calibration returns the prior unchanged, its absence changes no number;
+  * the two confidence artefacts (``null_calibration.json``,
+    ``detection_limit.json``) are optional. Without them confidence is reported
+    as ``uncalibrated`` and no probability is attached, rather than a number
+    being invented.
+
+The only hard dependency is pandas plus scikit-learn, both already required by
+the backend.
 ===============================================================================
 """
 
+from __future__ import annotations
+
 import os
-import re
+import sys
 
 import numpy as np
 
@@ -65,322 +90,113 @@ try:
 except ImportError:                                      # pragma: no cover
     _PANDAS_AVAILABLE = False
 
+
 # ---------------------------------------------------------------------------
-# Schema harmonisation. Rolling-stock generations name the same physical
-# quantity differently; map each alias onto one canonical role.
+# Bridge to the ACV2 reference implementation
 # ---------------------------------------------------------------------------
-ROLE_ALIASES = {
-    "indoor": (
-        "Indoor Average Temperature",
-        "Passenger Cabin Temperature Detected Value",
-    ),
-    "outdoor": (
-        "Outdoor Average Temperature",
-        "Outside Temperature Sensor Reading",
-        "Fresh Air Temperature Detected Value",
-    ),
-    "set_cool": (
-        "ACV Control Temperature (Cooling)",
-        "Target Temperature Value",
-    ),
-    "run_mode": (
-        "ACV Running Mode",
-    ),
-    # Only a genuine data-validity flag belongs here. 'ACV Operating Mode'
-    # also emits the token 'Invalid' but is a mode word, not a sensor-health
-    # flag: treating it as a validity gate discards entire journeys.
-    "valid": (
-        "ACV Information Valid",
-    ),
+# ACV2 is a self-contained package at the repository root rather than a module
+# inside `backend`, because it is also the standalone hackathon deliverable with
+# its own CLI, tests and reports. Adding its directory to sys.path keeps one
+# copy of the physics without turning the backend into its parent.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+_CANDIDATE_ACV2_DIRS = [
+    os.path.join(_REPO_ROOT, "ACV2"),
+    os.path.join(_BACKEND_DIR, "ACV2"),
+    "/app/ACV2",
+    "/app/backend/ACV2",
+]
+
+_ACV2_DIR = next((d for d in _CANDIDATE_ACV2_DIRS if os.path.isdir(d)), os.path.join(_REPO_ROOT, "ACV2"))
+
+for _d in _CANDIDATE_ACV2_DIRS:
+    if os.path.isdir(_d) and _d not in sys.path:
+        sys.path.insert(0, _d)
+
+try:
+    from acv2 import config as acv2_cfg
+    from acv2 import confidence as acv2_confidence
+    from acv2.ranker import load_model as _acv2_load_model
+    from acv2.ranker import rank_case as _acv2_rank_case
+    _ACV2_AVAILABLE = True
+    _ACV2_IMPORT_ERROR = None
+except Exception as exc:                                 # pragma: no cover
+    _ACV2_AVAILABLE = False
+    _ACV2_IMPORT_ERROR = exc
+    acv2_cfg = None
+    acv2_confidence = None
+
+
+# ---------------------------------------------------------------------------
+# Live-twin thresholds (10 Hz path only - unrelated to leak localisation)
+# ---------------------------------------------------------------------------
+#: Nominal supply/return temperature split of a healthy pack, deg C.
+NOMINAL_DELTA_C = 8.5
+#: Nominal compressor draw at that split, kW.
+NOMINAL_COMPRESSOR_KW = 4.5
+
+
+# ---------------------------------------------------------------------------
+# Confidence vocabulary
+# ---------------------------------------------------------------------------
+# ACV2 reports a calibrated level; the HUD and the shared upload contract speak
+# the older four-word vocabulary. This is the only mapping between them, so the
+# words the operator reads can never disagree with the statistic behind them.
+#
+# Deliberately *not* mapped from the margin. That is the bug this port fixes.
+CONFIDENCE_FROM_LEVEL = {
+    "strong": "CLEAR",
+    "moderate": "MODERATE",
+    "weak": "AMBIGUOUS",
+    "uncalibrated": "UNCALIBRATED",
 }
 
-CAR_COL_RE = re.compile(r"^Car\s+(\S+)\s+-\s+(.*)$")
+#: Levels at which a named car is worth dispatching a technician for.
+ACTIONABLE_LEVELS = ("strong", "moderate")
 
-# Physically impossible cabin readings: CAN-bus dropouts arrive as 0.0 C.
-TEMP_MIN_C = 5.0
-TEMP_MAX_C = 45.0
-
-# A car is "actively cooling" when its running mode names a cooling regime.
-# Covers 'Automatic Cooling', 'Full Cooling', 'Half Cooling', plain 'Cooling'.
-COOLING_TOKEN = "cooling"
-
-# Elevation above the consist that counts as a meaningful thermal deficit.
-REL_ELEVATION_C = 0.20
-
-# Minimum simultaneously-cooling cars for a timestamp to give a usable peer
-# median. Below this the peer group is too thin to be a baseline.
-MIN_PEERS_COOLING = 3
-
-# A leak is a sustained capacity loss, not a transient.
-PERSISTENCE_MINUTES = 15.0
-
-# Fixed a-priori weights. dT_rel is the primary evidence; the rest corroborate
-# from different angles. Engineering judgement, NOT fitted values.
-PHYSICS_WEIGHTS = {
-    "mean_rel_cooling":  1.00,   # mean elevation above co-cooling peers
-    "mean_t_minus_set":  0.50,   # mean failure to reach its own setpoint
-    "p95_rel":           0.25,   # peak-load excursion tail
-    "frac_rel_elevated": 0.25,   # fraction of cooling time elevated
-    "persistence_15m":   0.25,   # sustained, not transient
-}
-
-FEATURE_ORDER = list(PHYSICS_WEIGHTS.keys())
-
-# Plain-language copy for the HUD / AI insight layer.
+#: Plain-language copy for the HUD / AI insight layer, per ACV2 channel.
 FEATURE_LABELS = {
-    "mean_rel_cooling":  "Warmer than the other cars",
-    "mean_t_minus_set":  "Missing its own target temperature",
-    "p95_rel":           "Worst-case warm excursion",
-    "frac_rel_elevated": "How often it runs warm",
-    "persistence_15m":   "How long it stays warm",
+    "elev_mean": "Warmer than the other cars",
+    "elev_load_stratified": "Warmer than the other cars, at matched workload",
+    "elev_p90": "Worst-case warm excursion",
+    "elev_persistence": "How long it stays warm",
+    "setpoint_error": "Missing its own target temperature",
+    "load_sensitivity": "Falls further behind as the day heats up",
+    "capacity_shortfall": "Share of the demanded cooling it fails to deliver",
+    "pulldown_rate": "How fast it can cool the cabin down",
+    "greybox_cool_rate": "Identified cooling power",
+    "elev_trend": "Getting worse over the record",
+    "cusum_fraction": "How long ago the drift started",
+    "full_demand_frac": "How often it is driven at full cooling",
+    "circuit_asym_lift": "Its two refrigeration circuits disagree",
+    "circuit_asym_high": "Condensing pressure mismatch between circuits",
+    "circuit_asym_ratio": "Compression ratio mismatch between circuits",
+    "suction_excursion": "Suction pressure keeps collapsing",
+    "lift_deficit": "Weakest circuit underperforms the other cars",
+    "compressor_duty": "Compressor running harder than its peers",
+    "compressor_cycling": "Compressor short-cycling",
+    "integrity_loss": "Reporting invalid readings and dropouts",
 }
 
 
-# ---------------------------------------------------------------------------
-# Column discovery
-# ---------------------------------------------------------------------------
-def _car_columns(columns):
-    """Map (car_id, role) -> actual column name, for recognised roles only."""
-    alias_to_role = {
-        alias: role for role, aliases in ROLE_ALIASES.items() for alias in aliases
-    }
-    found = {}
-    for col in columns:
-        text = str(col)
-        if text == "Car model":
-            continue
-        m = CAR_COL_RE.match(text)
-        if not m:
-            continue
-        car_id, param = m.group(1).strip(), m.group(2).strip()
-        role = alias_to_role.get(param)
-        if role is None:
-            continue
-        if (car_id, role) not in found:
-            found[(car_id, role)] = col
-    return found
+def _require_acv2():
+    if not _PANDAS_AVAILABLE:
+        raise RuntimeError("pandas is required for ACV leak localisation")
+    if not _ACV2_AVAILABLE:
+        raise RuntimeError(
+            f"ACV2 package not importable from {_ACV2_DIR!r}: {_ACV2_IMPORT_ERROR}. "
+            f"Leak localisation is unavailable; the live 10 Hz path is unaffected."
+        )
 
 
-def header_car_ids(columns):
-    """Every car identifier appearing in the file's own headers, as written."""
-    ids = set()
-    for col in columns:
-        text = str(col)
-        if text == "Car model":
-            continue
-        m = CAR_COL_RE.match(text)
-        if m:
-            ids.add(m.group(1).strip())
-    return sorted(ids)
-
-
-def _time_column(columns):
-    for col in columns:
-        if not str(col).startswith("Car ") and "ime" in str(col):
-            return col
-    return None
-
-
-def _excel_engine():
-    """Prefer calamine when installed; it reads the large cases far faster."""
+def _f(value, digits: int = 3):
+    """Round to JSON, mapping NaN/inf to None so the response stays valid JSON."""
     try:
-        import python_calamine  # noqa: F401
-        return "calamine"
-    except ImportError:
+        out = float(value)
+    except (TypeError, ValueError):
         return None
-
-
-def load_case(path: str):
-    """Read only the columns the physics model needs."""
-    is_csv = str(path).lower().endswith(".csv")
-    engine = None if is_csv else _excel_engine()
-
-    if is_csv:
-        head = pd.read_csv(path, nrows=0)
-    else:
-        head = pd.read_excel(path, nrows=0, engine=engine)
-
-    colmap = _car_columns(head.columns)
-    all_ids = header_car_ids(head.columns)
-    tcol = _time_column(head.columns)
-
-    needed = sorted({c for c in colmap.values()})
-    if tcol is not None:
-        needed = [tcol] + needed
-
-    if is_csv:
-        df = pd.read_csv(path, usecols=needed)
-    else:
-        df = pd.read_excel(path, usecols=needed, engine=engine)
-
-    return df, colmap, all_ids, tcol
-
-
-# ---------------------------------------------------------------------------
-# Cleaning
-# ---------------------------------------------------------------------------
-def clean_indoor_temperatures(df, colmap, car_ids):
-    """
-    Return a (timestamp x car) frame of trustworthy cabin temperatures.
-
-    Defects are removed by masking to NaN, never by filling. Journeys span
-    several days with overnight gaps; interpolating across them would fabricate
-    cooling-window data. Every downstream statistic is NaN-aware.
-    """
-    out = {}
-    for cid in car_ids:
-        icol = colmap.get((cid, "indoor"))
-        if icol is None:
-            continue
-        s = pd.to_numeric(df[icol], errors="coerce")
-
-        vcol = colmap.get((cid, "valid"))
-        if vcol is not None:
-            invalid = df[vcol].astype(str).str.contains("invalid", case=False, na=False)
-            s = s.mask(invalid)
-
-        s = s.mask((s <= TEMP_MIN_C) | (s >= TEMP_MAX_C))
-        out[cid] = s
-
-    indoor = pd.DataFrame(out, index=df.index)
-    # Depot / power-off rows: nobody reporting anything.
-    return indoor.dropna(how="all")
-
-
-def cooling_mask(df, colmap, car_ids, index):
-    """(timestamp x car) boolean: is this car in an active cooling regime?"""
-    out = {}
-    for cid in car_ids:
-        mcol = colmap.get((cid, "run_mode"))
-        if mcol is None:
-            # No mode telemetry: assume cooling and let the temperatures speak.
-            out[cid] = pd.Series(True, index=df.index)
-        else:
-            out[cid] = df[mcol].astype(str).str.contains(
-                COOLING_TOKEN, case=False, na=False
-            )
-    return pd.DataFrame(out, index=df.index).loc[index]
-
-
-def setpoint_frame(df, colmap, car_ids, index):
-    out = {}
-    for cid in car_ids:
-        scol = colmap.get((cid, "set_cool"))
-        out[cid] = (
-            pd.to_numeric(df[scol], errors="coerce")
-            if scol is not None
-            else pd.Series(np.nan, index=df.index)
-        )
-    sp = pd.DataFrame(out, index=df.index)
-    sp = sp.mask((sp <= TEMP_MIN_C) | (sp >= TEMP_MAX_C))
-    return sp.loc[index]
-
-
-def _segment_ids(times, n):
-    """
-    Split the record into contiguous acquisition segments and report the median
-    sampling interval. A rolling mean must not straddle an overnight gap, or a
-    15-minute window silently becomes 15 hours.
-    """
-    if times is None:
-        return np.zeros(n, dtype=int), 30.0
-    t = pd.to_datetime(times, errors="coerce")
-    dt = t.diff().dt.total_seconds()
-    median_dt = float(dt.median()) if dt.notna().any() else 30.0
-    if not np.isfinite(median_dt) or median_dt <= 0:
-        median_dt = 30.0
-    breaks = (dt > 3.0 * median_dt).fillna(False).to_numpy()
-    return np.cumsum(breaks).astype(int), median_dt
-
-
-# ---------------------------------------------------------------------------
-# Scoring core
-# ---------------------------------------------------------------------------
-def features_from_frames(indoor, cooling, setpts=None, median_dt_s=30.0, segments=None):
-    """
-    Compute the five physics features from aligned (timestamp x car) frames.
-
-    Kept independent of file I/O so the same core serves both an offline case
-    file and a live rolling telemetry buffer.
-    """
-    active = [c for c in indoor.columns if indoor[c].notna().any()]
-    if not active:
-        return pd.DataFrame(columns=FEATURE_ORDER + ["n_cooling_samples", "mean_indoor_c"])
-
-    indoor = indoor[active]
-    cooling = cooling.reindex(columns=active, fill_value=True).reindex(indoor.index)
-    if setpts is None:
-        setpts = pd.DataFrame(np.nan, index=indoor.index, columns=active)
-    else:
-        setpts = setpts.reindex(columns=active).reindex(indoor.index)
-
-    if segments is None:
-        segments = pd.Series(0, index=indoor.index)
-    else:
-        segments = segments.reindex(indoor.index).fillna(0)
-
-    # Cross-car baseline restricted to cars cooling at this same timestamp.
-    indoor_when_cooling = indoor.where(cooling)
-    n_cooling = indoor_when_cooling.notna().sum(axis=1)
-    enough_peers = n_cooling >= min(MIN_PEERS_COOLING, max(1, len(active)))
-
-    peer_median = indoor_when_cooling.median(axis=1, skipna=True)
-    rel = indoor_when_cooling.sub(peer_median, axis=0).where(enough_peers, np.nan)
-    t_minus_set = indoor_when_cooling.sub(setpts).where(enough_peers, np.nan)
-
-    window = max(2, int(round(PERSISTENCE_MINUTES * 60.0 / max(median_dt_s, 1e-6))))
-
-    rows = {}
-    for c in active:
-        r = rel[c]
-        r_valid = r.dropna()
-        tms = t_minus_set[c].dropna()
-
-        roll = r.groupby(segments).transform(
-            lambda s: s.rolling(window, min_periods=max(2, window // 3)).mean()
-        )
-        roll_valid = roll.dropna()
-
-        rows[c] = {
-            "mean_rel_cooling":  float(r_valid.mean()) if len(r_valid) else 0.0,
-            "mean_t_minus_set":  float(tms.mean()) if len(tms) else 0.0,
-            "p95_rel":           float(np.percentile(r_valid, 95)) if len(r_valid) else 0.0,
-            "frac_rel_elevated": float((r_valid > REL_ELEVATION_C).mean()) if len(r_valid) else 0.0,
-            "persistence_15m":   float((roll_valid > REL_ELEVATION_C).mean()) if len(roll_valid) else 0.0,
-            "n_cooling_samples": int(len(r_valid)),
-            "mean_indoor_c":     float(indoor[c].mean()),
-        }
-
-    return pd.DataFrame(rows).T.reindex(active)
-
-
-def robust_z(values):
-    """
-    Median / MAD standardisation within the consist.
-
-    Mean-and-sigma standardisation is contaminated by the very outlier being
-    looked for: one leaking car inflates sigma and drags the mean towards
-    itself, shrinking its own z-score. Median and MAD are unaffected by a
-    single outlier among eight cars, so the faulty car separates further.
-    """
-    v = values.astype(float)
-    med = float(np.median(v))
-    mad = float(np.median(np.abs(v - med))) * 1.4826
-    if mad > 1e-9:
-        return (v - med) / mad
-    sd = float(v.std(ddof=0))
-    if sd > 1e-9:
-        return (v - v.mean()) / sd
-    return pd.Series(0.0, index=v.index)
-
-
-def score_features(feats, weights=None):
-    """Weighted robust-z health index per car, sorted most to least suspect."""
-    w = dict(PHYSICS_WEIGHTS if weights is None else weights)
-    if feats.empty:
-        return pd.Series(dtype=float)
-    z = pd.DataFrame({f: robust_z(feats[f]) for f in FEATURE_ORDER}, index=feats.index)
-    return sum(w[f] * z[f] for f in FEATURE_ORDER).sort_values(ascending=False)
+    return round(out, digits) if np.isfinite(out) else None
 
 
 # ---------------------------------------------------------------------------
@@ -395,52 +211,84 @@ class ACVSubsystemModel:
     """
 
     #: Reported to the API so the UI can state which method is in use.
-    METHOD = "physics_informed_cross_car_thermal_deficit"
-    METHOD_VERSION = "2.0.0"
+    METHOD = "acv2_peer_consensus_physics_ranker"
+    METHOD_VERSION = "3.0.0"
 
     def __init__(self):
-        # No artefact to load: the ranker is closed-form. Kept as an explicit
-        # attribute so callers can branch on capability rather than guessing.
-        self.leak_model_available = _PANDAS_AVAILABLE
-        self.physics_weights = dict(PHYSICS_WEIGHTS)
-        self.thresholds = {
-            "temp_min_c": TEMP_MIN_C,
-            "temp_max_c": TEMP_MAX_C,
-            "rel_elevation_c": REL_ELEVATION_C,
-            "min_peers_cooling": MIN_PEERS_COOLING,
-            "persistence_minutes": PERSISTENCE_MINUTES,
-        }
+        self.leak_model_available = _PANDAS_AVAILABLE and _ACV2_AVAILABLE
+        self._model = _acv2_load_model() if self.leak_model_available else None
+        self._null = (acv2_confidence.load_null_calibration()
+                      if self.leak_model_available else None)
+        self._limit = (acv2_confidence.load_detection_limit()
+                       if self.leak_model_available else None)
 
     # -- capability description -------------------------------------------
     def describe_method(self) -> dict:
         """Metadata for /api/health and the AI insight layer."""
+        groups, weights, thresholds = {}, {}, {}
+        if self.leak_model_available:
+            weights = dict(self._model.get("feature_weights") or {})
+            groups = {
+                group: [name for name, spec in acv2_cfg.FEATURE_SPEC.items()
+                        if spec[0] == group]
+                for group in acv2_cfg.FEATURE_GROUPS
+            }
+            thresholds = {
+                "elevation_threshold_c": acv2_cfg.PHYSICS["elevation_threshold_c"],
+                "persist_window_min": acv2_cfg.PHYSICS["persist_window_min"],
+                "t_in_min_c": acv2_cfg.CLEANING["t_in_min"],
+                "t_in_max_c": acv2_cfg.CLEANING["t_in_max"],
+                "cusum_k_c": acv2_cfg.PHYSICS["cusum_k_c"],
+                "cusum_h_c": acv2_cfg.PHYSICS["cusum_h_c"],
+            }
+
         return {
             "method": self.METHOD,
             "version": self.METHOD_VERSION,
+            "implementation": "ACV2/acv2",
             "fitted_parameters": 0,
             "requires_training_data": False,
             "model_artefact": None,
             "leak_localisation_available": self.leak_model_available,
-            "physics_weights": dict(self.physics_weights),
-            "thresholds": dict(self.thresholds),
+            "evidence_groups": groups,
+            "physics_weights": weights,
+            "zero_weight_channels": (
+                [name for name, spec in acv2_cfg.FEATURE_SPEC.items() if spec[2] <= 0]
+                if self.leak_model_available else []
+            ),
+            "thresholds": thresholds,
             "feature_labels": dict(FEATURE_LABELS),
+            "confidence": {
+                "statistic": "dixon_q_vs_fault_free_null",
+                "null_calibrated": self._null is not None,
+                "n_null_consists": len((self._null or {}).get("dixon_q_null", [])),
+                "detection_limit_available": self._limit is not None,
+                "note": (
+                    "Confidence is referenced to consists known to contain no fault. It is "
+                    "NOT the top-1 margin: healthy consists were measured to produce margins "
+                    "of the same size, so the margin carries no information about whether a "
+                    "fault is present at all."
+                ),
+            },
             "summary": (
-                "Ranks every car in a consist by a weighted robust-z index of five "
-                "thermal-deficit statistics, measured against the median of the cars "
-                "cooling at the same instant. No fitted parameters."
+                "Ranks every car in a consist by a weighted robust-z pool of up to 20 "
+                "physics channels - cabin thermal deficit, cooling capacity, progression, "
+                "refrigerant circuit pressures and data integrity - each measured against "
+                "its sibling cars under matched conditions. No fitted parameters, no model "
+                "artefact."
             ),
         }
 
     # -- live 10 Hz twin path ---------------------------------------------
+    # Unchanged. This path evaluates a single rooftop pack from the simulator's
+    # own supply/return/compressor channels and has no consist to compare
+    # against, so none of the peer-consensus physics applies to it.
     def evaluate_telemetry(self, supply_temp: float, return_temp: float,
                            compressor_kw: float, degraded: bool = False) -> dict:
         delta_temp = round(float(return_temp - supply_temp), 1)
 
-        # Baseline COP efficiency rating.
-        # Nominal delta is ~7.5 - 9.0 deg C at 4.0 - 5.0 kW.
-        nominal_delta = 8.5
-        efficiency_ratio = delta_temp / max(nominal_delta, 1.0)
-        power_ratio = compressor_kw / 4.5
+        efficiency_ratio = delta_temp / max(NOMINAL_DELTA_C, 1.0)
+        power_ratio = compressor_kw / NOMINAL_COMPRESSOR_KW
 
         if degraded:
             efficiency_rating = round(float(np.clip(efficiency_ratio * 0.72, 0.40, 0.75)), 2)
@@ -476,186 +324,240 @@ class ACVSubsystemModel:
                  name, or 'uploaded_data' for a DataFrame.
 
         Returns ranked_cars (pipe separated, as the submission format wants),
-        the leading suspect, the separation from the runner-up, and a per-car
-        diagnostic table suitable for direct display in the HUD.
+        the leading suspect, a calibrated confidence, the competing hypothesis
+        where the evidence is split, and a per-car diagnostic table suitable for
+        direct display in the HUD.
         """
-        if not self.leak_model_available:
-            raise RuntimeError("pandas is required for ACV leak localisation")
+        _require_acv2()
 
         if isinstance(source, pd.DataFrame):
-            df = source
-            colmap = _car_columns(df.columns)
-            all_ids = header_car_ids(df.columns)
-            tcol = _time_column(df.columns)
             label = file_id or "uploaded_data"
+            if source.empty:
+                raise ValueError(f"No usable cabin temperature telemetry in {label}")
+            payload = source
         else:
             if not os.path.exists(source):
                 raise FileNotFoundError(source)
-            df, colmap, all_ids, tcol = load_case(source)
             label = file_id or os.path.basename(source)
+            payload = source
 
-        if not colmap:
+        try:
+            result = _acv2_rank_case(payload, model=self._model, file_id=label)
+        except Exception as exc:
+            # A schema that carries no recognisable ACV columns must fail loudly
+            # rather than rank noise, and the message must name the expected
+            # header form so an operator can fix their export.
             raise ValueError(
-                f"{label}: no recognised ACV columns. Expected headers of the form "
-                f"'Car <NN> - Indoor Average Temperature'."
-            )
+                f"{label}: could not localise a leak ({exc}). Expected headers of the "
+                f"form 'Car <NN> - Indoor Average Temperature'."
+            ) from exc
 
-        indoor = clean_indoor_temperatures(df, colmap, all_ids)
-        if indoor.empty:
+        if not result.get("ranked_cars_list"):
+            raise ValueError(f"No usable cabin temperature telemetry in {label}")
+        if result.get("n_diagnosable", 0) < 1:
             raise ValueError(f"No usable cabin temperature telemetry in {label}")
 
-        idx = indoor.index
-        cooling = cooling_mask(df, colmap, all_ids, idx)
-        sp = setpoint_frame(df, colmap, all_ids, idx)
-        seg_arr, median_dt = _segment_ids(df[tcol] if tcol else None, len(df))
-        seg = pd.Series(seg_arr, index=df.index).loc[idx]
-
-        feats = features_from_frames(indoor, cooling, sp, median_dt, seg)
-        index_score = score_features(feats)
-
-        return self._assemble(
-            feats, index_score, all_ids,
-            file_id=label,
-            median_dt_s=median_dt,
-            n_rows=int(len(idx)),
-        )
+        return self._assemble(result, file_id=label)
 
     def rank_consist_window(self, cabin_temps: dict, setpoints: dict = None,
-                            cooling_flags: dict = None, sample_interval_s: float = 30.0) -> dict:
+                            cooling_flags: dict = None, outdoor_temps: dict = None,
+                            sample_interval_s: float = 30.0) -> dict:
         """
-        Same index, driven by a live rolling buffer instead of a file.
+        Same physics, driven by a live rolling buffer instead of a file.
 
         cabin_temps:   {car_id: [T0, T1, ...]} equal-length cabin temperature
                        series, oldest first
         setpoints:     {car_id: [...]} or {car_id: scalar}; omitted -> the
-                       setpoint term contributes nothing
+                       setpoint and capacity terms contribute nothing
         cooling_flags: {car_id: [bool, ...]} or {car_id: bool}; omitted ->
                        every sample is treated as active cooling
-        sample_interval_s: seconds between samples, used to size the
-                       15-minute persistence window correctly
+        outdoor_temps: {car_id: [...]} or scalar per car; omitted -> the
+                       load-stratified and load-sensitivity channels cannot be
+                       computed and are reported as unavailable rather than
+                       guessed
+        sample_interval_s: seconds between samples, used to size the rolling
+                       persistence window and the CUSUM slots correctly
 
-        Intended for a consist-aware live twin. The current single-pack twin
-        does not emit per-car cabin temperatures, so nothing in the 10 Hz path
-        calls this yet; it exists so the streaming layer can adopt consist
-        telemetry without reimplementing the physics.
+        Implemented by assembling the buffer into the dataset's own
+        ``Car <NN> - <parameter>`` header layout and handing it to the identical
+        code path as a file, so the live twin and the offline diagnosis can never
+        disagree about the same numbers.
+
+        Intended for a consist-aware live twin. The current single-pack twin does
+        not emit per-car cabin temperatures, so nothing in the 10 Hz path calls
+        this yet.
         """
-        if not self.leak_model_available:
-            raise RuntimeError("pandas is required for ACV leak localisation")
+        _require_acv2()
         if not cabin_temps:
             raise ValueError("cabin_temps is empty")
 
-        indoor = pd.DataFrame({c: pd.Series(v, dtype=float) for c, v in cabin_temps.items()})
-        indoor = indoor.mask((indoor <= TEMP_MIN_C) | (indoor >= TEMP_MAX_C))
+        cars = list(cabin_temps)
+        length = max(len(list(v)) for v in cabin_temps.values())
+        interval = float(sample_interval_s) if sample_interval_s else 30.0
 
-        def expand(src, default):
+        frame = {"Time": pd.date_range("2000-01-01", periods=length,
+                                       freq=pd.Timedelta(seconds=interval))}
+
+        def column(src, car, default):
             if src is None:
-                return pd.DataFrame(default, index=indoor.index, columns=indoor.columns)
-            cols = {}
-            for c in indoor.columns:
-                v = src.get(c, default)
-                cols[c] = (pd.Series(v).reindex(indoor.index)
-                           if isinstance(v, (list, tuple, pd.Series, np.ndarray))
-                           else pd.Series(v, index=indoor.index))
-            return pd.DataFrame(cols)
+                return default
+            value = src.get(car, default)
+            if isinstance(value, (list, tuple, np.ndarray, pd.Series)):
+                return pd.Series(list(value)).reindex(range(length)).to_numpy()
+            return value
 
-        sp = None if setpoints is None else expand(setpoints, np.nan)
-        cool = expand(cooling_flags, True).astype(bool)
+        for car in cars:
+            frame[f"Car {car} - Indoor Average Temperature"] = (
+                pd.Series(list(cabin_temps[car])).reindex(range(length)).to_numpy())
 
-        feats = features_from_frames(indoor, cool, sp, sample_interval_s, None)
-        index_score = score_features(feats)
+            setpoint = column(setpoints, car, np.nan)
+            frame[f"Car {car} - ACV Control Temperature (Cooling)"] = setpoint
 
-        return self._assemble(
-            feats, index_score, list(indoor.columns),
-            file_id="live_window",
-            median_dt_s=sample_interval_s,
-            n_rows=int(len(indoor)),
-        )
+            outdoor = column(outdoor_temps, car, np.nan)
+            frame[f"Car {car} - Outdoor Average Temperature"] = outdoor
+
+            flags = column(cooling_flags, car, True)
+            if isinstance(flags, np.ndarray):
+                mode = np.where(flags.astype(bool), "Automatic Cooling", "Ventilation")
+            else:
+                mode = "Automatic Cooling" if bool(flags) else "Ventilation"
+            frame[f"Car {car} - ACV Running Mode"] = mode
+            frame[f"Car {car} - ACV Information Valid"] = "Valid"
+
+        result = _acv2_rank_case(pd.DataFrame(frame), model=self._model,
+                                file_id="live_window")
+        return self._assemble(result, file_id="live_window")
 
     # -- shared result assembly -------------------------------------------
-    def _assemble(self, feats, index_score, all_cars, file_id, median_dt_s, n_rows) -> dict:
-        active = list(index_score.index)
-        # Cars declared in the headers but reporting nothing cannot be assessed;
-        # they go to the tail so the ranking is still a full permutation.
-        unassessable = [c for c in all_cars if c not in active]
-        ranked = active + unassessable
+    def _assemble(self, result: dict, file_id: str) -> dict:
+        """Translate an ACV2 result into the backend's response contract."""
+        ranked = list(result["ranked_cars_list"])
+        features = result["features"]
+        conf = result.get("confidence") or {}
+        contest = result.get("competing_hypothesis") or {}
+        level = conf.get("level", "uncalibrated")
 
-        margin = (float(index_score.iloc[0] - index_score.iloc[1])
-                  if len(index_score) > 1 else float("nan"))
+        active = [entry["car"] for entry in result["car_table"] if entry["diagnosable"]]
+        unassessable = [c for c in ranked if c not in active]
+
+        def feature(car, name):
+            if name in features.columns and car in features.index:
+                return features.loc[car, name]
+            return float("nan")
 
         diagnostics = []
-        for r, c in enumerate(ranked, start=1):
-            if c in active:
+        for entry in result["car_table"]:
+            car = entry["car"]
+            if not entry["diagnosable"]:
                 diagnostics.append({
-                    "rank": r,
-                    "car": c,
-                    "health_index": round(float(index_score[c]), 3),
-                    "mean_rel_c": round(float(feats.loc[c, "mean_rel_cooling"]), 3),
-                    "mean_t_minus_set_c": round(float(feats.loc[c, "mean_t_minus_set"]), 3),
-                    "p95_rel_c": round(float(feats.loc[c, "p95_rel"]), 3),
-                    "frac_elevated_pct": round(float(feats.loc[c, "frac_rel_elevated"]) * 100, 1),
-                    "persistence_pct": round(float(feats.loc[c, "persistence_15m"]) * 100, 1),
-                    "n_cooling_samples": int(feats.loc[c, "n_cooling_samples"]),
-                    "assessable": True,
+                    "rank": entry["rank"], "car": car,
+                    "health_index": None, "assessable": False,
                 })
-            else:
-                diagnostics.append({
-                    "rank": r, "car": c, "health_index": None, "assessable": False,
-                })
+                continue
+            diagnostics.append({
+                "rank": entry["rank"],
+                "car": car,
+                "health_index": _f(entry["score"]),
+                # Legacy keys, kept so existing HUD code and saved findings
+                # keep rendering. Each is the ACV2 channel that measures the
+                # same physical quantity the old five-feature core measured.
+                "mean_rel_c": _f(feature(car, "elev_mean")),
+                "mean_t_minus_set_c": _f(feature(car, "setpoint_error")),
+                "p95_rel_c": _f(feature(car, "elev_p90")),
+                "persistence_pct": _f(100.0 * feature(car, "elev_persistence"), 1),
+                # New ACV2 evidence.
+                "elev_load_stratified_c": _f(feature(car, "elev_load_stratified")),
+                "capacity_shortfall": _f(feature(car, "capacity_shortfall")),
+                "load_sensitivity": _f(feature(car, "load_sensitivity")),
+                "elev_trend_c_per_day": _f(feature(car, "elev_trend")),
+                "cusum_fraction": _f(feature(car, "cusum_fraction")),
+                "integrity_loss": _f(feature(car, "integrity_loss")),
+                "circuit_asym_lift": _f(feature(car, "circuit_asym_lift")),
+                "suction_excursion": _f(feature(car, "suction_excursion")),
+                "physics_score": _f(entry.get("physics_score")),
+                "evidence": [
+                    {
+                        "feature": e["feature"],
+                        "label": FEATURE_LABELS.get(e["feature"], e["feature"]),
+                        "group": e["group"],
+                        "value": _f(e["value"]),
+                        "contribution": _f(e["contribution"]),
+                    }
+                    for e in entry.get("evidence", [])
+                ],
+                "assessable": True,
+            })
 
         top = ranked[0] if ranked else None
-        if top is not None and top in active:
-            summary = (
-                f"Car {top} is the most likely refrigerant-leak location. During active "
-                f"cooling it ran {feats.loc[top, 'mean_rel_cooling']:+.2f} degC relative to "
-                f"the co-cooling consist median, sat "
-                f"{feats.loc[top, 'mean_t_minus_set']:+.2f} degC from its own cooling "
-                f"setpoint, and stayed more than {REL_ELEVATION_C:.2f} degC above its peers "
-                f"for {feats.loc[top, 'persistence_15m'] * 100:.0f}% of the time on a "
-                f"{PERSISTENCE_MINUTES:.0f}-minute rolling basis."
-            )
-        else:
-            summary = "No car reported usable cabin temperature telemetry."
+        summary = result.get("verdict") or "No car reported usable cabin telemetry."
 
-        # Honest confidence: a large gap to rank 2 means the leading diagnosis
-        # stands alone; a small gap means the top cars are not distinguishable.
-        if not np.isfinite(margin):
-            confidence = "SINGLE_CAR"
-        elif margin >= 2.0:
-            confidence = "CLEAR"
-        elif margin >= 0.5:
-            confidence = "MODERATE"
-        else:
-            confidence = "AMBIGUOUS"
-
+        detection = conf.get("detection") or {}
         return {
             "file_id": file_id,
             "method": self.METHOD,
+            "method_version": self.METHOD_VERSION,
+            "schema": result.get("schema"),
             "ranked_cars": "|".join(ranked),
             "ranked_cars_list": ranked,
             "most_likely_faulty_car": top,
-            "confidence_margin": round(margin, 3) if np.isfinite(margin) else None,
-            "confidence": confidence,
+
+            # Confidence. `confidence` keeps the legacy vocabulary for the HUD;
+            # everything below it is the measurement that vocabulary came from.
+            "confidence": CONFIDENCE_FROM_LEVEL.get(level, "UNCALIBRATED"),
+            "confidence_level": level,
+            "confidence_statement": acv2_confidence.describe(conf) if conf else "",
+            "separation_q": _f(conf.get("dixon_q")),
+            "null_p_value": _f(conf.get("null_p_value")),
+            "n_null_consists": conf.get("n_null_samples", 0),
+            "null_calibrated": bool(conf.get("n_null_samples")),
+            # Retained for backward compatibility and for display, explicitly
+            # flagged as not being the confidence signal.
+            "confidence_margin": _f(conf.get("margin")),
+            "margin_is_not_confidence": True,
+            "detection_limit": {
+                "evidence_k": _f(detection.get("evidence_k")),
+                "expected_top1_rate": _f(detection.get("expected_top1_rate")),
+                "reliable_from_k": _f(detection.get("reliable_from_k"), 2),
+                "below_detection_limit": detection.get("below_detection_limit"),
+            },
+
+            "competing_hypothesis": {
+                "alternative": contest.get("alternative"),
+                "contested": bool(contest.get("contested")),
+                "evidence_share_against": _f(contest.get("evidence_share_against")),
+                "narrative": contest.get("narrative", ""),
+                "supports_alternative": [
+                    {"feature": r["feature"],
+                     "label": FEATURE_LABELS.get(r["feature"], r["feature"]),
+                     "group": r["group"],
+                     "alternative_z": _f(r["alternative_z"], 2),
+                     "leader_z": _f(r["leader_z"], 2)}
+                    for r in contest.get("supports_alternative", [])
+                ],
+            },
+
+            "evidence_groups_used": result.get("active_groups", []),
+            "has_refrigerant_evidence": result.get("has_refrigerant_evidence", False),
             "consist_size": len(ranked),
             "active_cars": active,
             "unassessable_cars": unassessable,
             "car_diagnostics": diagnostics,
             "diagnostic_summary": summary,
-            "sample_interval_s": median_dt_s,
-            "n_rows_used": n_rows,
+            "sample_interval_s": (result.get("cleaning_report") or {}).get("dt_seconds"),
+            "n_rows_used": (result.get("cleaning_report") or {}).get("rows_kept"),
         }
 
+    # -- upload paths ------------------------------------------------------
     def predict_from_csv(self, file_source, file_name: str = "acv_data.csv") -> dict:
         """
-        Runs ACV thermodynamic leak detection and consist temperature ranking
-        from an uploaded CSV or Excel (.xlsx) case file.
+        Runs ACV refrigerant-leak localisation from an uploaded CSV or Excel
+        (.xlsx) case file.
 
-        load_case() picks its parser by file extension (pd.read_csv vs
-        pd.read_excel), so raw upload bytes are spooled to a temp file with
-        the ORIGINAL extension preserved rather than forced through
-        pd.read_csv - that would corrupt/reject a binary .xlsx workbook,
-        which is the format the real ACV test cases ship in.
+        ACV2's loader picks its parser by file extension, so raw upload bytes
+        are spooled to a temp file with the ORIGINAL extension preserved rather
+        than forced through pd.read_csv - that would corrupt/reject a binary
+        .xlsx workbook, which is the format the real ACV test cases ship in.
         """
-        import os
         import tempfile
 
         suffix = os.path.splitext(file_name)[1] or ".xlsx"
@@ -664,35 +566,69 @@ class ACVSubsystemModel:
                 tmp.write(file_source)
                 tmp_path = tmp.name
             try:
-                leak_result = self.localise_leak(tmp_path, file_id=file_name)
+                leak = self.localise_leak(tmp_path, file_id=file_name)
             finally:
                 os.unlink(tmp_path)
+        elif isinstance(file_source, str) and not os.path.exists(file_source):
+            # A CSV passed as text rather than a path or bytes.
+            import io
+            leak = self.localise_leak(pd.read_csv(io.StringIO(file_source)),
+                                      file_id=file_name)
         else:
-            # Already a path (or an in-memory DataFrame from a caller that
-            # parsed it itself) - hand it straight to localise_leak.
-            leak_result = self.localise_leak(file_source, file_id=file_name)
-        top_car = leak_result.get("most_likely_faulty_car")
-        margin = leak_result.get("confidence_margin") or 0.0
-        confidence = leak_result.get("confidence", "UNKNOWN")
+            leak = self.localise_leak(file_source, file_id=file_name)
 
-        if confidence in ("CLEAR", "MODERATE") and top_car:
+        top_car = leak.get("most_likely_faulty_car")
+        level = leak.get("confidence_level", "uncalibrated")
+        confidence = leak.get("confidence", "UNCALIBRATED")
+        q = leak.get("separation_q")
+        p = leak.get("null_p_value")
+        below_limit = (leak.get("detection_limit") or {}).get("below_detection_limit")
+
+        # Verdict banding.
+        #
+        # The old logic promoted anything with margin >= 0.5 to ACTION_NEEDED and
+        # everything else to "all cars in thermal equilibrium". Both halves were
+        # wrong: the first because the margin does not indicate a fault, and the
+        # second because a weakly separated ranking is not evidence of health.
+        # A weak verdict now lands on WATCH with the suspect still named.
+        if top_car and level in ACTIONABLE_LEVELS:
             status = "ACTION_NEEDED"
             action = "ACTION_REPLACE_FILTER"
             anomaly_score = 0.78
             summary = (
-                f"Consist refrigerant evaluation for '{file_name}': Car {top_car} identified "
-                f"as the primary thermal anomaly with {confidence} confidence (margin {margin:.2f}). "
-                f"Elevated cabin temperature persistence suggests refrigerant pressure loss or duct restriction. "
-                f"Recommend servicing AC pack and filter on Car {top_car}."
+                f"Consist refrigerant evaluation for '{file_name}': Car {top_car} is the "
+                f"most likely leak location, at {confidence} confidence "
+                f"(separation Q={q}, matched or exceeded by "
+                f"{'' if p is None else f'{p * 100:.0f}% of '}known-healthy consists). "
+                f"Recommend servicing the AC pack on Car {top_car}."
+            )
+        elif top_car:
+            status = "WATCH"
+            action = "ACTION_INSPECT_ACV_PACK"
+            anomaly_score = 0.42
+            summary = (
+                f"Consist refrigerant evaluation for '{file_name}': Car {top_car} is the "
+                f"leading suspect, but the evidence is inconclusive. Its separation from "
+                f"the rest of the consist (Q={q}) is matched by "
+                f"{'many' if p is None else f'{p * 100:.0f}% of'} consists known to contain "
+                f"no fault, so this ordering is the best reading of thin evidence rather "
+                f"than a confirmed diagnosis. "
+                + ("The underlying thermal deficit is below the magnitude at which recovery "
+                   "is reliable, so treat it as a watch item. " if below_limit else "")
+                + f"Suggest a routine inspection of Car {top_car} rather than a callout."
             )
         else:
             status = "GOOD"
             action = "NONE"
             anomaly_score = 0.15
             summary = (
-                f"Consist refrigerant evaluation for '{file_name}': all cars cooling in thermal equilibrium. "
-                f"No persistent cabin overheating relative to peer consist median."
+                f"Consist refrigerant evaluation for '{file_name}': no car could be "
+                f"assessed from this file."
             )
+
+        contest = leak.get("competing_hypothesis") or {}
+        if contest.get("contested") and contest.get("narrative"):
+            summary += " " + contest["narrative"]
 
         return {
             "subsystem": "acv",
@@ -702,10 +638,123 @@ class ACVSubsystemModel:
             "anomaly_score": anomaly_score,
             "most_likely_faulty_car": top_car,
             "confidence": confidence,
-            "confidence_margin": margin,
+            "confidence_level": level,
+            "confidence_margin": leak.get("confidence_margin"),
+            "separation_q": q,
+            "null_p_value": p,
+            "n_null_consists": leak.get("n_null_consists", 0),
+            "detection_limit": leak.get("detection_limit"),
+            "competing_hypothesis": contest,
+            "evidence_groups_used": leak.get("evidence_groups_used", []),
+            "has_refrigerant_evidence": leak.get("has_refrigerant_evidence", False),
             "recommended_action": action,
             "conductor_summary": summary,
-            "ranked_cars": leak_result.get("ranked_cars_list", []),
-            "car_diagnostics": leak_result.get("car_diagnostics", []),
+            "ranked_cars": leak.get("ranked_cars_list", []),
+            "car_diagnostics": leak.get("car_diagnostics", []),
         }
 
+    def predict_batch(self, file_list: list, batch_name: str = "acv_batch.zip") -> dict:
+        """
+        Evaluates a batch of ACV consist run CSV/Excel files (e.g. from an
+        uploaded ZIP).
+
+        file_list: list of (file_name, file_bytes)
+        """
+        results, failures = [], []
+        for fname, fbytes in file_list:
+            try:
+                results.append(self.predict_from_csv(fbytes, fname))
+            except Exception as exc:
+                failures.append({"file": fname, "error": str(exc)})
+                print(f"[ACVSubsystemModel] error processing {fname} in batch: {exc}")
+
+        if not results:
+            raise ValueError(f"Could not parse any valid ACV data files from '{batch_name}'.")
+
+        total_files = len(results)
+        flagged = [r for r in results if r["status"] != "GOOD"]
+        action_needed = [r for r in results if r["status"] == "ACTION_NEEDED"]
+
+        # Worst file is chosen by calibrated evidence, not by margin: a bigger
+        # margin does not mean a more likely fault. Order is
+        # (actionable, then how rare the separation is among healthy consists).
+        def severity(r):
+            level_rank = {"strong": 3, "moderate": 2, "weak": 1}.get(
+                r.get("confidence_level"), 0)
+            p = r.get("null_p_value")
+            rarity = (1.0 - p) if isinstance(p, (int, float)) else 0.0
+            return (level_rank, rarity, r.get("separation_q") or 0.0)
+
+        worst_item = max(results, key=severity)
+        worst_file = worst_item["file_name"]
+
+        if action_needed:
+            verdict = "ACTION_NEEDED"
+            action = "ACTION_REPLACE_FILTER"
+            conductor_summary = (
+                f"Batch evaluation of {total_files} ACV trip log(s) in '{batch_name}': "
+                f"{len(action_needed)} log(s) carry a refrigerant-leak diagnosis at usable "
+                f"confidence. Primary suspect is Car "
+                f"{worst_item.get('most_likely_faulty_car')} in '{worst_file}' "
+                f"({worst_item.get('confidence')}, separation Q="
+                f"{worst_item.get('separation_q')}). Recommend servicing the AC pack on "
+                f"Car {worst_item.get('most_likely_faulty_car')}."
+            )
+        elif flagged:
+            verdict = "WATCH"
+            action = "ACTION_INSPECT_ACV_PACK"
+            conductor_summary = (
+                f"Batch evaluation of {total_files} ACV trip log(s) in '{batch_name}': "
+                f"every log produces a leading suspect, but none separates from its consist "
+                f"more cleanly than fault-free consists routinely do. Nothing here justifies "
+                f"a callout. Highest-ranking watch item is Car "
+                f"{worst_item.get('most_likely_faulty_car')} in '{worst_file}'."
+            )
+        else:
+            verdict = "GOOD"
+            action = "NONE"
+            conductor_summary = (
+                f"Batch evaluation of {total_files} ACV trip log(s) in '{batch_name}': "
+                f"no car could be assessed in any log."
+            )
+
+        if failures:
+            conductor_summary += (
+                f" {len(failures)} file(s) could not be parsed and were skipped.")
+
+        batch_breakdown = [
+            {
+                "file": r["file_name"],
+                "faulty_car": r.get("most_likely_faulty_car"),
+                "confidence": r.get("confidence"),
+                "confidence_level": r.get("confidence_level"),
+                "separation_q": r.get("separation_q"),
+                "null_p_value": r.get("null_p_value"),
+                "margin": r.get("confidence_margin"),
+                "verdict": r["verdict"],
+            }
+            for r in results
+        ]
+
+        return {
+            "subsystem": "acv",
+            "file_name": batch_name,
+            "is_batch": True,
+            "status": verdict,
+            "verdict": verdict,
+            "total_files": total_files,
+            "anomaly_count": len(flagged),
+            "action_needed_count": len(action_needed),
+            "most_likely_faulty_car": worst_item.get("most_likely_faulty_car"),
+            "confidence": worst_item.get("confidence"),
+            "confidence_level": worst_item.get("confidence_level"),
+            "confidence_margin": worst_item.get("confidence_margin"),
+            "separation_q": worst_item.get("separation_q"),
+            "null_p_value": worst_item.get("null_p_value"),
+            "worst_file": worst_file,
+            "anomaly_score": worst_item.get("anomaly_score", 0.15),
+            "recommended_action": action,
+            "conductor_summary": conductor_summary,
+            "batch_items": batch_breakdown,
+            "skipped_files": failures,
+        }

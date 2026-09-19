@@ -172,14 +172,24 @@ def build_frame_summary(frame: Dict[str, Any]) -> str:
     uploads = frame.get("latest_upload_results") or {}
     if uploads:
         lines.append("")
-        lines.append("RECENTLY UPLOADED CSV BATCH MODEL PREDICTIONS:")
+        lines.append("RECENTLY UPLOADED CSV / ZIP BATCH MODEL PREDICTIONS:")
         for sub_id, up in uploads.items():
-            lines.append(f"- Subsystem [{sub_id.upper()}]: File '{up.get('file_name', 'data.csv')}' processed.")
+            is_b = up.get("is_batch", False)
+            lines.append(f"- Subsystem [{sub_id.upper()}]: {'ZIP Archive' if is_b else 'File'} '{up.get('file_name', 'data.csv')}' processed.")
+            if is_b:
+                lines.append(f"  Batch files evaluated: {up.get('total_files')} | Anomalous runs: {up.get('anomaly_count')}")
+                lines.append(f"  Worst-case test run: '{up.get('worst_file')}'")
             lines.append(f"  Model Verdict: {up.get('verdict', 'UNKNOWN')} | Anomaly score: {up.get('anomaly_score', 0)}")
             if up.get('conductor_summary'):
                 lines.append(f"  Model Output & Finding: {up.get('conductor_summary')}")
             if up.get('recommended_action') and up.get('recommended_action') != 'NONE':
                 lines.append(f"  Recommended Action: {up.get('recommended_action')}")
+            if is_b and up.get("batch_items"):
+                lines.append("  Batch runs breakdown summary:")
+                for b_item in up.get("batch_items", [])[:16]:
+                    details = ", ".join(f"{k}: {v}" for k, v in b_item.items() if k not in ("file", "verdict"))
+                    lines.append(f"    * {b_item.get('file')}: verdict {b_item.get('verdict')} ({details})")
+
 
     zone = frame.get("next_corrugation_zone") or {}
     if zone:

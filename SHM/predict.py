@@ -126,8 +126,9 @@ if __name__ == "__main__":
     model_path = os.path.join(script_dir, "shm_model.pkl")
 
     if not os.path.exists(model_path):
-        print("Pre-trained model not found. Running train.py first...")
-        from train import main as run_training
-        run_training()
+        raise FileNotFoundError(
+            f"Pre-trained model artifact not found at '{model_path}'. "
+            f"Silent fallback training has been disabled. Run train.py explicitly first."
+        )
 
     predict_with_model(model_path, args.input, args.output)

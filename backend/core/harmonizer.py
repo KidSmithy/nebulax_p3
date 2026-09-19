@@ -17,6 +17,7 @@ UI can show the operator exactly what their action changed.
 """
 
 from backend.core.config import CORRUGATION_ZONES, INTERVENTION_ACTIONS, classify_metric
+from backend.core.seed_findings import SEED_FILE, load_seed_findings, seeded_lines, seeding_enabled
 from backend.models.inference_broker import InferenceBroker, NO_INTERVENTIONS
 from backend.utils.mock_generator import TelemetryGenerator
 
@@ -64,6 +65,56 @@ class TelemetryHarmonizer:
         # this matches the project's own pattern rather than adding one.
         self.resolved_log = []
         self._next_log_id = 1
+        # Cold-start physics, captured before the first seed so a reset-reseed
+        # can put the generator back exactly where a fresh boot leaves it.
+        self._physics_defaults = {
+            "door_friction_factor": self.generator.door_friction_factor,
+            "bearing_wear": self.generator.bearing_wear,
+        }
+        self.seed_demo_findings()
+
+    def seed_demo_findings(self, reset: bool = False) -> dict:
+        """
+        Pre-populates a line's findings with saved real model output, so the
+        four inspection bubbles are already on the train at first page load
+        rather than appearing only after four manual uploads.
+
+        These go through the same set_upload_result() an upload does, so the
+        generator physics, the AI cards, Resolve and the log all behave exactly
+        as if an operator had just uploaded those datasets. Resolving one clears
+        it for good, same as any real finding - call this again (POST
+        /api/predict/seed) to put the demo back without restarting.
+
+        reset=True first clears the active findings on EVERY line (and restores
+        cold-start generator physics), so the result is exactly the first-load
+        picture: the four seeded bubbles on the seeded line(s) - NSL by default
+        - and nothing at all on the others. That is what the frontend calls on
+        each page load, so a browser refresh is a clean slate regardless of what
+        was uploaded or resolved in the previous session. The resolved log is
+        deliberately left intact: it is a receipt history, not view state.
+
+        Returns {"lines": [...], "seeded": [...]} for the route to echo.
+        """
+        if not seeding_enabled():
+            return {"lines": [], "seeded": [], "reason": "SEED_DEMO_FINDINGS is off"}
+        findings = load_seed_findings()
+        if not findings:
+            return {"lines": [], "seeded": [], "reason": f"No usable {SEED_FILE.name}"}
+
+        if reset:
+            self.uploads_by_line = {line: {} for line in LINES}
+            for attr, value in self._physics_defaults.items():
+                setattr(self.generator, attr, value)
+
+        lines = [line for line in seeded_lines() if line in LINES]
+        for line in lines:
+            for subsystem, finding in findings.items():
+                # A copy per line: set_upload_result tags the dict with its line.
+                self.set_upload_result(subsystem, dict(finding), line=line)
+        if lines:
+            print(f"[Seed] Pre-loaded {len(findings)} findings "
+                  f"({', '.join(findings)}) onto {', '.join(lines)}.")
+        return {"lines": lines, "seeded": list(findings), "reason": None}
 
     def set_upload_result(self, subsystem: str, result: dict, line: str = "NSL"):
         """Stores the most recent CSV batch prediction for a subsystem on a line."""

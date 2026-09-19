@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html, Line } from '@react-three/drei';
+import { Camera, Object3D, Vector3 } from 'three';
 import {
   Activity,
   DoorOpen,
@@ -29,6 +30,38 @@ interface InspectionTagProps {
 
 /** World-space offset from the anchor to where the bubble itself floats. */
 const BUBBLE_OFFSET: [number, number, number] = [0.36, 0.5, 0.12];
+
+/**
+ * Breathing room kept between an opened card and the edges of the 3D viewport.
+ * The top margin specifically clears the persistent CockpitHeader (SMRT branding,
+ * NSL / EWL line switcher pills, camera presets) which occupy y=16..60px,
+ * ensuring the inspection card never collides with or overshadows them.
+ */
+const CARD_MARGIN_TOP_PX = 88;
+const CARD_MARGIN_SIDE_PX = 24;
+const CARD_MARGIN_BOTTOM_PX = 24;
+
+/** Card size before it has been measured: w-80 plus a typical two-section body. */
+const CARD_FALLBACK_SIZE = { width: 320, height: 460 };
+
+/** Reused across frames and tags; calculatePosition runs on every render loop tick. */
+const projected = new Vector3();
+
+function clampCardX(centre: number, cardWidth: number, viewportWidth: number): number {
+  const half = cardWidth / 2;
+  const min = CARD_MARGIN_SIDE_PX + half;
+  const max = viewportWidth - CARD_MARGIN_SIDE_PX - half;
+  if (max < min) return viewportWidth / 2;
+  return Math.min(max, Math.max(min, centre));
+}
+
+function clampCardY(centre: number, cardHeight: number, viewportHeight: number): number {
+  const half = cardHeight / 2;
+  const min = CARD_MARGIN_TOP_PX + half;
+  const max = viewportHeight - CARD_MARGIN_BOTTOM_PX - half;
+  if (max < min) return CARD_MARGIN_TOP_PX + half;
+  return Math.min(max, Math.max(min, centre));
+}
 
 /**
  * One fixed colour per issue type, so a bubble says *which* subsystem it is
@@ -112,6 +145,45 @@ export const InspectionTag: React.FC<InspectionTagProps> = ({ type, position, be
     monitoredCarNo
   );
 
+  // The card's height depends on how long the AI copy is, so it is measured
+  // rather than assumed - and re-measured when the skeleton swaps for real text.
+  // A callback ref, not an effect: drei mounts its children into a portal, so an
+  // effect keyed on isActive can run before the card node exists.
+  const cardSize = useRef(CARD_FALLBACK_SIZE);
+  const cardObserver = useRef<ResizeObserver | null>(null);
+  const measureCard = useCallback((node: HTMLDivElement | null) => {
+    cardObserver.current?.disconnect();
+    cardObserver.current = null;
+    if (!node) {
+      cardSize.current = CARD_FALLBACK_SIZE;
+      return;
+    }
+    const measure = () => {
+      const { width, height } = node.getBoundingClientRect();
+      if (width > 0 && height > 0) cardSize.current = { width, height };
+    };
+    measure();
+    cardObserver.current = new ResizeObserver(measure);
+    cardObserver.current.observe(node);
+  }, []);
+
+  // drei's default projection, plus an inward nudge so an opened card never
+  // hangs off the edge. Only the card is clamped; a bare bubble keeps the exact
+  // position of the component it annotates.
+  const calculatePosition = useCallback(
+    (el: Object3D, camera: Camera, size: { width: number; height: number }) => {
+      projected.setFromMatrixPosition(el.matrixWorld).project(camera);
+      const halfW = size.width / 2;
+      const halfH = size.height / 2;
+      const x = projected.x * halfW + halfW;
+      const y = -(projected.y * halfH) + halfH;
+      if (!isActive) return [x, y];
+      const card = cardSize.current;
+      return [clampCardX(x, card.width, size.width), clampCardY(y, card.height, size.height)];
+    },
+    [isActive]
+  );
+
   // A bubble exists only for an unresolved uploaded finding: it appears when
   // the upload lands and stays until Resolve, which clears it and logs it.
   if (!finding || !isHudVisible || farAway) return null;
@@ -160,7 +232,7 @@ export const InspectionTag: React.FC<InspectionTagProps> = ({ type, position, be
       <Line points={[[0, 0, 0], BUBBLE_OFFSET]} color="#dee0d8" lineWidth={1} />
 
       <group position={BUBBLE_OFFSET}>
-        <Html center style={{ zIndex: isActive ? 1000 : 10 }}>
+        <Html center calculatePosition={calculatePosition} style={{ zIndex: isActive ? 1000 : 10 }}>
           {!isActive ? (
             <button
               onClick={toggle}
@@ -177,8 +249,9 @@ export const InspectionTag: React.FC<InspectionTagProps> = ({ type, position, be
             </button>
           ) : (
             <div
+              ref={measureCard}
               onClick={(e) => e.stopPropagation()}
-              className="w-80 glass-panel-floating p-4 rounded text-slate-800 font-sans pointer-events-auto select-none relative z-50"
+              className="w-80 glass-panel-floating p-4 rounded text-slate-800 font-sans pointer-events-auto select-none relative z-50 max-h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar"
             >
               {/* Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-3.5">

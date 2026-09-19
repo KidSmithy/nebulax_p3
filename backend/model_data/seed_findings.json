@@ -1,0 +1,873 @@
+{
+  "generated_at": "2026-09-19T02:57:53+00:00",
+  "note": "Real, unedited output of the four subsystem models. Regenerate with `python -m backend.scripts.build_seed_findings`.",
+  "sources": {
+    "door": "PS3/02_Datasets/Door/Train.csv",
+    "acv": "PS3/02_Datasets/ACV/Train/acv_case_05.xlsx",
+    "shm": "PS3/02_Datasets/SHM/Train/train31.csv",
+    "rail": "PS3/02_Datasets/Rail_Corrugation/Train/Train2.csv"
+  },
+  "findings": {
+    "acv": {
+      "subsystem": "acv",
+      "file_name": "acv_case_05.xlsx",
+      "status": "WATCH",
+      "verdict": "WATCH",
+      "anomaly_score": 0.42,
+      "most_likely_faulty_car": "04",
+      "confidence": "AMBIGUOUS",
+      "confidence_level": "weak",
+      "confidence_margin": 0.874,
+      "separation_q": 0.398,
+      "null_p_value": 1.0,
+      "n_null_consists": 41,
+      "detection_limit": {
+        "evidence_k": 0.205,
+        "expected_top1_rate": 0.556,
+        "reliable_from_k": 1.0,
+        "below_detection_limit": true
+      },
+      "competing_hypothesis": {
+        "alternative": "02",
+        "contested": false,
+        "evidence_share_against": 0.005,
+        "narrative": "Competing hypothesis: car 02. The evidence is split - capacity, progression, thermal favour car 04, while progression favour car 02 (1% of the weighted evidence). Distinguishing test: inspect car 04 for charge loss - sight glass, subcooling, weighed charge - and car 02 for wiring and sensor integrity.",
+        "supports_alternative": [
+          {
+            "feature": "cusum_fraction",
+            "label": "How long ago the drift started",
+            "group": "progression",
+            "alternative_z": 2.36,
+            "leader_z": 2.26
+          }
+        ]
+      },
+      "evidence_groups_used": [
+        "capacity",
+        "progression",
+        "thermal"
+      ],
+      "has_refrigerant_evidence": false,
+      "recommended_action": "ACTION_INSPECT_ACV_PACK",
+      "conductor_summary": "Consist refrigerant evaluation for 'acv_case_05.xlsx': Car 04 is the leading suspect, but the evidence is inconclusive. Its separation from the rest of the consist (Q=0.398) is matched by 100% of consists known to contain no fault, so this ordering is the best reading of thin evidence rather than a confirmed diagnosis. The underlying thermal deficit is below the magnitude at which recovery is reliable, so treat it as a watch item. Suggest a routine inspection of Car 04 rather than a callout.",
+      "ranked_cars": [
+        "04",
+        "02",
+        "07",
+        "06",
+        "01",
+        "03",
+        "08",
+        "05"
+      ],
+      "car_diagnostics": [
+        {
+          "rank": 1,
+          "car": "04",
+          "health_index": 1.272,
+          "mean_rel_c": 0.205,
+          "mean_t_minus_set_c": -0.737,
+          "p95_rel_c": 0.5,
+          "persistence_pct": 41.1,
+          "elev_load_stratified_c": 0.209,
+          "capacity_shortfall": 0.008,
+          "load_sensitivity": 0.011,
+          "elev_trend_c_per_day": 0.071,
+          "cusum_fraction": 0.678,
+          "integrity_loss": 0.0,
+          "circuit_asym_lift": null,
+          "suction_excursion": null,
+          "physics_score": 1.275,
+          "evidence": [
+            {
+              "feature": "capacity_shortfall",
+              "label": "Share of the demanded cooling it fails to deliver",
+              "group": "capacity",
+              "value": 0.008,
+              "contribution": 0.288
+            },
+            {
+              "feature": "elev_persistence",
+              "label": "How long it stays warm",
+              "group": "thermal",
+              "value": 0.411,
+              "contribution": 0.252
+            },
+            {
+              "feature": "elev_load_stratified",
+              "label": "Warmer than the other cars, at matched workload",
+              "group": "thermal",
+              "value": 0.209,
+              "contribution": 0.214
+            },
+            {
+              "feature": "elev_mean",
+              "label": "Warmer than the other cars",
+              "group": "thermal",
+              "value": 0.205,
+              "contribution": 0.206
+            }
+          ],
+          "assessable": true
+        },
+        {
+          "rank": 2,
+          "car": "02",
+          "health_index": 0.398,
+          "mean_rel_c": 0.185,
+          "mean_t_minus_set_c": -0.758,
+          "p95_rel_c": 0.5,
+          "persistence_pct": 34.3,
+          "elev_load_stratified_c": 0.18,
+          "capacity_shortfall": -0.043,
+          "load_sensitivity": -0.033,
+          "elev_trend_c_per_day": -0.047,
+          "cusum_fraction": 0.707,
+          "integrity_loss": 0.0,
+          "circuit_asym_lift": null,
+          "suction_excursion": null,
+          "physics_score": 0.231,
+          "evidence": [
+            {
+              "feature": "elev_persistence",
+              "label": "How long it stays warm",
+              "group": "thermal",
+              "value": 0.343,
+              "contribution": 0.197
+            },
+            {
+              "feature": "elev_mean",
+              "label": "Warmer than the other cars",
+              "group": "thermal",
+              "value": 0.185,
+              "contribution": 0.186
+            },
+            {
+              "feature": "elev_load_stratified",
+              "label": "Warmer than the other cars, at matched workload",
+              "group": "thermal",
+              "value": 0.18,
+              "contribution": 0.185
+            },
+            {
+              "feature": "cusum_fraction",
+              "label": "How long ago the drift started",
+              "group": "progression",
+              "value": 0.707,
+              "contribution": 0.139
+            }
+          ],
+          "assessable": true
+        },
+        {
+          "rank": 3,
+          "car": "07",
+          "health_index": 0.102,
+          "mean_rel_c": 0.014,
+          "mean_t_minus_set_c": -0.899,
+          "p95_rel_c": 0.5,
+          "persistence_pct": 12.7,
+          "elev_load_stratified_c": 0.019,
+          "capacity_shortfall": -0.054,
+          "load_sensitivity": 0.016,
+          "elev_trend_c_per_day": 0.02,
+          "cusum_fraction": 0.0,
+          "integrity_loss": 0.0,
+          "circuit_asym_lift": null,
+          "suction_excursion": null,
+          "physics_score": 0.12,
+          "evidence": [
+            {
+              "feature": "load_sensitivity",
+              "label": "Falls further behind as the day heats up",
+              "group": "capacity",
+              "value": 0.016,
+              "contribution": 0.03
+            },
+            {
+              "feature": "capacity_shortfall",
+              "label": "Share of the demanded cooling it fails to deliver",
+              "group": "capacity",
+              "value": -0.054,
+              "contribution": 0.025
+            },
+            {
+              "feature": "elev_load_stratified",
+              "label": "Warmer than the other cars, at matched workload",
+              "group": "thermal",
+              "value": 0.019,
+              "contribution": 0.022
+            },
+            {
+              "feature": "elev_persistence",
+              "label": "How long it stays warm",
+              "group": "thermal",
+              "value": 0.127,
+              "contribution": 0.021
+            }
+          ],
+          "assessable": true
+        },
+        {
+          "rank": 4,
+          "car": "06",
+          "health_index": -0.094,
+          "mean_rel_c": -0.017,
+          "mean_t_minus_set_c": -0.93,
+          "p95_rel_c": 0.5,
+          "persistence_pct": 7.5,
+          "elev_load_stratified_c": -0.013,
+          "capacity_shortfall": -0.049,
+          "load_sensitivity": 0.017,
+          "elev_trend_c_per_day": 0.044,
+          "cusum_fraction": 0.0,
+          "integrity_loss": 0.0,
+          "circuit_asym_lift": null,
+          "suction_excursion": null,
+          "physics_score": -0.11,
+          "evidence": [
+            {
+              "feature": "capacity_shortfall",
+              "label": "Share of the demanded cooling it fails to deliver",
+              "group": "capacity",
+              "value": -0.049,
+              "contribution": 0.05
+            },
+            {
+              "feature": "load_sensitivity",
+              "label": "Falls further behind as the day heats up",
+              "group": "capacity",
+              "value": 0.017,
+              "contribution": 0.041
+            },
+            {
+              "feature": "elev_trend",
+              "label": "Getting worse over the record",
+              "group": "progression",
+              "value": 0.044,
+              "contribution": 0.023
+            }
+          ],
+          "assessable": true
+        },
+        {
+          "rank": 5,
+          "car": "01",
+          "health_index": -0.244,
+          "mean_rel_c": 0.01,
+          "mean_t_minus_set_c": -0.918,
+          "p95_rel_c": 0.5,
+          "persistence_pct": 16.7,
+          "elev_load_stratified_c": 0.007,
+          "capacity_shortfall": -0.07,
+          "load_sensitivity": -0.019,
+          "elev_trend_c_per_day": -0.017,
+          "cusum_fraction": 0.0,
+          "integrity_loss": 0.0,
+          "circuit_asym_lift": null,
+          "suction_excursion": null,
+          "physics_score": -0.287,
+          "evidence": [
+            {
+              "feature": "elev_persistence",
+              "label": "How long it stays warm",
+              "group": "thermal",
+              "value": 0.167,
+              "contribution": 0.054
+            },
+            {
+              "feature": "elev_mean",
+              "label": "Warmer than the other cars",
+              "group": "thermal",
+              "value": 0.01,
+              "contribution": 0.013
+            },
+            {
+              "feature": "elev_load_stratified",
+              "label": "Warmer than the other cars, at matched workload",
+              "group": "thermal",
+              "value": 0.007,
+              "contribution": 0.01
+            },
+            {
+              "feature": "setpoint_error",
+              "label": "Missing its own target temperature",
+              "group": "thermal",
+              "value": -0.918,
+              "contribution": 0.004
+            }
+          ],
+          "assessable": true
+        },
+        {
+          "rank": 6,
+          "car": "03",
+          "health_index": -0.349,
+          "mean_rel_c": -0.045,
+          "mean_t_minus_set_c": -0.964,
+          "p95_rel_c": 0.5,
+          "persistence_pct": 6.8,
+          "elev_load_stratified_c": -0.044,
+          "capacity_shortfall": -0.066,
+          "load_sensitivity": -0.002,
+          "elev_trend_c_per_day": -0.004,
+          "cusum_fraction": 0.0,
+          "integrity_loss": 0.0,
+          "circuit_asym_lift": null,
+          "suction_excursion": null,
+          "physics_score": -0.411,
+          "evidence": [],
+          "assessable": true
+        },
+        {
+          "rank": 7,
+          "car": "08",
+          "health_index": -0.733,
+          "mean_rel_c": -0.196,
+          "mean_t_minus_set_c": -1.089,
+          "p95_rel_c": 0.0,
+          "persistence_pct": 2.8,
+          "elev_load_stratified_c": -0.194,
+          "capacity_shortfall": -0.093,
+          "load_sensitivity": 0.013,
+          "elev_trend_c_per_day": 0.037,
+          "cusum_fraction": 0.0,
+          "integrity_loss": 0.0,
+          "circuit_asym_lift": null,
+          "suction_excursion": null,
+          "physics_score": -0.806,
+          "evidence": [
+            {
+              "feature": "elev_trend",
+              "label": "Getting worse over the record",
+              "group": "progression",
+              "value": 0.037,
+              "contribution": 0.012
+            },
+            {
+              "feature": "load_sensitivity",
+              "label": "Falls further behind as the day heats up",
+              "group": "capacity",
+              "value": 0.013,
+              "contribution": 0.006
+            }
+          ],
+          "assessable": true
+        },
+        {
+          "rank": 8,
+          "car": "05",
+          "health_index": -0.925,
+          "mean_rel_c": -0.376,
+          "mean_t_minus_set_c": -1.267,
+          "p95_rel_c": 0.0,
+          "persistence_pct": 0.7,
+          "elev_load_stratified_c": -0.363,
+          "capacity_shortfall": -0.087,
+          "load_sensitivity": 0.064,
+          "elev_trend_c_per_day": 0.065,
+          "cusum_fraction": 0.0,
+          "integrity_loss": 0.0,
+          "circuit_asym_lift": null,
+          "suction_excursion": null,
+          "physics_score": -0.8,
+          "evidence": [
+            {
+              "feature": "load_sensitivity",
+              "label": "Falls further behind as the day heats up",
+              "group": "capacity",
+              "value": 0.064,
+              "contribution": 0.432
+            },
+            {
+              "feature": "elev_trend",
+              "label": "Getting worse over the record",
+              "group": "progression",
+              "value": 0.065,
+              "contribution": 0.055
+            }
+          ],
+          "assessable": true
+        }
+      ]
+    },
+    "door": {
+      "subsystem": "door",
+      "file_name": "Train.csv",
+      "status": "ACTION_NEEDED",
+      "verdict": "ACTION_NEEDED",
+      "total_cycles": 110,
+      "normal_cycles": 80,
+      "abnormal_cycles": 30,
+      "fault_rate_pct": 27.3,
+      "anomaly_score": 0.45,
+      "fault_type": "GUIDE_RAIL_FRICTION",
+      "recommended_action": "ACTION_LUBRICATE_DOOR",
+      "mean_duration_s": 3.26,
+      "mean_current_rms_a": 0.86,
+      "max_current_peak_a": 2.56,
+      "conductor_summary": "High-severity warning for 'Train.csv': 30 of 110 door cycles (27.3%) exhibited abnormal mechanical resistance and motor overcurrent. Peak motor current spiked to 2.56A. Immediate maintenance required: lubricate guide rails and check door leaf alignment.",
+      "segments": [
+        {
+          "cycle": 1,
+          "operation": "Close",
+          "duration_s": 3.7,
+          "current_rms_a": 0.68,
+          "peak_current_a": 2.21,
+          "status": "Normal",
+          "fault_probability": 0.05
+        },
+        {
+          "cycle": 2,
+          "operation": "Open",
+          "duration_s": 2.84,
+          "current_rms_a": 0.97,
+          "peak_current_a": 2.49,
+          "status": "Normal",
+          "fault_probability": 0.05
+        },
+        {
+          "cycle": 3,
+          "operation": "Open",
+          "duration_s": 2.7199999999999998,
+          "current_rms_a": 1.16,
+          "peak_current_a": 2.49,
+          "status": "Abnormal resistance",
+          "fault_probability": 0.95
+        },
+        {
+          "cycle": 4,
+          "operation": "Close",
+          "duration_s": 3.7199999999999998,
+          "current_rms_a": 0.74,
+          "peak_current_a": 1.99,
+          "status": "Abnormal resistance",
+          "fault_probability": 0.98
+        },
+        {
+          "cycle": 5,
+          "operation": "Close",
+          "duration_s": 3.7,
+          "current_rms_a": 0.66,
+          "peak_current_a": 1.99,
+          "status": "Abnormal resistance",
+          "fault_probability": 0.92
+        },
+        {
+          "cycle": 6,
+          "operation": "Open",
+          "duration_s": 2.86,
+          "current_rms_a": 0.96,
+          "peak_current_a": 2.5,
+          "status": "Normal",
+          "fault_probability": 0.04
+        },
+        {
+          "cycle": 7,
+          "operation": "Open",
+          "duration_s": 2.7800000000000002,
+          "current_rms_a": 0.98,
+          "peak_current_a": 2.5,
+          "status": "Normal",
+          "fault_probability": 0.06
+        },
+        {
+          "cycle": 8,
+          "operation": "Open",
+          "duration_s": 2.88,
+          "current_rms_a": 0.98,
+          "peak_current_a": 2.5,
+          "status": "Normal",
+          "fault_probability": 0.12
+        },
+        {
+          "cycle": 9,
+          "operation": "Close",
+          "duration_s": 3.7199999999999998,
+          "current_rms_a": 0.74,
+          "peak_current_a": 2.0,
+          "status": "Abnormal resistance",
+          "fault_probability": 0.91
+        },
+        {
+          "cycle": 10,
+          "operation": "Open",
+          "duration_s": 2.84,
+          "current_rms_a": 0.96,
+          "peak_current_a": 2.51,
+          "status": "Normal",
+          "fault_probability": 0.04
+        },
+        {
+          "cycle": 11,
+          "operation": "Close",
+          "duration_s": 3.7,
+          "current_rms_a": 0.67,
+          "peak_current_a": 2.14,
+          "status": "Normal",
+          "fault_probability": 0.03
+        },
+        {
+          "cycle": 12,
+          "operation": "Open",
+          "duration_s": 2.8,
+          "current_rms_a": 1.0,
+          "peak_current_a": 2.54,
+          "status": "Normal",
+          "fault_probability": 0.07
+        },
+        {
+          "cycle": 13,
+          "operation": "Open",
+          "duration_s": 2.7199999999999998,
+          "current_rms_a": 1.14,
+          "peak_current_a": 2.5,
+          "status": "Abnormal resistance",
+          "fault_probability": 0.97
+        },
+        {
+          "cycle": 14,
+          "operation": "Close",
+          "duration_s": 3.56,
+          "current_rms_a": 0.68,
+          "peak_current_a": 2.09,
+          "status": "Normal",
+          "fault_probability": 0.35
+        },
+        {
+          "cycle": 15,
+          "operation": "Close",
+          "duration_s": 3.68,
+          "current_rms_a": 0.67,
+          "peak_current_a": 2.16,
+          "status": "Normal",
+          "fault_probability": 0.02
+        },
+        {
+          "cycle": 16,
+          "operation": "Open",
+          "duration_s": 2.8,
+          "current_rms_a": 0.97,
+          "peak_current_a": 2.49,
+          "status": "Normal",
+          "fault_probability": 0.03
+        },
+        {
+          "cycle": 17,
+          "operation": "Open",
+          "duration_s": 2.86,
+          "current_rms_a": 1.08,
+          "peak_current_a": 2.5,
+          "status": "Abnormal resistance",
+          "fault_probability": 0.9
+        },
+        {
+          "cycle": 18,
+          "operation": "Open",
+          "duration_s": 2.92,
+          "current_rms_a": 1.2,
+          "peak_current_a": 2.56,
+          "status": "Abnormal resistance",
+          "fault_probability": 0.9
+        },
+        {
+          "cycle": 19,
+          "operation": "Close",
+          "duration_s": 3.7,
+          "current_rms_a": 0.67,
+          "peak_current_a": 2.1,
+          "status": "Normal",
+          "fault_probability": 0.03
+        },
+        {
+          "cycle": 20,
+          "operation": "Close",
+          "duration_s": 3.7,
+          "current_rms_a": 0.68,
+          "peak_current_a": 2.21,
+          "status": "Normal",
+          "fault_probability": 0.09
+        },
+        {
+          "cycle": 21,
+          "operation": "Open",
+          "duration_s": 2.82,
+          "current_rms_a": 0.97,
+          "peak_current_a": 2.5,
+          "status": "Normal",
+          "fault_probability": 0.03
+        },
+        {
+          "cycle": 22,
+          "operation": "Open",
+          "duration_s": 2.86,
+          "current_rms_a": 0.99,
+          "peak_current_a": 2.5,
+          "status": "Normal",
+          "fault_probability": 0.03
+        },
+        {
+          "cycle": 23,
+          "operation": "Close",
+          "duration_s": 3.68,
+          "current_rms_a": 0.67,
+          "peak_current_a": 2.18,
+          "status": "Normal",
+          "fault_probability": 0.03
+        },
+        {
+          "cycle": 24,
+          "operation": "Open",
+          "duration_s": 2.76,
+          "current_rms_a": 0.98,
+          "peak_current_a": 2.49,
+          "status": "Normal",
+          "fault_probability": 0.1
+        },
+        {
+          "cycle": 25,
+          "operation": "Open",
+          "duration_s": 2.82,
+          "current_rms_a": 0.97,
+          "peak_current_a": 2.5,
+          "status": "Normal",
+          "fault_probability": 0.02
+        },
+        {
+          "cycle": 26,
+          "operation": "Open",
+          "duration_s": 2.84,
+          "current_rms_a": 0.98,
+          "peak_current_a": 2.5,
+          "status": "Normal",
+          "fault_probability": 0.03
+        },
+        {
+          "cycle": 27,
+          "operation": "Open",
+          "duration_s": 2.86,
+          "current_rms_a": 1.18,
+          "peak_current_a": 2.5,
+          "status": "Abnormal resistance",
+          "fault_probability": 0.98
+        },
+        {
+          "cycle": 28,
+          "operation": "Open",
+          "duration_s": 2.7800000000000002,
+          "current_rms_a": 0.98,
+          "peak_current_a": 2.49,
+          "status": "Normal",
+          "fault_probability": 0.03
+        },
+        {
+          "cycle": 29,
+          "operation": "Close",
+          "duration_s": 3.68,
+          "current_rms_a": 0.67,
+          "peak_current_a": 2.16,
+          "status": "Normal",
+          "fault_probability": 0.01
+        },
+        {
+          "cycle": 30,
+          "operation": "Close",
+          "duration_s": 3.7199999999999998,
+          "current_rms_a": 0.78,
+          "peak_current_a": 2.01,
+          "status": "Abnormal resistance",
+          "fault_probability": 0.99
+        },
+        {
+          "cycle": 31,
+          "operation": "Close",
+          "duration_s": 3.68,
+          "current_rms_a": 0.67,
+          "peak_current_a": 2.16,
+          "status": "Normal",
+          "fault_probability": 0.02
+        },
+        {
+          "cycle": 32,
+          "operation": "Open",
+          "duration_s": 2.8,
+          "current_rms_a": 0.99,
+          "peak_current_a": 2.5,
+          "status": "Normal",
+          "fault_probability": 0.08
+        },
+        {
+          "cycle": 33,
+          "operation": "Open",
+          "duration_s": 2.84,
+          "current_rms_a": 0.98,
+          "peak_current_a": 2.5,
+          "status": "Normal",
+          "fault_probability": 0.06
+        },
+        {
+          "cycle": 34,
+          "operation": "Close",
+          "duration_s": 3.68,
+          "current_rms_a": 0.67,
+          "peak_current_a": 2.08,
+          "status": "Normal",
+          "fault_probability": 0.03
+        },
+        {
+          "cycle": 35,
+          "operation": "Open",
+          "duration_s": 2.86,
+          "current_rms_a": 0.98,
+          "peak_current_a": 2.51,
+          "status": "Normal",
+          "fault_probability": 0.08
+        },
+        {
+          "cycle": 36,
+          "operation": "Close",
+          "duration_s": 3.68,
+          "current_rms_a": 0.66,
+          "peak_current_a": 2.11,
+          "status": "Normal",
+          "fault_probability": 0.03
+        },
+        {
+          "cycle": 37,
+          "operation": "Close",
+          "duration_s": 3.7800000000000002,
+          "current_rms_a": 0.78,
+          "peak_current_a": 2.0,
+          "status": "Abnormal resistance",
+          "fault_probability": 0.91
+        },
+        {
+          "cycle": 38,
+          "operation": "Open",
+          "duration_s": 2.82,
+          "current_rms_a": 0.97,
+          "peak_current_a": 2.5,
+          "status": "Normal",
+          "fault_probability": 0.04
+        },
+        {
+          "cycle": 39,
+          "operation": "Open",
+          "duration_s": 2.86,
+          "current_rms_a": 0.98,
+          "peak_current_a": 2.5,
+          "status": "Normal",
+          "fault_probability": 0.04
+        },
+        {
+          "cycle": 40,
+          "operation": "Open",
+          "duration_s": 2.82,
+          "current_rms_a": 1.0,
+          "peak_current_a": 2.52,
+          "status": "Normal",
+          "fault_probability": 0.06
+        }
+      ]
+    },
+    "shm": {
+      "subsystem": "shm",
+      "file_name": "train31.csv",
+      "status": "ACTION_NEEDED",
+      "verdict": "ACTION_NEEDED",
+      "sample_count": 581120,
+      "vibration_rms_g": 20.84,
+      "abs_peak_g": 61.63,
+      "peak2peak_g": 95.28,
+      "dominant_freq_hz": 0.1,
+      "fatigue_damage_index": 0.9191,
+      "bearing_defect_prob": 0.95,
+      "anomaly_score": 0.98,
+      "critical_weld_node": "BOLSTER_RIB_L2",
+      "recommended_action": "ACTION_INSPECT_BEARING",
+      "conductor_summary": "High-severity warning for 'train31.csv': extreme structural acceleration detected (20.84g RMS, peak 61.63g). Rainflow fatigue index reaches 0.919 with bearing defect probability at 95%. Critical stress localized at BOLSTER_RIB_L2. Immediate bogie maintenance and bearing replacement advised.",
+      "fft_spectrum": [
+        {
+          "freq_hz": 0.0,
+          "amp": 10.72
+        },
+        {
+          "freq_hz": 8.5,
+          "amp": 0.024
+        },
+        {
+          "freq_hz": 17.0,
+          "amp": 0.017
+        },
+        {
+          "freq_hz": 25.5,
+          "amp": 0.037
+        },
+        {
+          "freq_hz": 34.0,
+          "amp": 0.015
+        },
+        {
+          "freq_hz": 42.5,
+          "amp": 0.015
+        },
+        {
+          "freq_hz": 51.0,
+          "amp": 0.012
+        },
+        {
+          "freq_hz": 59.5,
+          "amp": 0.02
+        },
+        {
+          "freq_hz": 68.0,
+          "amp": 0.009
+        },
+        {
+          "freq_hz": 76.5,
+          "amp": 0.003
+        },
+        {
+          "freq_hz": 85.0,
+          "amp": 0.004
+        },
+        {
+          "freq_hz": 93.5,
+          "amp": 0.002
+        },
+        {
+          "freq_hz": 102.0,
+          "amp": 0.002
+        },
+        {
+          "freq_hz": 110.5,
+          "amp": 0.001
+        },
+        {
+          "freq_hz": 119.0,
+          "amp": 0.002
+        }
+      ]
+    },
+    "rail": {
+      "subsystem": "rail",
+      "file_name": "Train2.csv",
+      "status": "ACTION_NEEDED",
+      "verdict": "ACTION_NEEDED",
+      "predicted_class": "Side II",
+      "probabilities": {
+        "normal": 0.102,
+        "side_i": 0.1282,
+        "side_ii": 0.7698
+      },
+      "anomaly_score": 0.77,
+      "depth_microns": 49.6,
+      "wavelength_class": "SHORT_PITCH",
+      "maintenance_urgency": "IMMEDIATE_GRINDING_48H",
+      "grinding_priority_rank": 1,
+      "recommended_action": "ACTION_GRIND_RAIL",
+      "mean_channel_rms": 1.14,
+      "conductor_summary": "Corrugation detected on Side II for 'Train2.csv' (confidence 77.0%). Multi-channel vibration RMS reaches 1.14g (peak 3.18g). Estimated acoustic rail corrugation depth is 49.6 microns (SHORT_PITCH). Recommended: Immediate Grinding 48H."
+    }
+  }
+}

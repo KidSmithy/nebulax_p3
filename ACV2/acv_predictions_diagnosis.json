@@ -6,47 +6,142 @@
     "schema": "thin",
     "active_groups": [
       "capacity",
-      "control",
       "integrity",
       "progression",
       "thermal"
     ],
-    "verdict": "Car 01 is the most likely refrigerant-leak location (score 2.341, margin 1.777 over car 04). Its saloon runs +0.11 K against the sibling-car median while cooling. Leading evidence: setpoint_error, capacity_shortfall, elev_persistence, load_sensitivity.",
+    "verdict": "Car 01 is the most likely refrigerant-leak location (score 2.235; runner-up car 04 at 0.644). Its saloon runs +0.11 K against the sibling-car median while cooling. Leading evidence: setpoint_error, capacity_shortfall, elev_persistence, load_sensitivity. Separation Q=0.49, which 26% of known-healthy consists match or exceed (n=41 null consists). Confidence: WEAK. A healthy consist of this size routinely separates this cleanly, so the separation itself is not evidence that a fault is present. Its leading thermal evidence is +0.11 K; in synthetic-recovery trials on this dataset a deficit of that magnitude is recovered as top-1 in 22% of trials, and recovery only becomes reliable from 1.00 K upward.",
+    "confidence": {
+      "n_cars": 8,
+      "top_car": "01",
+      "runner_up": "04",
+      "margin": 1.5905600420169161,
+      "dixon_q": 0.4862463501498533,
+      "top_z": 3.0572714921671333,
+      "null_p_value": 0.2619047619047619,
+      "n_null_samples": 41,
+      "null_thin": false,
+      "null_median_q": 0.40174017852940225,
+      "level": "weak",
+      "downgraded_for": null,
+      "detection": {
+        "evidence_k": 0.1134717987804878,
+        "expected_top1_rate": 0.2222222222222222,
+        "reliable_from_k": 1.0,
+        "below_detection_limit": true,
+        "n_trials": 126,
+        "nearest_tested_k": 0.1
+      },
+      "statement": "A healthy consist of this size routinely separates this cleanly, so the separation itself is not evidence that a fault is present."
+    },
+    "competing_hypothesis": {
+      "alternative": "04",
+      "supports_leader": [
+        {
+          "feature": "setpoint_error",
+          "group": "thermal",
+          "delta": 0.3642551807534821,
+          "leader_z": 4.0,
+          "alternative_z": 0.11461140529619018,
+          "leader_value": 0.12461890243902439,
+          "alternative_value": -0.07811306340718105
+        },
+        {
+          "feature": "load_sensitivity",
+          "group": "capacity",
+          "delta": 0.3434122707044321,
+          "leader_z": 2.666411013000137,
+          "alternative_z": -0.47335831915467097,
+          "leader_value": 0.05671730277298799,
+          "alternative_value": -0.019254961595001407
+        },
+        {
+          "feature": "capacity_shortfall",
+          "group": "capacity",
+          "delta": 0.30622824920552066,
+          "leader_z": 4.0,
+          "alternative_z": 0.436616736517578,
+          "leader_value": 0.03025042978171574,
+          "alternative_value": -0.007617441674417927
+        },
+        {
+          "feature": "elev_persistence",
+          "group": "thermal",
+          "delta": 0.28272886950057863,
+          "leader_z": 4.0,
+          "alternative_z": 0.3810704703925934,
+          "leader_value": 0.3813503117124287,
+          "alternative_value": 0.17734447539461468
+        },
+        {
+          "feature": "elev_trend",
+          "group": "progression",
+          "delta": 0.2750434395671418,
+          "leader_z": 3.420185186816852,
+          "alternative_z": -0.4915437314713871,
+          "leader_value": 0.07797810524405303,
+          "alternative_value": -0.037908819178666675
+        }
+      ],
+      "supports_alternative": [
+        {
+          "feature": "integrity_loss",
+          "group": "integrity",
+          "delta": -0.33344309964950797,
+          "leader_z": -0.742301861681891,
+          "alternative_z": 4.0,
+          "leader_value": 0.0,
+          "alternative_value": 1.7692554174813737
+        },
+        {
+          "feature": "cusum_fraction",
+          "group": "progression",
+          "delta": -0.0598342986022915,
+          "leader_z": 1.6742732615195928,
+          "alternative_z": 2.7683861502472094,
+          "leader_value": 0.5193855793916713,
+          "alternative_value": 0.8587963970236283
+        }
+      ],
+      "contested": false,
+      "evidence_share_against": 0.16840408812995528,
+      "narrative": "Competing hypothesis: car 04. The evidence is split - capacity, progression, thermal favour car 01, while integrity, progression favour car 04 (17% of the weighted evidence). Car 04's case rests on non-thermodynamic evidence: it reports invalid status and sensor dropouts that car 01 does not. That channel is deliberately secondary because it is not a measurement of cooling capacity and it fires in only half the labelled files, but it is exactly what an electrical or sensor fault would look like. If the true defect is electrical rather than a loss of charge, car 04 is the better answer. Distinguishing test: inspect car 01 for charge loss - sight glass, subcooling, weighed charge - and car 04 for wiring and sensor integrity."
+    },
     "cars": [
       {
         "rank": 1,
         "car": "01",
-        "score": 2.340955680325918,
-        "physics_score": 2.1392375414740266,
-        "outlier_score": 3.4840251338199697,
+        "score": 2.23465508612206,
+        "physics_score": 2.1856075277576243,
+        "outlier_score": 2.5125912501871976,
         "diagnosable": true,
         "evidence": [
           {
             "feature": "setpoint_error",
             "group": "thermal",
             "value": 0.12461890243902439,
-            "contribution": 0.3582089552238806,
+            "contribution": 0.37499999999999994,
             "meaning": "Mean (T_in - T_set) during cooling: control demand the pack cannot meet (K)"
           },
           {
             "feature": "capacity_shortfall",
             "group": "capacity",
             "value": 0.03025042978171574,
-            "contribution": 0.3283582089552239,
+            "contribution": 0.34375,
             "meaning": "Median (T_in - T_set)/(T_out - T_set): dimensionless fraction of the demanded cooling span that is not delivered"
           },
           {
             "feature": "elev_persistence",
             "group": "thermal",
             "value": 0.3813503117124287,
-            "contribution": 0.29850746268656714,
+            "contribution": 0.3125,
             "meaning": "Fraction of cooling time with a sustained 15-min elevation"
           },
           {
             "feature": "load_sensitivity",
             "group": "capacity",
             "value": 0.05671730277298799,
-            "contribution": 0.2785802550895665,
+            "contribution": 0.29163870454688995,
             "meaning": "d(elevation)/d(thermal load) (K/K): a capacity-limited car falls further behind as the load rises, a biased sensor does not"
           }
         ],
@@ -62,37 +157,37 @@
       {
         "rank": 2,
         "car": "04",
-        "score": 0.5644038116204426,
-        "physics_score": 0.6058695302532198,
-        "outlier_score": 0.32943140603470555,
+        "score": 0.6440950441051441,
+        "physics_score": 0.6368425430198446,
+        "outlier_score": 0.6851925502551742,
         "diagnosable": true,
         "evidence": [
           {
             "feature": "integrity_loss",
             "group": "integrity",
             "value": 1.7692554174813737,
-            "contribution": 0.26865671641791045,
+            "contribution": 0.28125,
             "meaning": "Rate of invalid-status flags and implausible sensor readings this pack reports: a unit in trouble drops out"
           },
           {
             "feature": "cusum_fraction",
             "group": "progression",
             "value": 0.8587963970236283,
-            "contribution": 0.1446171869532124,
+            "contribution": 0.15139611759164423,
             "meaning": "Fraction of the record after a CUSUM change point on the residual"
           },
           {
             "feature": "elev_load_stratified",
             "group": "thermal",
             "value": 0.06582002056883449,
-            "contribution": 0.10423642444954478,
+            "contribution": 0.1091225068456172,
             "meaning": "Same elevation, averaged with equal weight over thermal-load bins so an unequal duty history cannot fake it (K)"
           },
           {
             "feature": "elev_mean",
             "group": "thermal",
             "value": 0.06589838278364957,
-            "contribution": 0.09874288030452319,
+            "contribution": 0.10337145281879771,
             "meaning": "Mean cabin temperature above the sibling-car median during cooling (K)"
           }
         ],
@@ -108,8 +203,8 @@
       {
         "rank": 3,
         "car": "03",
-        "score": 0.550369192653162,
-        "physics_score": 0.6474931678272494,
+        "score": 0.5236371553796633,
+        "physics_score": 0.6160437122113686,
         "outlier_score": -0.0,
         "diagnosable": true,
         "evidence": [
@@ -117,28 +212,28 @@
             "feature": "elev_load_stratified",
             "group": "thermal",
             "value": 0.07465912281861105,
-            "contribution": 0.1192353334371984,
+            "contribution": 0.12482448969206708,
             "meaning": "Same elevation, averaged with equal weight over thermal-load bins so an unequal duty history cannot fake it (K)"
           },
           {
             "feature": "elev_trend",
             "group": "progression",
             "value": 0.022973437550137355,
-            "contribution": 0.10501246134606683,
+            "contribution": 0.10993492047166371,
             "meaning": "Trend of the peer-relative elevation over the record (K/day)"
           },
           {
             "feature": "elev_mean",
             "group": "thermal",
             "value": 0.06818470528455285,
-            "contribution": 0.10259764491237089,
+            "contribution": 0.10740690951763827,
             "meaning": "Mean cabin temperature above the sibling-car median during cooling (K)"
           },
           {
             "feature": "load_sensitivity",
             "group": "capacity",
             "value": 0.014590771860528297,
-            "contribution": 0.09668490107591528,
+            "contribution": 0.10121700581384879,
             "meaning": "d(elevation)/d(thermal load) (K/K): a capacity-limited car falls further behind as the load rises, a biased sensor does not"
           }
         ],
@@ -154,37 +249,37 @@
       {
         "rank": 4,
         "car": "08",
-        "score": 0.26329081205648996,
-        "physics_score": 0.26843995182591707,
-        "outlier_score": 0.2341123533630697,
+        "score": 0.2917275025404048,
+        "physics_score": 0.32315971596021326,
+        "outlier_score": 0.11361162649482343,
         "diagnosable": true,
         "evidence": [
           {
             "feature": "pulldown_rate",
             "group": "capacity",
             "value": -12.00000000000017,
-            "contribution": 0.20308538848256658,
+            "contribution": 0.21260501606768686,
             "meaning": "Peak sustained pull-down rate (K/h, negative): a starved evaporator cannot pull the cabin down as fast"
           },
           {
             "feature": "load_sensitivity",
             "group": "capacity",
             "value": 0.013386028791100816,
-            "contribution": 0.0914830208744722,
+            "contribution": 0.09577128747796308,
             "meaning": "d(elevation)/d(thermal load) (K/K): a capacity-limited car falls further behind as the load rises, a biased sensor does not"
           },
           {
             "feature": "elev_trend",
             "group": "progression",
             "value": 0.01483324162568148,
-            "contribution": 0.08655776589574476,
+            "contribution": 0.09061516117210779,
             "meaning": "Trend of the peer-relative elevation over the record (K/day)"
           },
           {
             "feature": "elev_persistence",
             "group": "thermal",
             "value": 0.17870873657695877,
-            "contribution": 0.030263084699735023,
+            "contribution": 0.031681666795035104,
             "meaning": "Fraction of cooling time with a sustained 15-min elevation"
           }
         ],
@@ -200,8 +295,8 @@
       {
         "rank": 5,
         "car": "07",
-        "score": 0.02041228818433396,
-        "physics_score": 0.024014456687451717,
+        "score": 0.03930145140517792,
+        "physics_score": 0.04623700165315049,
         "outlier_score": -0.0,
         "diagnosable": true,
         "evidence": [
@@ -209,28 +304,28 @@
             "feature": "integrity_loss",
             "group": "integrity",
             "value": 0.4048826242140169,
-            "contribution": 0.04074714116001265,
+            "contribution": 0.04265716340188824,
             "meaning": "Rate of invalid-status flags and implausible sensor readings this pack reports: a unit in trouble drops out"
           },
           {
             "feature": "capacity_shortfall",
             "group": "capacity",
             "value": -0.008609952137775361,
-            "contribution": 0.022441117008629236,
+            "contribution": 0.02349304436840873,
             "meaning": "Median (T_in - T_set)/(T_out - T_set): dimensionless fraction of the demanded cooling span that is not delivered"
           },
           {
             "feature": "setpoint_error",
             "group": "thermal",
             "value": -0.07560944641950229,
-            "contribution": 0.0152743790436206,
+            "contribution": 0.015990365561290316,
             "meaning": "Mean (T_in - T_set) during cooling: control demand the pack cannot meet (K)"
           },
           {
             "feature": "elev_mean",
             "group": "thermal",
             "value": 0.015331386490604369,
-            "contribution": 0.013486374470991066,
+            "contribution": 0.014118548274318772,
             "meaning": "Mean cabin temperature above the sibling-car median during cooling (K)"
           }
         ],
@@ -246,8 +341,8 @@
       {
         "rank": 6,
         "car": "06",
-        "score": -0.235380694047492,
-        "physics_score": -0.2769184635852847,
+        "score": -0.2385451591622501,
+        "physics_score": -0.28064136372029425,
         "outlier_score": 0.0,
         "diagnosable": true,
         "evidence": [],
@@ -263,30 +358,23 @@
       {
         "rank": 7,
         "car": "02",
-        "score": -0.6206896954074712,
-        "physics_score": -0.7302231710676131,
+        "score": -0.7023264844006188,
+        "physics_score": -0.8262664522360222,
         "outlier_score": 0.0,
         "diagnosable": true,
         "evidence": [
           {
-            "feature": "full_demand_frac",
-            "group": "control",
-            "value": 0.010163892770931268,
-            "contribution": 0.05904627584440821,
-            "meaning": "Fraction of cooling time the controller escalates to full cooling"
-          },
-          {
             "feature": "load_sensitivity",
             "group": "capacity",
             "value": -0.003685002499816238,
-            "contribution": 0.01777314700681238,
+            "contribution": 0.01860626327275671,
             "meaning": "d(elevation)/d(thermal load) (K/K): a capacity-limited car falls further behind as the load rises, a biased sensor does not"
           },
           {
             "feature": "elev_trend",
             "group": "progression",
             "value": -0.02227515536022214,
-            "contribution": 0.0024290580145179953,
+            "contribution": 0.0025429201089485266,
             "meaning": "Trend of the peer-relative elevation over the record (K/day)"
           }
         ],
@@ -302,24 +390,17 @@
       {
         "rank": 8,
         "car": "05",
-        "score": -0.9842294543017945,
-        "physics_score": -1.0503965573895386,
-        "outlier_score": -0.6092825368045784,
+        "score": -1.036444103674904,
+        "physics_score": -1.1022067745531783,
+        "outlier_score": -0.6637889686980154,
         "diagnosable": true,
         "evidence": [
           {
             "feature": "integrity_loss",
             "group": "integrity",
             "value": 0.4048826242140169,
-            "contribution": 0.04074714116001265,
+            "contribution": 0.04265716340188824,
             "meaning": "Rate of invalid-status flags and implausible sensor readings this pack reports: a unit in trouble drops out"
-          },
-          {
-            "feature": "full_demand_frac",
-            "group": "control",
-            "value": 0.004443880142204164,
-            "contribution": 0.0024576750194675884,
-            "meaning": "Fraction of cooling time the controller escalates to full cooling"
           }
         ],
         "elev_mean": -0.09449593702386999,
