@@ -43,7 +43,7 @@
   <rect class="client" x="770" y="62" width="270" height="86" rx="8"/>
   <text class="h" x="786" y="88">HUD</text>
   <text class="s" x="786" y="107">Results tabs · Conductor chat</text>
-  <text class="s" x="786" y="124">What-if · Resolved log · drag-and-drop</text>
+  <text class="s" x="786" y="124">Resolved log · drag-and-drop</text>
 
   <path class="arrow" d="M330 105 H415" marker-start="url(#ah)" marker-end="url(#ah)"/>
   <path class="arrow" d="M685 105 H770" marker-start="url(#ah)" marker-end="url(#ah)"/>
@@ -68,21 +68,16 @@
   <text class="h" x="76" y="546">Physics-based generator</text>
   <text class="s" x="76" y="565">simulated door · ACV · SHM · rail telemetry</text>
 
-  <!-- What-if -->
-  <rect class="sim" x="410" y="390" width="250" height="76" rx="8"/>
-  <text class="h" x="426" y="416">What-if engine</text>
-  <text class="s" x="426" y="435">counterfactual frames from the</text>
-  <text class="s" x="426" y="452">same instant and noise seed</text>
-
   <!-- Findings -->
-  <rect class="store" x="410" y="520" width="250" height="64" rx="8"/>
-  <text class="h" x="426" y="546">Findings per line</text>
-  <text class="s" x="426" y="565">NSL · EWL, plus the resolved log</text>
+  <rect class="store" x="410" y="390" width="250" height="76" rx="8"/>
+  <text class="h" x="426" y="416">Findings per line</text>
+  <text class="s" x="426" y="435">NSL · EWL, plus the resolved log</text>
+  <text class="s" x="426" y="452">unresolved until an operator resolves</text>
 
   <!-- REST -->
   <rect class="real" x="710" y="296" width="330" height="64" rx="8"/>
   <text class="h" x="726" y="322">REST API</text>
-  <text class="s" x="726" y="341">/api/predict · /api/ai · /api/whatif</text>
+  <text class="s" x="726" y="341">/api/predict · /api/ai · /api/log</text>
 
   <!-- Broker -->
   <rect class="real" x="710" y="395" width="330" height="170" rx="8"/>
@@ -138,13 +133,10 @@
   <path class="arrow" d="M875 360 V395" marker-end="url(#ah)"/>
 
   <!-- Broker -> Findings -->
-  <path class="arrow" d="M710 552 H662" marker-end="url(#ah)"/>
+  <path class="arrow" d="M710 428 H662" marker-end="url(#ah)"/>
 
-  <!-- Findings -> Harmonizer (elbow) -->
-  <path class="arrow" d="M410 552 H385 V448 H362" marker-end="url(#ah)"/>
-
-  <!-- Harmonizer <-> What-if -->
-  <path class="arrow" d="M360 415 H410" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <!-- Findings -> Harmonizer -->
+  <path class="arrow" d="M410 428 H362" marker-end="url(#ah)"/>
 
   <!-- Generator -> Harmonizer -->
   <path class="arrow" d="M210 520 V466" marker-end="url(#ah)"/>
@@ -159,9 +151,9 @@
   <path class="dash" d="M905 656 V722" marker-end="url(#ah)"/>
 
   <!-- Seed -> Findings -->
-  <path class="dash" d="M535 722 V586" marker-end="url(#ah)"/>
-  <text class="lbl" x="545" y="660">replayed at startup</text>
-  <text class="lbl" x="545" y="675">and on page load</text>
+  <path class="dash" d="M535 722 V468" marker-end="url(#ah)"/>
+  <text class="lbl" x="545" y="600">replayed at startup</text>
+  <text class="lbl" x="545" y="615">and on page load</text>
 
   <!-- legend -->
   <path class="arrow" d="M40 758 H80" marker-end="url(#ah)"/>

@@ -51,7 +51,7 @@ Every result is also available as the **exact prediction CSV** the competition a
 
 There are two data paths, joined in the `TelemetryHarmonizer`:
 
-1. **Live stream (simulated).** A physics-based generator produces synchronised door / ACV / SHM / rail telemetry at 10 Hz. The harmonizer aligns it into one frame, evaluates it twice (with and without the operator's maintenance actions, same noise seed) for the what-if comparison, and broadcasts it over the WebSocket.
+1. **Live stream (simulated).** A physics-based generator produces synchronised door / ACV / SHM / rail telemetry at 10 Hz. The harmonizer aligns it into one frame, and broadcasts it over the WebSocket.
 2. **Uploads (real models).** A file goes through REST to the matching subsystem model. The result, a *finding*, is stored per line and rides along on the next frames as `uploads_by_line`, which is how the bubbles and the Results panel stay in sync without any extra polling.
 
 ```mermaid
@@ -143,10 +143,9 @@ The `PS3/` raw sensor datasets are git-ignored and not bundled in a fresh clone.
 
 | Path | What it is |
 |---|---|
-| [`backend/`](backend/) | FastAPI service: REST + WebSocket, the four models, the harmonizer, the what-if engine and the AI service |
+| [`backend/`](backend/) | FastAPI service: REST + WebSocket, the four models, the harmonizer and the AI service |
 | [`frontend/`](frontend/) | React + Three.js app (Vite, Tailwind, Zustand, ECharts) |
-| [`ACV2/`](ACV2/) | The ACV reference implementation, with its own CLI, methodology and reports; the backend adapts it |
-| [`Door/`](Door/), [`SHM/`](SHM/), [`Rail_Corrugation/`](Rail_Corrugation/) | Training pipelines, audit notes and evaluation scripts for each subsystem |
+| [`ACV2/`](ACV2/), [`Door/`](Door/), [`SHM/`](SHM/), [`Rail_Corrugation/`](Rail_Corrugation/) | The modelling pipelines, one folder per subsystem: training code, audit notes, methodology and evaluation scripts. The backend serves the resulting models (ACV2 is loaded directly as a package) |
 | `PS3/` | Hackathon specification, datasets and example submissions (git-ignored) |
 
 ### Backend
@@ -154,13 +153,12 @@ The `PS3/` raw sensor datasets are git-ignored and not bundled in a fresh clone.
 | File | Role |
 |---|---|
 | `backend/main.py` | App entry point; starts the 10 Hz broadcast loop and seeds findings |
-| `backend/api/routes.py` | REST endpoints (upload, resolve, AI, what-if, log) |
+| `backend/api/routes.py` | REST endpoints (upload, resolve, AI, log) |
 | `backend/api/websocket_streamer.py` | Full-duplex WebSocket manager |
 | `backend/core/harmonizer.py` | Builds the unified frame; owns findings per line and the resolved log |
 | `backend/models/door_model.py`, `acv_model.py`, `shm_model.py`, `corrugation_model.py` | The four subsystem models |
 | `backend/models/inference_broker.py` | Runs the models on live frames; computes the fleet health index |
 | `backend/models/submission.py` | Builds each subsystem's PS3 prediction CSV |
-| `backend/services/whatif_engine.py` | Counterfactual simulation |
 | `backend/services/ai_insight.py` | Plain-language explanations and Q&A |
 | `backend/scripts/build_seed_findings.py` | Offline generator for the seeded findings |
 
@@ -184,16 +182,14 @@ The `PS3/` raw sensor datasets are git-ignored and not bundled in a fresh clone.
 | `POST` | `/api/predict/seed` | Restore the seeded demo findings |
 | `GET` | `/api/log` | The resolved log |
 | `POST` | `/api/ai/issue` · `/api/ai/insight` · `/api/ai/ask` | Card copy, live insight, free-text Q&A |
-| `GET` · `POST` | `/api/whatif/actions` · `/api/whatif` · `/api/whatif/reset` | Maintenance-action sandbox |
 | `GET` | `/api/health` · `/api/metrics/glossary` | Health check; the thresholds the UI mirrors |
-| `WS` | `/ws/telemetry` | 10 Hz frames; accepts `playback`, `seek`, `whatif` and `reset_whatif` |
+| `WS` | `/ws/telemetry` | 10 Hz frames; accepts `playback` and `seek` |
 
 ## Design notes
 
 - **One source of truth for verdicts.** `GOOD` / `WATCH` / `ACTION_NEEDED` come from `METRIC_THRESHOLDS` in `backend/core/config.py`, and the frontend glossary mirrors them, so the words and colours in the UI can't contradict the backend.
 - **The AI explains; it doesn't diagnose.** The model gets pre-interpreted readings. Calls are throttled and cached on a coarse fingerprint, so a 10 Hz stream never becomes 10 model calls a second.
 - **The download is the model's output.** Each model builds its own submission rows at prediction time; the UI only serialises them. Door files without usable timestamps have no submission CSV rather than a made-up one.
-- **Counterfactuals are measured, not estimated.** A frame is evaluated twice from the same instant and noise seed; the what-if numbers are the real difference between the two. An action with no effect shows a delta of zero and the UI says why.
 - **Imbalanced data is handled explicitly.** Rail `Side I` is only about 5% of samples, so plain `argmax` missed most of it. Class-specific probability thresholds roughly doubled its recall (about 36% → 71% in our notes; see [`Rail_Corrugation/PEAK_PERFORMANCE_EXPLANATION.md`](Rail_Corrugation/PEAK_PERFORMANCE_EXPLANATION.md)). SHM damage is heavily right-skewed, so it is trained on log-damage to keep percentage error low.
 
 ### Good to know
