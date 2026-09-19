@@ -411,6 +411,7 @@ export const ConductorOnboarding: React.FC = () => {
   const [subsystem, setSubsystem] = useState<SubsystemSelection | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
 
   // Every way out of the walkthrough lands on the one-car view.
   const finish = (targetCar?: number) => {
@@ -471,11 +472,38 @@ export const ConductorOnboarding: React.FC = () => {
   const selected = subsystemOptions.find((i) => i.id === subsystem);
   const stepIndex = STEP_ORDER.indexOf(step);
 
+  // The whole dialog catches file drops, so one that lands a little outside the
+  // drop zone doesn't make the browser navigate to the file. Only the upload
+  // step, and only while idle, actually takes the file.
+  const canDrop = step === 'upload' && !uploading;
+  const isFileDrag = (e: React.DragEvent) => e.dataTransfer.types.includes('Files');
+  const dropHandlers = {
+    onDragOver: (e: React.DragEvent) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = canDrop ? 'copy' : 'none';
+      if (canDrop) setDragging(true);
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+    },
+    onDrop: (e: React.DragEvent) => {
+      if (!isFileDrag(e)) return;
+      e.preventDefault();
+      setDragging(false);
+      const file = e.dataTransfer.files[0];
+      if (canDrop && file) handleFile(file);
+    },
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" />
 
-      <div className="relative w-full max-w-md max-h-[85vh] bg-white border border-slate-200 shadow-xl flex flex-col overflow-hidden">
+      <div
+        {...dropHandlers}
+        className="relative w-full max-w-md max-h-[85vh] bg-white border border-slate-200 shadow-xl flex flex-col overflow-hidden"
+      >
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <span className="w-7 h-7 rounded-full bg-ink-900 flex items-center justify-center shrink-0">
@@ -556,10 +584,16 @@ export const ConductorOnboarding: React.FC = () => {
                 <>
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full flex flex-col items-center justify-center gap-1.5 border border-dashed border-slate-300 hover:border-ink-500 hover:bg-slate-50 transition-colors duration-150 py-6 rounded"
+                    className={`w-full flex flex-col items-center justify-center gap-1.5 border border-dashed transition-colors duration-150 py-6 rounded ${
+                      dragging
+                        ? 'border-ink-900 bg-slate-100'
+                        : 'border-slate-300 hover:border-ink-500 hover:bg-slate-50'
+                    }`}
                   >
-                    <UploadCloud className="w-6 h-6 text-slate-400" />
-                    <span className="text-xs font-medium text-slate-700">Click to choose a file or ZIP archive</span>
+                    <UploadCloud className={`w-6 h-6 ${dragging ? 'text-ink-900' : 'text-slate-400'}`} />
+                    <span className="text-xs font-medium text-slate-700">
+                      {dragging ? 'Drop to upload' : 'Drag and drop a file here, or click to choose'}
+                    </span>
                     <span className="text-label text-slate-400 text-center px-4">
                       {subsystem === 'acv'
                         ? 'ACV case workbook or archive (.xlsx, .xls, .csv, .zip) • max 30 MB'
